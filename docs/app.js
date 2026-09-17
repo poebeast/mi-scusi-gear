@@ -605,7 +605,7 @@
     if (it) {
       b.append(h('img', { src: icon(it.ic), alt: '' }));
       if (e.e) b.append(h('span', { class: 'en' }, '+' + e.e));
-      b.append(h('span', { class: 'gr ' + it.g }, it.g));
+      b.append(h('span', { class: 'gr ' + it.g }, it.g === 'Epic' ? 'E' : it.g));
       if (it.sa) b.append(h('span', { class: 'sa' }));
       b.addEventListener('mouseenter', () => showTip(b, itemTip(it, e.e || 0)));
       b.addEventListener('mouseleave', hideTip);
@@ -806,7 +806,7 @@
 
       const q = h('input', { id: 'picker-search', type: 'search', placeholder: 'Search by name', value: pickerPrefs.q, oninput: ev => { pickerPrefs.q = ev.target.value; drawList(); } });
       const seg = (key, opts) => h('div', { class: 'seg', role: 'group' }, opts.map(([v, n]) => h('button', { class: pickerPrefs[key] === v ? 'on' : '', 'aria-pressed': pickerPrefs[key] === v ? 'true' : 'false', onclick: () => { pickerPrefs[key] = v; draw(); } }, n)));
-      const tools = h('div', { class: 'dlgtools' }, q, seg('grade', [['all', 'All'], ['B', 'B'], ['A', 'A']]));
+      const tools = h('div', { class: 'dlgtools' }, q, seg('grade', [['all', 'All'], ['B', 'B'], ['A', 'A']].concat(pool.some(it => it.g === 'Epic') ? [['Epic', 'Epic']] : [])));
       const types = [...new Set(pool.map(it => it.at || it.wtn).filter(Boolean))];
       if (types.length > 1) tools.append(seg('type', [['all', 'Any type']].concat(types.map(t => [t, TYPE_RU[t] || t]))));
       box.append(tools);

@@ -4,7 +4,8 @@ const path = require('path');
 const R = p => path.join(__dirname, p);
 const raw = name => JSON.parse(fs.readFileSync(R('data/raw/' + name), 'utf8'));
 
-const rawItems = raw('items.json');
+// Вещи, собранные отдельно (эпическая бижутерия), лежат в extra-items.json.
+const rawItems = Object.assign(raw('items.json'), fs.existsSync(R('data/raw/extra-items.json')) ? raw('extra-items.json') : {});
 const rawSets = raw('sets.json');
 const rawOr = (name, d) => (fs.existsSync(R('data/raw/' + name)) ? raw(name) : d);
 const rawSkills = rawOr('skills.json', {});
@@ -34,10 +35,11 @@ function slotAndKind(type, name) {
     else if (/копь|древков|алебард/.test(w)) res.wt = 'pole';
     else if (/кастет|кулач/.test(w)) res.wt = 'fist';
     else unknown.types.add(type);
-  } else if (/аксесс|бижут|украш/.test(cat)) {
+  } else if (/аксесс|бижут|украш|accessor|jewel/.test(cat)) {
     res.c = 'jewel';
     const w = parts.slice(1).join(' ');
-    res.s = /серьг/.test(w) ? 'ear' : /кольц/.test(w) ? 'ring' : /ожерел/.test(w) ? 'neck' : null;
+    // Страницы вики бывают и на русском, и на английском.
+    res.s = /серьг|earring/.test(w) ? 'ear' : /кольц|ring/.test(w) ? 'ring' : /ожерел|necklace/.test(w) ? 'neck' : null;
     if (!res.s) unknown.types.add(type);
   } else if (/доспех|брон/.test(cat)) {
     res.c = 'armor';
@@ -53,10 +55,10 @@ function slotAndKind(type, name) {
 
 const STAT_KEYS = {
   'Защита Щитом': 'pdef',
-  'Физ. Защ.': 'pdef', 'Маг. Защ.': 'mdef', 'Шанс Физ. Крит. Атк.': 'crit', 'Точность': 'acc', 'Уклонение': 'eva', 'Скор. Атк.': 'aspd', 'Скорость Атк.': 'aspd', 'Бонус MP': 'mpb',
+  'P. Def.': 'pdef', 'M. Def.': 'mdef', 'Физ. Защ.': 'pdef', 'Маг. Защ.': 'mdef', 'Шанс Физ. Крит. Атк.': 'crit', 'Точность': 'acc', 'Уклонение': 'eva', 'Скор. Атк.': 'aspd', 'Скорость Атк.': 'aspd', 'Бонус MP': 'mpb',
 };
 const HEAD_KEYS = { 'Защита Щитом': 'pdef', 'Физ. Защ.': 'pdef', 'Маг. Защ.': 'mdef', 'Физ. Атк.': 'patk', 'Маг. Атк.': 'matk', 'HP Bonus': 'hp' };
-const IGNORE_STATS = new Set(['In English', 'Стоимость продажи NPC', 'Вес', 'Часть комплекта', 'Умения предмета', 'Расход Зарядов Души / Духа', 'Исходный предмет', 'Оригинальный предмет', 'Предметные умения', 'Рецепты', 'Кристаллы Души']);
+const IGNORE_STATS = new Set(['Restrictions', 'Crystal Amount', 'NPC Sell Price', 'Weight', 'Item Skills', 'Item skills', 'Recipes', 'Set', 'In English', 'Стоимость продажи NPC', 'Вес', 'Часть комплекта', 'Умения предмета', 'Расход Зарядов Души / Духа', 'Исходный предмет', 'Оригинальный предмет', 'Предметные умения', 'Рецепты', 'Кристаллы Души']);
 
 function cleanFx(fx) {
   return String(fx || '').split('\n').map(s => s.trim())
@@ -67,11 +69,13 @@ function cleanFx(fx) {
 
 const items = [];
 for (const r of Object.values(rawItems)) {
-  // Кроме B/A берём кольца Queen Ant (C-грейд) — группа их носит.
-  const EXTRA = new Set(['6660', '36454']);
-  if (!r || !r.name || !(/^[AB]$/.test(r.g || '') || EXTRA.has(idOf(r.href)))) continue;
-  // Версии «The 1st …» эпической бижутерии не нужны.
-  if (/^The 1st /i.test(r.name)) continue;
+  // Эпическая бижутерия (Queen Ant, Orfen, Core) — отдельный грейд Epic вместо C.
+  const EPIC = new Set(['6660', '36454', '6661', '6662']);
+  const epic = r && EPIC.has(idOf(r.href));
+  if (epic) r.g = 'Epic';
+  if (!r || !r.name || !(/^[AB]$/.test(r.g || '') || epic)) continue;
+  // Улучшенные версии эпической бижутерии (The 1st, Enchanted, Refined) не нужны.
+  if (/^(The 1st |Enchanted |Refined )/i.test(r.name) && /Orfen|Core/i.test(r.name)) continue;
   // PvP-версии не нужны.
   if (/\{pvp\}|\bpvp\b/i.test(r.name + ' ' + (r.add || []).join(' '))) continue;
   // Предметы-оружие монстров (иконка weapon_monster) — не экипировка игрока.
@@ -118,7 +122,7 @@ const deltaDonor = {};
 for (const it of items) if (it.en) { const k = [it.g, it.s, it.wt || '', it.at || ''].join('|'); if (!deltaDonor[k]) deltaDonor[k] = it; }
 for (const it of items) {
   if (it.en) continue;
-  const d = deltaDonor[[it.g, it.s, it.wt || '', it.at || ''].join('|')] || items.find(o => o.en && o.g === it.g && o.s === it.s) || items.find(o => o.en && o.en.pdef && o.g === it.g && o.c === 'armor' && ['head', 'gloves', 'feet'].includes(o.s)) || items.find(o => o.en && o.s === it.s && o.g === 'B');
+  const d = deltaDonor[[it.g, it.s, it.wt || '', it.at || ''].join('|')] || items.find(o => o.en && o.g === it.g && o.s === it.s) || items.find(o => o.en && o.en.pdef && o.g === it.g && o.c === 'armor' && ['head', 'gloves', 'feet'].includes(o.s)) || items.find(o => o.en && o.s === it.s && o.g === 'A');
   // Для брони без своей таблицы прибавка приблизительная: как у шлема/перчаток того же грейда, у цельной — вдвое.
   if (!d) { console.warn('без заточки:', it.n); continue; }
   it.en = {};

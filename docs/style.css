@@ -80,7 +80,7 @@ button,select,input{font:inherit;color:inherit}
 .slot .ph{font-size:10.5px;font-weight:600;line-height:1.1;color:var(--ink2);text-shadow:0 0 3px rgba(255,255,255,.95);text-align:center;padding:4px}
 .slot .en{position:absolute;right:4px;top:3px;font:700 11px/1 var(--mono);color:#fff;background:rgba(13,33,64,.72);padding:2px 4px;border-radius:6px}
 .slot .gr{position:absolute;left:1px;bottom:1px;min-width:17px;text-align:center;font:800 11px/1 var(--mono);color:#fff!important;padding:3px 4px;border-radius:7px;box-shadow:0 0 0 2px #fff,0 2px 5px rgba(0,0,0,.35)}
-.slot .gr.B{background:#1d5fd6}.slot .gr.A{background:#c77700}.slot .gr.C{background:#2f8f4e}
+.slot .gr.B{background:#1d5fd6}.slot .gr.A{background:#c77700}.slot .gr.Epic{background:#7c3aed}
 .slot .sa{position:absolute;right:4px;bottom:4px;width:8px;height:8px;border-radius:50%;background:#14b8a6;box-shadow:0 0 0 2px var(--glass3)}
 .slot.filled{border-color:color-mix(in srgb,var(--accent) 45%,var(--edge))}
 .slotrow{display:flex;gap:9px}
@@ -187,7 +187,7 @@ dialog::backdrop{background:rgba(10,25,60,.28);-webkit-backdrop-filter:blur(4px)
 .row .t small{display:block;color:var(--mute);font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .row .v{font:13px var(--mono);color:var(--ink2);text-align:right;white-space:nowrap}
 .gtag{display:inline-block;font:800 11px/1 var(--mono);padding:3px 6px;border-radius:6px;margin-left:6px;vertical-align:2px}
-.gtag.B{background:#1d5fd6;color:#fff} .gtag.A{background:#c77700;color:#fff} .gtag.C{background:#2f8f4e;color:#fff}
+.gtag.B{background:#1d5fd6;color:#fff} .gtag.A{background:#c77700;color:#fff} .gtag.Epic{background:#7c3aed;color:#fff}
 .ftag{display:inline-block;font:600 10px/1 var(--body);padding:2px 5px;border-radius:6px;margin-left:4px;background:color-mix(in srgb,#14b8a6 16%,transparent);color:#0d9488;vertical-align:2px}
 .empty{padding:30px;text-align:center;color:var(--mute)}
 .fx{white-space:pre-line;font-size:12.5px;color:var(--ink2);padding:0 16px 12px;background:var(--glass);border-bottom:1px solid var(--edge2)}
