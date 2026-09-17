@@ -175,9 +175,8 @@
     STATE.chars.forEach((c, i) => {
       if (!CLASSES[c.cls]) Object.assign(c, blankChar(ROSTER[i]));
       c.level = Math.max(1, Math.min(75, +c.level || 75));
-      // Тип расы (воин/маг) выбирается отдельно от класса; у гномов только воин.
+      // Тип расы (воин/маг) выбирается отдельно от класса.
       if (c.type !== 'fighter' && c.type !== 'mystic') c.type = CLASSES[c.cls].arch;
-      if (c.race === 'dwarf') c.type = 'fighter';
       c.eq = c.eq || {}; c.hen = c.hen || [null, null, null]; c.buffs = c.buffs || {};
       // Старые наборы тату: урезаем плюсы сверх +5 на атрибут.
       const used = {};
@@ -512,8 +511,7 @@
     els.charSel = h('select', { id: 'char-select', onchange: e => { cur = +e.target.value; try { sessionStorage.setItem('miscusi.cur', String(cur)); } catch (_) {} renderAll(); } });
     els.nick = h('input', { id: 'char-nick', type: 'text', maxlength: '24', placeholder: 'In-game name', oninput: e => { ch().nick = e.target.value; renderCharOptions(); renderWho(); markDirty(); } });
     els.race = h('select', { id: 'char-race', onchange: e => { const [race, type] = e.target.value.split(':'); ch().race = race; ch().type = type; update(true); } },
-      RACES.map(([v, n]) => (v === 'dwarf' ? h('option', { value: v + ':fighter' }, n + ' Fighter')
-        : h('optgroup', { label: n }, h('option', { value: v + ':fighter' }, n + ' Fighter'), h('option', { value: v + ':mystic' }, n + ' Mystic')))));
+      RACES.map(([v, n]) => h('optgroup', { label: n }, h('option', { value: v + ':fighter' }, n + ' Fighter'), h('option', { value: v + ':mystic' }, n + ' Mystic'))));
     els.gender = h('select', { id: 'char-gender', onchange: e => { ch().gender = e.target.value; update(true); } }, GENDERS.map(([v, n]) => h('option', { value: v }, n)));
     els.lvlR = h('input', { id: 'char-level-range', type: 'range', min: '1', max: '75', oninput: e => setLevel(e.target.value) });
     els.lvlN = h('input', { id: 'char-level', type: 'number', min: '1', max: '75', onchange: e => setLevel(e.target.value) });
@@ -752,7 +750,7 @@
   function renderForm() {
     const c = ch();
     els.nick.value = c.nick || '';
-    els.race.value = c.race + ':' + (c.race === 'dwarf' ? 'fighter' : c.type); els.gender.value = c.gender;
+    els.race.value = c.race + ':' + c.type; els.gender.value = c.gender;
     els.lvlR.value = c.level; els.lvlN.value = c.level;
   }
   function renderModel() { renderWho(); }
