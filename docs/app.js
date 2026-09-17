@@ -98,15 +98,23 @@
     const out = [];
     const w = c.eq.weapon && ITEMS.get(c.eq.weapon.id);
     const chest = c.eq.chest && ITEMS.get(c.eq.chest.id);
+    const st = { wtype: w ? w.wt : null, hasShield: !!(c.eq.shield && ITEMS.get(c.eq.shield.id)), at: chest && chest.at };
     for (const p of PASSIVES[c.cls] || []) {
       const l = passiveLevel(p, c.level);
       if (!l) continue;
       const text = p.lv[l] || '';
       let off = '';
-      if (p.wt && !(w && p.wt.includes(w.wt))) off = 'needs a matching weapon';
-      const armorNeed = (text.match(/^With (Heavy|Light|Robe) Armor/im) || [])[1];
-      if (!off && armorNeed && !(chest && chest.at === armorNeed.toLowerCase())) off = 'needs ' + armorNeed.toLowerCase() + ' armor';
-      out.push({ p, l, text, off });
+      let wtOff = false;
+      if (p.wt && !(w && p.wt.includes(w.wt))) { off = 'needs a matching weapon'; wtOff = true; }
+      if (!off) for (const line of text.split(/\n+/)) {
+        const m = line.match(/^With ([^:]{1,60})\s*:/i);
+        const cs = m && parseCond(m[1]);
+        if (!cs || condOk(cs.join('+'), st)) continue;
+        const need = cs.filter(x => !condOk(x, st)).map(x => x.startsWith('armor:') ? x.slice(6).split('|').join('/') + ' armor' : 'a matching weapon');
+        off = 'needs ' + need.join(' and ');
+        break;
+      }
+      out.push({ p, l, text, off, wtOff });
     }
     return out;
   }
@@ -135,6 +143,31 @@
     [/^Shield (?:Defen[cs]e|Def\.)(?: Power)?/i, 'sdef'],
     [/^(STR|DEX|CON|INT|WIT|MEN)\b/, 'attr'],
   ];
+  const WWORD = {
+    sword: ['sword', 'bigsword'], 'two-handed sword': ['bigsword'], 'one-handed sword': ['sword'],
+    blunt: ['blunt', 'bigblunt'], 'two-handed blunt': ['bigblunt'], 'one-handed blunt': ['blunt'],
+    dagger: ['dagger'], 'dual dagger': ['dualdagger'], 'dual sword': ['dual'], 'dual blunt': ['dualblunt'],
+    bow: ['bow'], polearm: ['pole'], pole: ['pole'], fist: ['fist', 'dualfist'], fists: ['fist', 'dualfist'],
+    'dual fist': ['dualfist'], staff: ['staff', 'bigstaff'], rapier: ['rapier'], 'ancient sword': ['ancientsword'],
+  };
+  // «Light Armor and Dagger/Dual Dagger» → ['armor:light', 'w:dagger|dualdagger'].
+  function parseCond(s) {
+    const armor = [], weap = [];
+    for (let part of s.split(/\s+and\s+|,\s*/i)) {
+      part = part.trim().replace(/\.$/, '');
+      if (!part) continue;
+      const am = part.match(/^(Heavy|Light|Robe)(?:\s+Armor)?$/i);
+      if (am) { armor.push(am[1].toLowerCase()); continue; }
+      const w = [];
+      for (const word of part.split('/')) { const k = WWORD[word.trim().toLowerCase().replace(/s$/, '')] || WWORD[word.trim().toLowerCase()]; if (k) w.push(...k); }
+      if (!w.length) return null;
+      weap.push(...w);
+    }
+    const out = [];
+    if (armor.length) out.push('armor:' + [...new Set(armor)].join('|'));
+    if (weap.length) out.push('w:' + [...new Set(weap)].join('|'));
+    return out.length ? out : null;
+  }
   const fxCache = new Map();
   function parseFx(text) {
     if (!text) return { mods: [], notes: [] };
@@ -145,10 +178,12 @@
       line = line.trim().replace(/^Clan members'\s*/i, '');
       if (!line || /^Affects all clan members/i.test(line)) continue;
       let lineCond = cond;
-      // «With Heavy Armor:» — следующие строки действуют только с таким типом брони.
-      const am = line.match(/^With (Heavy|Light|Robe) Armor\s*:\s*/i);
-      if (am) { cond = 'armor:' + am[1].toLowerCase(); lineCond = cond; line = line.slice(am[0].length); if (!line) continue; }
-      if (/^With Bow\s*:/i.test(line)) { cond = 'bow'; lineCond = cond; line = line.replace(/^With Bow\s*:\s*/i, ''); if (!line) continue; }
+      // «With Heavy Armor:», «With Light Armor and Dagger/Dual Dagger:» — условия по броне и оружию.
+      const wm = line.match(/^With ([^:]{1,60})\s*:\s*/i);
+      if (wm) {
+        const cs = parseCond(wm[1]);
+        if (cs) { cond = cs.join('+'); lineCond = cond; line = line.slice(wm[0].length); if (!line) continue; }
+      }
       line = line.replace(/^(?:For|Applies to) [^:]*members\s*:\s*/i, '');
       if (!line) continue;
       if (/^When attacked|^When HP is below/i.test(line)) { cond = 'skip'; notes.push(line); continue; }
@@ -172,15 +207,23 @@
         let m = chunk.match(/^(.*?)\s*([+\-−–]\s?\d[\d ]*(?:[.,]\d+)?)\s*(%)?$/);
         if (!m) { const b = chunk.match(/^(.*?)\s+by\s+(\d[\d ]*(?:[.,]\d+)?)\s*(%)?(?:\s+(?:one-handed|two-handed|when|with|for)\b.*)?$/i); if (b) m = [b[0], b[1], (neg ? '-' : '+') + b[2], b[3]]; }
         if (!m) continue;
-        const name = m[1].trim();
+        let name = m[1].trim();
+        let nameCond = null;
+        const nc = name.match(/\s+(?:with|in|for|when using)\s+(?:a\s+)?(.+)$/i);
+        if (nc) {
+          nameCond = parseCond(nc[1].replace(/\s+shots?$/i, ''));
+          if (!nameCond) { notes.push(line); continue; }
+          nameCond = nameCond.join('+');
+          name = name.slice(0, nc.index).trim();
+        }
         const val = parseFloat(m[2].replace(/[−–]/, '-').replace(/\s/g, '').replace(',', '.'));
         for (const [re, key, sub] of ALIASES) {
           const mm = name.match(re);
           if (!mm) continue;
           if (lineCond !== 'skip') {
             const mod = { k: key === 'attr' ? mm[1].toUpperCase() : key, v: val, pct: !!m[3] };
-            if (lineCond) mod.cond = lineCond;
-            if (sub) mod.cond = sub;
+            const cs = [lineCond, sub, nameCond].filter(Boolean);
+            if (cs.length) mod.cond = cs.join('+');
             mods.push(mod);
           }
           any = true;
@@ -322,6 +365,16 @@
     return groups;
   }
 
+  // Все условия эффекта должны выполняться: броня, оружие, щит.
+  function condOk(cond, s) {
+    return String(cond).split('+').every(x => {
+      if (x === 'shield') return s.hasShield;
+      if (x === 'bow') return s.wtype === 'bow';
+      if (x.startsWith('armor:')) return !!s.at && x.slice(6).split('|').includes(s.at);
+      if (x.startsWith('w:')) return !!s.wtype && x.slice(2).split('|').includes(s.wtype);
+      return false;
+    });
+  }
   function compute(c) {
     const cls = CLASSES[c.cls];
     const arch = c.type || cls.arch;
@@ -358,7 +411,7 @@
     // Пассивки класса: с подходящим оружием; условия по броне проверяются ниже, в live.
     const pass = activePassives(c);
     for (const x of pass) {
-      if (x.off === 'needs a matching weapon') continue;
+      if (x.wtOff) continue;
       addMods(parseFx(x.text).mods, x.p.n);
     }
     // Клан-скилы максимального уровня, если включены у персонажа.
@@ -372,7 +425,7 @@
     }
 
     const chestIt = c.eq.chest && ITEMS.get(c.eq.chest.id);
-    const live = mods.filter(m => !m.cond || (m.cond === 'shield' && hasShield) || (m.cond === 'bow' && wtype === 'bow') || (m.cond.startsWith('armor:') && !!chestIt && chestIt.at === m.cond.slice(6)));
+    const live = mods.filter(m => !m.cond || condOk(m.cond, { wtype, hasShield, at: chestIt && chestIt.at }));
     for (const m of live) if (ATTRS.includes(m.k)) attrs[m.k] += m.v;
     ATTRS.forEach(a => { attrs[a] += hen[a]; attrs[a] = Math.max(1, attrs[a]); });
 
