@@ -112,7 +112,7 @@ button,select,input{font:inherit;color:inherit}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 .st{display:flex;justify-content:space-between;align-items:baseline;gap:6px;background:var(--glass2);border:1px solid var(--edge);border-radius:12px;padding:7px 10px;font-size:13px}
 .st span{color:var(--ink2)} .st b{font:600 13.5px var(--mono);font-variant-numeric:tabular-nums}
-.st b.up{color:var(--good)} .st b.dn{color:var(--bad)}
+.st b{color:var(--ink)}
 .st:empty{background:transparent;border-color:transparent}
 .attrs{display:grid;grid-template-columns:repeat(6,1fr);gap:5px}
 .attr{background:var(--glass2);border:1px solid var(--edge);border-radius:12px;text-align:center;padding:6px 0}

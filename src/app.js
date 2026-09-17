@@ -681,7 +681,7 @@
     const g = h('div', { class: 'grid2' });
     for (const [k, n] of pairs) {
       if (S[k] == null) continue;
-      g.append(h('div', { class: 'st' }, h('span', null, n), h('b', { class: cls(k, S[k]) }, k === 'mcrit' ? fmt(S[k], 1) : fmt(S[k]))));
+      g.append(h('div', { class: 'st' }, h('span', null, n), h('b', null, k === 'mcrit' ? fmt(S[k], 1) : fmt(S[k]))));
     }
     if (g.children.length % 2) g.append(h('div', { class: 'st' }));
     box.append(g);
