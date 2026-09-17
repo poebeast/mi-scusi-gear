@@ -506,14 +506,12 @@
       h('div', { class: 'field' }, h('label', { for: 'char-gender' }, 'Gender'), els.gender),
       h('div', { class: 'field' }, h('label', { for: 'char-level' }, 'Level'), h('div', { class: 'lvl' }, els.lvlR, els.lvlN))));
 
-    els.left = h('div', { class: 'slotcol', 'aria-label': 'Armor' });
-    els.right = h('div', { class: 'slotcol', 'aria-label': 'Jewelry' });
-    els.hands = h('div', { class: 'hands', 'aria-label': 'Weapon and off-hand' });
+    els.gear = h('div', { class: 'gearrow', 'aria-label': 'Equipment' });
     els.who = h('div', { class: 'who' });
     els.viewer = h('div', { class: 'viewer' }, els.who);
     els.tattoos = h('div', { class: 'tattoos' });
     els.stats = h('aside', { class: 'stats', 'aria-label': 'Stats' });
-    wrap.append(h('div', { class: 'main' }, h('section', { class: 'stage' }, els.left, h('div', { class: 'viewcol' }, els.viewer, els.hands), els.right), h('div', { class: 'side' }, els.stats, els.tattoos)));
+    wrap.append(h('div', { class: 'main' }, h('div', { class: 'side' }, els.stats, els.tattoos), h('section', { class: 'stage' }, els.viewer, els.gear)));
     els.buffs = h('section', { class: 'sect', 'aria-label': 'Buffs' });
     wrap.append(els.buffs);
     wrap.append(h('p', { class: 'note foot' }, 'Item and skill data: masterwork.wiki, Lu4: Gamma. Base HP/MP/CP and racial attributes use standard L2 formulas and may differ from the server by a few percent; class passive skills are not included yet.'));
@@ -611,11 +609,9 @@
   }
 
   function renderSlots() {
-    // Как в окне персонажа: броня слева, бижутерия справа, оружие и щит под карточкой.
-    els.left.innerHTML = ''; els.right.innerHTML = ''; els.hands.innerHTML = '';
-    ['head', 'chest', 'legs', 'gloves', 'feet'].forEach(s => els.left.append(slotButton(s)));
-    ['neck', 'ear1', 'ear2', 'ring1', 'ring2'].forEach(s => els.right.append(slotButton(s)));
-    els.hands.append(slotButton('weapon'), slotButton('shield'));
+    // Все слоты одним рядом под карточкой: броня, оружие и щит, бижутерия.
+    els.gear.innerHTML = '';
+    ['head', 'chest', 'legs', 'gloves', 'feet', 'weapon', 'shield', 'neck', 'ear1', 'ear2', 'ring1', 'ring2'].forEach(s => els.gear.append(slotButton(s)));
   }
 
   function renderTattoos() {
