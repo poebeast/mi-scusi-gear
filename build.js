@@ -22,6 +22,7 @@ for (const name of used) {
   if (fs.existsSync(f)) fs.copyFileSync(f, path.join(out, 'icons', name + '.png'));
   else missing.push(name);
 }
+fs.cpSync(R('icons/heads'), path.join(out, 'icons', 'heads'), { recursive: true });
 if (missing.length) console.warn('нет иконок:', missing.length, missing.slice(0, 10).join(', '));
 
 fs.writeFileSync(path.join(out, 'data.js'), 'window.MISCUSI_DATA=' + JSON.stringify({ items, sets, buffs, state }) + ';\n');

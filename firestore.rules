@@ -1,13 +1,21 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Только документы персонажей этой группы: c0 … c8, не больше 20 КБ.
+    // Only this party's character docs: c0..c8, under 20 KB.
     match /parties/{partyId}/chars/{charId} {
       allow read: if partyId == 'ms-00f529c6acff2d5c47';
       allow write: if partyId == 'ms-00f529c6acff2d5c47'
         && charId.matches('c[0-8]')
         && request.resource.data.data is string
         && request.resource.data.data.size() < 20000;
+    }
+    // Service doc: wiki scraping progress.
+    match /parties/{partyId}/meta/scrape {
+      allow read: if partyId == 'ms-00f529c6acff2d5c47';
+      allow write: if partyId == 'ms-00f529c6acff2d5c47'
+        && request.resource.data.keys().hasOnly(['status'])
+        && request.resource.data.status is string
+        && request.resource.data.status.size() < 300;
     }
   }
 }

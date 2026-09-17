@@ -598,7 +598,9 @@
     const worn = Object.keys(c.eq).length;
     const sets = activeSets(c);
     els.who.append(
-      h('img', { class: 'emblem', src: icon('cls_' + CLASS_ICON[c.cls]), alt: '' }),
+      h('div', { class: 'portrait' },
+        h('img', { class: 'head', src: 'icons/heads/' + c.race + '_' + c.gender + '.png', alt: '' }),
+        h('img', { class: 'badge', src: icon('cls_' + CLASS_ICON[c.cls]), alt: CLASSES[c.cls].n })),
       h('b', null, c.nick || CLASSES[c.cls].n),
       h('small', null, `${CLASSES[c.cls].n} · ${RACES.find(r => r[0] === c.race)[1]} · ${c.gender === 'female' ? 'Female' : 'Male'} · Lv. ${c.level}`),
       h('div', { class: 'wornbar', role: 'img', 'aria-label': `${worn} of 12 slots equipped` }, Object.keys(SLOTS).map(s => h('i', { class: c.eq[s] ? 'on' : '' }))),
