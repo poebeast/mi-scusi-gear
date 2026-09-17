@@ -178,10 +178,55 @@ for (const [href, r] of Object.entries(rawSkills)) {
   buffs.push({ id: (href.match(/\/skill\/(\d+)/) || [])[1], n: r.name, ic: (r.icon || '').replace(/\.png$/, ''), cls, kind: toggle ? 'toggle' : 'buff', tgt, lv: r.lv, dur: r.st && r.st['Время действия'] });
 }
 
+// ---------------------------------------------------------------- пассивки классов
+// Уровни изучения: 1-я профессия (20–39) и 2-я (40–75). На уровне персонажа L берём наибольший уровень умения, выученный не позже L.
+const clsRaw = rawOr('cls.json', {});
+const skRaw = rawOr('skills2.json', {});
+const PASS = /^icon_type-(11|12|14|18)$/;
+// Мастерства оружия действуют только с подходящим оружием.
+const WEAPON_OF = [
+  [/Sword\/Blunt Weapon Mastery/i, ['sword', 'bigsword', 'blunt', 'bigblunt', 'dual', 'dualblunt', 'rapier', 'ancientsword']],
+  [/Dagger Mastery/i, ['dagger', 'dualdagger']],
+  [/Bow Mastery/i, ['bow']],
+  [/Polearm Mastery/i, ['pole']],
+  [/Fist Weapon Mastery/i, ['fist', 'dualfist']],
+  [/Dual Weapon Mastery/i, ['dual', 'dualdagger', 'dualblunt']],
+  [/Two-handed Weapon Mastery/i, ['bigsword', 'bigblunt']],
+  [/Blunt Mastery/i, ['blunt', 'bigblunt', 'dualblunt']],
+];
+const passives = {};
+for (const [cls, c] of Object.entries(clsRaw)) {
+  const learn = {};
+  for (const table of [c.first || {}, c.sched || {}])
+    for (const [L, rows] of Object.entries(table))
+      for (const [sk, l] of rows) (learn[sk] = learn[sk] || []).push([+L, l]);
+  passives[cls] = [];
+  for (const [sk, list] of Object.entries(learn)) {
+    if (!PASS.test(c.groups[sk] || '')) continue;
+    const s = skRaw[sk];
+    if (!s || !Object.keys(s.lv).length) continue;
+    list.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    const lvUsed = new Set(list.map(x => x[1]));
+    const lv = {}; for (const l of lvUsed) if (s.lv[l]) lv[l] = s.lv[l];
+    const wt = (WEAPON_OF.find(([re]) => re.test(s.name)) || [])[1];
+    passives[cls].push({ id: sk.split('-')[0], n: s.name, ic: (s.icon || '').replace(/\.png$/, ''), learn: list, lv, wt });
+  }
+}
+fs.writeFileSync(R('data/passives.json'), JSON.stringify(passives));
+
+// ---------------------------------------------------------------- клан-скилы (пассивные, 370–391), максимальный уровень
+const clan = Object.entries(skRaw)
+  .filter(([k, s]) => { const id = +k.split('-')[0]; return id >= 370 && id <= 391 && Object.keys(s.lv).length; })
+  .map(([k, s]) => { const top = Math.max(...Object.keys(s.lv).map(Number)); return { id: k.split('-')[0], n: s.name, ic: (s.icon || '').replace(/\.png$/, ''), l: top, text: s.lv[top] }; })
+  .sort((a, b) => a.n.localeCompare(b.n));
+fs.writeFileSync(R('data/clan.json'), JSON.stringify(clan));
+console.log('clan skills', clan.length);
+console.log('passives', Object.entries(passives).map(([k, v]) => k + ':' + v.length).join(' '));
+
 fs.writeFileSync(R('data/items.json'), JSON.stringify(items));
 fs.writeFileSync(R('data/sets.json'), JSON.stringify(sets));
 fs.writeFileSync(R('data/buffs.json'), JSON.stringify(buffs));
-const iconList = [...new Set([...items.map(i => i.ic), ...buffs.map(b => b.ic)].filter(Boolean))];
+const iconList = [...new Set([...items.map(i => i.ic), ...buffs.map(b => b.ic), ...Object.values(passives).flat().map(p => p.ic), ...clan.map(c => c.ic)].filter(Boolean))];
 fs.writeFileSync(R('data/raw/icon-list.txt'), iconList.join('\n'));
 console.log('items', items.length, 'sets', sets.length, 'buffs', buffs.length, 'icons', iconList.length);
 console.log('slots', JSON.stringify(items.reduce((o, i) => ((o[i.s] = (o[i.s] || 0) + 1), o), {})));

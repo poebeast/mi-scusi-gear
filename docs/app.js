@@ -90,6 +90,26 @@
   const ITEMS = new Map(DATA.items.map(it => [it.id, it]));
   const SETS = new Map((DATA.sets || []).map(s => [s.id, s]));
   const BUFFS = new Map((DATA.buffs || []).map(b => [b.id, b]));
+  const PASSIVES = DATA.passives || {};
+  const CLAN = DATA.clan || [];
+  // Уровень пассивки на уровне персонажа: наибольший выученный не позже этого уровня.
+  const passiveLevel = (p, lvl) => p.learn.reduce((m, [L, l]) => (L <= lvl && l > m ? l : m), 0);
+  function activePassives(c) {
+    const out = [];
+    const w = c.eq.weapon && ITEMS.get(c.eq.weapon.id);
+    const chest = c.eq.chest && ITEMS.get(c.eq.chest.id);
+    for (const p of PASSIVES[c.cls] || []) {
+      const l = passiveLevel(p, c.level);
+      if (!l) continue;
+      const text = p.lv[l] || '';
+      let off = '';
+      if (p.wt && !(w && p.wt.includes(w.wt))) off = 'needs a matching weapon';
+      const armorNeed = (text.match(/^With (Heavy|Light|Robe) Armor/im) || [])[1];
+      if (!off && armorNeed && !(chest && chest.at === armorNeed.toLowerCase())) off = 'needs ' + armorNeed.toLowerCase() + ' armor';
+      out.push({ p, l, text, off });
+    }
+    return out;
+  }
   const VARIANTS = new Map();
   for (const it of DATA.items) {
     const k = it.base || it.id;
@@ -110,7 +130,8 @@
     [/^Accuracy/i, 'acc'], [/^Evasion/i, 'eva'], [/^(?:Movement |Run )?Speed/i, 'speed'],
     [/^Max\.?\s?HP/i, 'hp'], [/^Max\.?\s?MP/i, 'mp'], [/^Max\.?\s?CP/i, 'cp'],
     [/^HP (?:Regeneration|Recovery)/i, 'hpreg'], [/^MP (?:Regeneration|Recovery)/i, 'mpreg'],
-    [/^Shield (?:Defen[cs]e|Def\.)/i, 'sdef'],
+    [/^Shield (?:Defen[cs]e|Def\.) Rate/i, 'srate'],
+    [/^Shield (?:Defen[cs]e|Def\.)(?: Power)?/i, 'sdef'],
     [/^(STR|DEX|CON|INT|WIT|MEN)\b/, 'attr'],
   ];
   const fxCache = new Map();
@@ -120,9 +141,13 @@
     const mods = [], notes = [];
     let cond = null;
     for (let line of String(text).split(/\n+/)) {
-      line = line.trim();
-      if (!line) continue;
+      line = line.trim().replace(/^Clan members'\s*/i, '');
+      if (!line || /^Affects all clan members/i.test(line)) continue;
       let lineCond = cond;
+      // «With Heavy Armor:» — следующие строки действуют только с таким типом брони.
+      const am = line.match(/^With (Heavy|Light|Robe) Armor\s*:\s*/i);
+      if (am) { cond = 'armor:' + am[1].toLowerCase(); lineCond = cond; line = line.slice(am[0].length); if (!line) continue; }
+      if (/^When attacked|^When HP is below/i.test(line)) { cond = 'skip'; notes.push(line); continue; }
       const cm = line.match(/^(If a shield is equipped|Shield Equip Bonus|When HP\s*<\s*\d+%|For party members|Totally)\s*:\s*/i);
       if (cm) {
         const c = cm[1].toLowerCase();
@@ -132,13 +157,13 @@
         line = line.slice(cm[0].length);
         if (!line) continue;
       }
-      if (/when HP\s*</i.test(line) || /during a critical|from behind|chance to|when attacking|when using a (?:harmful|beneficial)/i.test(line)) { notes.push(line); continue; }
+      if (/when HP\s*<|when HP is below|when equipped with/i.test(line) || /during a critical|from behind|chance to|when attacking|when using a (?:harmful|beneficial)/i.test(line)) { notes.push(line); continue; }
       let any = false;
       for (let chunk of line.split(/,\s*|\s+and\s+(?=[a-z]*\s*(?:[A-Z]|increases|decreases))/i)) {
         chunk = chunk.replace(/\.$/, '').replace(/^(?:additionally|increases|decreases)\s+/i, '').trim();
         if (!chunk) continue;
         let m = chunk.match(/^(.*?)\s*([+\-−–]\s?\d[\d ]*(?:[.,]\d+)?)\s*(%)?$/);
-        if (!m) { const b = chunk.match(/^(.*?)\s+by\s+(\d[\d ]*(?:[.,]\d+)?)\s*(%)?$/i); if (b) m = [b[0], b[1], '+' + b[2], b[3]]; }
+        if (!m) { const b = chunk.match(/^(.*?)\s+by\s+(\d[\d ]*(?:[.,]\d+)?)\s*(%)?(?:\s+(?:one-handed|two-handed|when|with|for)\b.*)?$/i); if (b) m = [b[0], b[1], '+' + b[2], b[3]]; }
         if (!m) continue;
         const name = m[1].trim();
         const val = parseFloat(m[2].replace(/[−–]/, '-').replace(/\s/g, '').replace(',', '.'));
@@ -181,7 +206,7 @@
       c.level = Math.max(1, Math.min(75, +c.level || 75));
       // Тип расы (воин/маг) выбирается отдельно от класса.
       if (c.type !== 'fighter' && c.type !== 'mystic') c.type = CLASSES[c.cls].arch;
-      c.eq = c.eq || {}; c.hen = c.hen || [null, null, null]; c.buffs = c.buffs || {};
+      c.eq = c.eq || {}; c.hen = c.hen || [null, null, null]; c.buffs = c.buffs || {}; c.clan = !!c.clan;
       // Старые наборы тату: урезаем плюсы сверх +5 на атрибут.
       const used = {};
       c.hen = c.hen.map(x => { if (!x) return null; const left = 5 - (used[x.up] || 0); if (left <= 0) return null; x.n = Math.min(x.n, left); used[x.up] = (used[x.up] || 0) + x.n; return x; });
@@ -314,6 +339,14 @@
         for (const k in tb) mods.push({ k, v: tb[k], pct: false, src: `${a.set.n} +${a.minE}` });
       }
     }
+    // Пассивки класса: с подходящим оружием; условия по броне проверяются ниже, в live.
+    const pass = activePassives(c);
+    for (const x of pass) {
+      if (x.off === 'needs a matching weapon') continue;
+      addMods(parseFx(x.text).mods, x.p.n);
+    }
+    // Клан-скилы максимального уровня, если включены у персонажа.
+    if (c.clan) for (const k of CLAN) addMods(parseFx(k.text).mods, k.n);
     for (const id in c.buffs) {
       const b = BUFFS.get(id);
       if (!b) continue;
@@ -322,7 +355,8 @@
       addMods(p.mods, b.n);
     }
 
-    const live = mods.filter(m => !m.cond || (m.cond === 'shield' && hasShield) || (m.cond === 'bow' && wtype === 'bow'));
+    const chestIt = c.eq.chest && ITEMS.get(c.eq.chest.id);
+    const live = mods.filter(m => !m.cond || (m.cond === 'shield' && hasShield) || (m.cond === 'bow' && wtype === 'bow') || (m.cond.startsWith('armor:') && !!chestIt && chestIt.at === m.cond.slice(6)));
     for (const m of live) if (ATTRS.includes(m.k)) attrs[m.k] += m.v;
     ATTRS.forEach(a => { attrs[a] += hen[a]; attrs[a] = Math.max(1, attrs[a]); });
 
@@ -397,7 +431,7 @@
       if (mm && mm !== 1) parts.push((mm > 1 ? '+' : '') + Math.round((mm - 1) * 1000) / 10 + '%');
       if (parts.length) misc.push([STAT_LABEL[k], parts.join(', ')]);
     }
-    return { attrs, base: Object.fromEntries(ATTRS.map((a, i) => [a, base[i]])), st, misc, sets, warn, notes: [...new Set(notes)] };
+    return { attrs, base: Object.fromEntries(ATTRS.map((a, i) => [a, base[i]])), st, misc, sets, warn, pass, notes: [...new Set(notes)] };
   }
 
   // ---------------------------------------------------------------- общее сохранение
@@ -530,8 +564,9 @@
     els.who = h('div', { class: 'who' });
     els.viewer = h('div', { class: 'viewer' }, els.who);
     els.tattoos = h('div', { class: 'tattoos' });
+    els.clan = h('div', { class: 'clan' });
     els.stats = h('aside', { class: 'stats', 'aria-label': 'Stats' });
-    wrap.append(h('div', { class: 'main' }, h('div', { class: 'side' }, els.stats, els.tattoos), h('section', { class: 'stage' }, els.viewer, els.gear)));
+    wrap.append(h('div', { class: 'main' }, h('div', { class: 'side' }, els.stats, els.tattoos, els.clan), h('section', { class: 'stage' }, els.viewer, els.gear)));
     els.buffs = h('section', { class: 'sect', 'aria-label': 'Buffs' });
     wrap.append(els.buffs);
     wrap.append(h('p', { class: 'note foot' }, 'Item and skill data: masterwork.wiki, Lu4: Gamma. Base HP/MP/CP and racial attributes use standard L2 formulas and may differ from the server by a few percent; class passive skills are not included yet.'));
@@ -643,6 +678,24 @@
     ['head', 'chest', 'legs', 'gloves', 'feet', 'weapon', 'shield', 'neck', 'ear1', 'ear2', 'ring1', 'ring2'].forEach(s => els.gear.append(slotButton(s)));
   }
 
+  function renderClan() {
+    const c = ch();
+    els.clan.innerHTML = '';
+    if (!CLAN.length) { els.clan.hidden = true; return; }
+    els.clan.hidden = false;
+    const sw = h('input', { type: 'checkbox', id: 'clan-toggle', checked: c.clan ? true : null, onchange: e => { c.clan = e.target.checked; update(false); } });
+    els.clan.append(
+      h('div', { class: 'clanhead' }, h('h3', null, 'Clan skills'), h('label', { class: 'switch', for: 'clan-toggle' }, sw, h('span', null, c.clan ? 'On' : 'Off'))),
+      h('span', { class: 'note' }, `All ${CLAN.length} clan skills at max level. Hover an icon to see what it gives.`),
+      h('div', { class: 'clanlist' + (c.clan ? '' : ' off') }, CLAN.map(k => {
+        const b = h('div', { class: 'clanitem', tabindex: '0' }, h('img', { src: icon(k.ic), alt: k.n, loading: 'lazy' }));
+        const tip = `<b>${esc(k.n)} Lv. ${k.l}</b><div class="ln">${esc(k.text.replace(/^Clan members'\s*/gim, '').replace(/\n?Affects all clan members\.?/i, ''))}</div>`;
+        b.addEventListener('mouseenter', () => showTip(b, tip)); b.addEventListener('mouseleave', hideTip);
+        b.addEventListener('focus', () => showTip(b, tip)); b.addEventListener('blur', hideTip);
+        return b;
+      })));
+  }
+
   function renderTattoos() {
     const c = ch();
     els.tattoos.innerHTML = '';
@@ -692,6 +745,10 @@
     if (r.sets.length) box.append(h('div', { class: 'misc' }, h('div', { class: 'lbl' }, 'Set bonus'), r.sets.map(a => h('div', null, h('span', null, a.set.n), h('b', null, a.minE >= 3 ? '+' + a.minE : 'complete')))));
     if (r.misc.length) box.append(h('div', { class: 'misc' }, r.misc.map(([n, v]) => h('div', null, h('span', null, n), h('b', null, v)))));
     r.warn.forEach(w => box.append(h('div', { class: 'warn' }, w)));
+    if (r.pass.length) box.append(h('details', { class: 'note passives' }, h('summary', null, `Passive skills (${r.pass.length})`),
+      h('div', { class: 'plist' }, r.pass.map(x => h('div', { class: 'pitem' + (x.off ? ' off' : '') },
+        h('img', { src: icon(x.p.ic), alt: '', loading: 'lazy' }),
+        h('div', null, h('b', null, `${x.p.n} Lv. ${x.l}`), x.off ? h('small', null, x.off) : null, h('span', null, x.text)))))));
     if (r.notes.length) box.append(h('details', { class: 'note' }, h('summary', null, `Effects not counted in stats (${r.notes.length})`), h('div', { class: 'misc' }, r.notes.map(n => h('div', null, n)))));
     prevStats = { cls: c.cls + cur, st: S };
     renderCharOptions();
@@ -761,10 +818,10 @@
 
   function renderAll() {
     prevStats = null;
-    renderForm(); renderSlots(); renderTattoos(); renderStats(); renderBuffs(); renderModel(); renderSave();
+    renderForm(); renderSlots(); renderTattoos(); renderClan(); renderStats(); renderBuffs(); renderModel(); renderSave();
   }
   function update(model) {
-    renderSlots(); renderTattoos(); renderStats(); renderBuffs();
+    renderSlots(); renderTattoos(); renderClan(); renderStats(); renderBuffs();
     if (model !== false) renderModel();
     markDirty();
   }
