@@ -506,13 +506,12 @@
       h('div', { class: 'field' }, h('label', { for: 'char-gender' }, 'Gender'), els.gender),
       h('div', { class: 'field' }, h('label', { for: 'char-level' }, 'Level'), h('div', { class: 'lvl' }, els.lvlR, els.lvlN))));
 
-    els.left = h('div', { class: 'col' });
-    els.right = h('div', { class: 'col' });
+    els.left = h('div', { class: 'paperdoll', 'aria-label': 'Equipment' });
     els.who = h('div', { class: 'who' });
     els.viewer = h('div', { class: 'viewer' }, els.who);
     els.tattoos = h('div', { class: 'tattoos' });
     els.stats = h('aside', { class: 'stats', 'aria-label': 'Stats' });
-    wrap.append(h('div', { class: 'main' }, h('section', { class: 'stage' }, els.left, els.viewer, els.right, els.tattoos), els.stats));
+    wrap.append(h('div', { class: 'main' }, h('section', { class: 'stage' }, els.viewer, els.left, els.tattoos), els.stats));
     els.buffs = h('section', { class: 'sect', 'aria-label': 'Buffs' });
     wrap.append(els.buffs);
     wrap.append(h('p', { class: 'note foot' }, 'Item and skill data: masterwork.wiki, Lu4: Gamma. Base HP/MP/CP and racial attributes use standard L2 formulas and may differ from the server by a few percent; class passive skills are not included yet.'));
@@ -610,11 +609,10 @@
   }
 
   function renderSlots() {
-    els.left.innerHTML = ''; els.right.innerHTML = '';
-    ['head', 'chest', 'legs', 'gloves', 'feet'].forEach(s => els.left.append(slotButton(s)));
-    els.right.append(slotButton('weapon'), slotButton('shield'), slotButton('neck'));
-    els.right.append(h('div', { class: 'slotrow' }, slotButton('ear1'), slotButton('ear2')));
-    els.right.append(h('div', { class: 'slotrow' }, slotButton('ring1'), slotButton('ring2')));
+    // Сетка как в окне снаряжения L2: бижутерия сверху, оружие и броня под ней.
+    els.left.innerHTML = '';
+    [[null, 'head', null], ['ear1', 'neck', 'ear2'], ['ring1', null, 'ring2'], ['weapon', 'chest', 'shield'], ['gloves', 'legs', 'feet']]
+      .flat().forEach(s => els.left.append(s ? slotButton(s) : h('i', { class: 'gap' })));
   }
 
   function renderTattoos() {
