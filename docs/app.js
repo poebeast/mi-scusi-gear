@@ -120,6 +120,7 @@
   // ---------------------------------------------------------------- разбор текстов эффектов
   const ALIASES = [
     [/^P\.?\s?Atk\.? when using a bow/i, 'patk', 'bow'],
+    [/^(?:P\.\s)?Atk\.?\s?Spd\.? with Bow/i, 'aspd', 'bow'],
     [/^(?:P\.\s)?Atk\.?\s?Spd\.?|^Attack Speed/i, 'aspd'],
     [/^Cast(?:ing)?\.?\s?(?:Spd|Speed)\.?/i, 'cspd'],
     [/^(?:P\.\s)?Crit(?:ical)?\.?\s?Damage|^P\.\s?Atk\.? on Crit/i, 'critdmg'],
@@ -147,6 +148,9 @@
       // «With Heavy Armor:» — следующие строки действуют только с таким типом брони.
       const am = line.match(/^With (Heavy|Light|Robe) Armor\s*:\s*/i);
       if (am) { cond = 'armor:' + am[1].toLowerCase(); lineCond = cond; line = line.slice(am[0].length); if (!line) continue; }
+      if (/^With Bow\s*:/i.test(line)) { cond = 'bow'; lineCond = cond; line = line.replace(/^With Bow\s*:\s*/i, ''); if (!line) continue; }
+      line = line.replace(/^(?:For|Applies to) [^:]*members\s*:\s*/i, '');
+      if (!line) continue;
       if (/^When attacked|^When HP is below/i.test(line)) { cond = 'skip'; notes.push(line); continue; }
       const cm = line.match(/^(If a shield is equipped|Shield Equip Bonus|When HP\s*<\s*\d+%|For party members|Totally)\s*:\s*/i);
       if (cm) {
@@ -158,12 +162,15 @@
         if (!line) continue;
       }
       if (/when HP\s*<|when HP is below|when equipped with/i.test(line) || /during a critical|from behind|chance to|when attacking|when using a (?:harmful|beneficial)/i.test(line)) { notes.push(line); continue; }
-      let any = false;
+      let any = false, neg = false;
       for (let chunk of line.split(/,\s*|\s+and\s+(?=[a-z]*\s*(?:[A-Z]|increases|decreases))/i)) {
-        chunk = chunk.replace(/\.$/, '').replace(/^(?:additionally|increases|decreases)\s+/i, '').trim();
+        chunk = chunk.replace(/\.$/, '').replace(/^and\s+/i, '').trim();
+        const dir = chunk.match(/^(?:additionally\s+)?(increases|decreases)\s+/i);
+        if (dir) { neg = /^decreases/i.test(dir[1]); chunk = chunk.slice(dir[0].length); }
+        chunk = chunk.replace(/^(?:additionally\s+|the user's\s+|nearby (?:party|clan) members'\s+)+/i, '').trim();
         if (!chunk) continue;
         let m = chunk.match(/^(.*?)\s*([+\-−–]\s?\d[\d ]*(?:[.,]\d+)?)\s*(%)?$/);
-        if (!m) { const b = chunk.match(/^(.*?)\s+by\s+(\d[\d ]*(?:[.,]\d+)?)\s*(%)?(?:\s+(?:one-handed|two-handed|when|with|for)\b.*)?$/i); if (b) m = [b[0], b[1], '+' + b[2], b[3]]; }
+        if (!m) { const b = chunk.match(/^(.*?)\s+by\s+(\d[\d ]*(?:[.,]\d+)?)\s*(%)?(?:\s+(?:one-handed|two-handed|when|with|for)\b.*)?$/i); if (b) m = [b[0], b[1], (neg ? '-' : '+') + b[2], b[3]]; }
         if (!m) continue;
         const name = m[1].trim();
         const val = parseFloat(m[2].replace(/[−–]/, '-').replace(/\s/g, '').replace(',', '.'));
@@ -291,6 +298,12 @@
     return [...byName.values()];
   }
 
+  function casterLevel(b, k, c) {
+    const caster = k === c.cls ? c : STATE.chars.find(x => x.cls === k);
+    const learn = (b.learn && b.learn[k]) || [];
+    if (!learn.length) return b.lv.length;
+    return Math.max(1, Math.min(b.lv.length, passiveLevel({ learn }, caster ? caster.level : 75)));
+  }
   function availableBuffs(c) {
     const party = new Set(STATE.chars.map(x => x.cls).filter(k => !CLASSES[k].archer));
     const groups = [];
@@ -572,7 +585,7 @@
     wrap.append(h('div', { class: 'main' }, h('div', { class: 'side' }, els.stats, els.tattoos, els.clan), h('section', { class: 'stage' }, els.viewer, els.gear)));
     els.buffs = h('section', { class: 'sect', 'aria-label': 'Buffs' });
     wrap.append(els.buffs);
-    wrap.append(h('p', { class: 'note foot' }, 'Item and skill data: masterwork.wiki, Lu4: Gamma. Base HP/MP/CP and racial attributes use standard L2 formulas and may differ from the server by a few percent; class passive skills are not included yet.'));
+    wrap.append(h('p', { class: 'note foot' }, 'Item and skill data: masterwork.wiki, Lu4: Gamma. Base HP/MP/CP and racial attributes use standard L2 formulas and may differ from the server by a few percent.'));
     root.append(wrap);
 
     els.dialog = h('dialog', { id: 'picker' });
@@ -772,18 +785,18 @@
     const activeCount = Object.keys(c.buffs).length;
     box.append(h('div', { class: 'secthead' },
       h('h3', null, 'Buffs'),
-      h('span', { class: 'note' }, 'Own class skills plus buffs from party members (archers excluded). Click to apply at max level.'),
+      h('span', { class: 'note' }, 'Own class skills plus buffs from party members (archers excluded). Click to apply at the level the caster has learned.'),
       h('button', { class: 'btn sm', disabled: !activeCount, onclick: () => { c.buffs = {}; update(false); } }, 'Remove all')));
     const wrap = h('div', { class: 'buffgroups' });
     for (const grp of groups) {
       const list = h('div', { class: 'bufflist' });
       for (const b of grp.list) {
         const on = c.buffs[b.id] != null;
-        const lv = on ? c.buffs[b.id] : b.lv.length;
+        const lv = on ? c.buffs[b.id] : casterLevel(b, grp.key === 'self' ? c.cls : grp.key, c);
         const btn = h('button', { class: 'buff' + (on ? ' on' : ''), 'aria-pressed': on ? 'true' : 'false', 'aria-label': b.n },
           h('img', { src: icon(b.ic), alt: '' }), h('span', { class: 'lv' }, lv),
           b.tgt === 'party' ? h('span', { class: 'tg' }, 'PT') : b.kind === 'toggle' ? h('span', { class: 'tg' }, 'TG') : null);
-        btn.addEventListener('click', () => toggleBuff(b));
+        btn.addEventListener('click', () => toggleBuff(b, lv));
         btn.addEventListener('mouseenter', () => showTip(btn, `<b>${esc(b.n)} · Lv. ${lv}</b><div class="ln">${esc(b.lv[lv - 1])}</div><div class="k">${b.tgt === 'party' ? 'Party' : b.tgt === 'target' ? 'Target' : 'Self'}${b.kind === 'toggle' ? ' · toggle' : ''}</div>`));
         btn.addEventListener('mouseleave', hideTip);
         list.append(btn);
@@ -806,13 +819,13 @@
   }
 
   // Одинаковые баффы не складываются: «Mass X» заменяет «X» и наоборот.
-  const stackKey = n => n.replace(/^Mass\s+/i, '').trim().toLowerCase();
-  function toggleBuff(b) {
+  const stackKey = b => b.stack || b.n.replace(/^Mass\s+/i, '').trim().toLowerCase();
+  function toggleBuff(b, lv) {
     const c = ch();
     if (c.buffs[b.id] != null) delete c.buffs[b.id];
     else {
-      for (const id of Object.keys(c.buffs)) { const o = BUFFS.get(id); if (o && stackKey(o.n) === stackKey(b.n)) delete c.buffs[id]; }
-      c.buffs[b.id] = b.lv.length;
+      for (const id of Object.keys(c.buffs)) { const o = BUFFS.get(id); if (o && stackKey(o) === stackKey(b)) delete c.buffs[id]; }
+      c.buffs[b.id] = lv || b.lv.length;
     }
     update(false);
   }

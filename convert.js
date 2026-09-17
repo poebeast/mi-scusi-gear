@@ -162,22 +162,6 @@ for (const r of Object.values(rawSets)) {
   sets.push({ id: idOf(r.href), n: r.name + (rare ? ' (Rare)' : ''), g: r.g, at: chestItem && chestItem.at, fx: r.fx, parts: finalParts });
 }
 
-const CLASS_OF = classSkills;
-const buffs = [];
-for (const [href, r] of Object.entries(rawSkills)) {
-  if (!r || !r.lv || !r.lv.length) continue;
-  const cls = Object.keys(CLASS_OF).filter(k => CLASS_OF[k][href]);
-  const grp = cls.map(k => CLASS_OF[k][href])[0];
-  const text = r.lv.join('\n');
-  const toggle = grp === 'icon_type-6';
-  let tgt = 'self';
-  if (!toggle) {
-    if (/party members|for the party|all party|группы/i.test(text) || /^(Mass |Chant|Rhythm|Song|Dance|Symphony)|Pa'agrio|Paagrio/i.test(r.name)) tgt = 'party';
-    else if (r.st && r.st['Дальность применения']) tgt = 'target';
-  }
-  buffs.push({ id: (href.match(/\/skill\/(\d+)/) || [])[1], n: r.name, ic: (r.icon || '').replace(/\.png$/, ''), cls, kind: toggle ? 'toggle' : 'buff', tgt, lv: r.lv, dur: r.st && r.st['Время действия'] });
-}
-
 // ---------------------------------------------------------------- пассивки классов
 // Уровни изучения: 1-я профессия (20–39) и 2-я (40–75). На уровне персонажа L берём наибольший уровень умения, выученный не позже L.
 const clsRaw = rawOr('cls.json', {});
@@ -213,6 +197,43 @@ for (const [cls, c] of Object.entries(clsRaw)) {
   }
 }
 fs.writeFileSync(R('data/passives.json'), JSON.stringify(passives));
+
+// ---------------------------------------------------------------- баффы и тогглы (icon_type-2 и -6)
+// Служебные умения без влияния на статы не показываем.
+const SKIP_BUFF = new Set(['24314', '226', '1506', '1427', '1460', '1257', '24435']);
+const buffMap = new Map();
+for (const [cls, c] of Object.entries(clsRaw)) {
+  const learn = {};
+  for (const table of [c.first || {}, c.sched || {}])
+    for (const [L, rows] of Object.entries(table))
+      for (const [sk, l] of rows) (learn[sk] = learn[sk] || []).push([+L, l]);
+  for (const [sk, g] of Object.entries(c.groups)) {
+    if (!/^icon_type-(2|6)$/.test(g)) continue;
+    const s = skRaw[sk];
+    const id = sk.split('-')[0];
+    if (!s || !Object.keys(s.lv).length || SKIP_BUFF.has(id)) continue;
+    let b = buffMap.get(id);
+    if (!b) {
+      const top = Math.max(...Object.keys(s.lv).map(Number));
+      const lv = Array.from({ length: top }, (_, i) => s.lv[i + 1] || '');
+      const text = lv.join('\n');
+      const toggle = g === 'icon_type-6';
+      // Кому действует: группа/клан, цель (есть дальность применения) или только на себя.
+      let tgt = 'self';
+      if (/party|clan members/i.test(text) || /^Rhythm/i.test(s.type || '')) tgt = 'party';
+      else if (!toggle && s.st && s.st['Cast Range']) tgt = 'target';
+      // Одинаковые эффекты не складываются: «Combines 'Might' and 'Shield'» у Improved Combat и Combat of Pa'agrio.
+      const comb = text.match(/Combines '([^']+)' and '([^']+)'/);
+      const stack = comb ? [comb[1], comb[2]].sort().join('+').toLowerCase() : s.name.replace(/^Mass\s+/i, '').toLowerCase();
+      b = { id, n: s.name, ic: (s.icon || '').replace(/\.png$/, ''), cls: [], kind: toggle ? 'toggle' : 'buff', tgt, stack, dur: s.st && s.st.Duration, lv, learn: {} };
+      buffMap.set(id, b);
+    }
+    b.cls.push(cls);
+    b.learn[cls] = (learn[sk] || []).sort((x, y) => x[0] - y[0] || x[1] - y[1]);
+  }
+}
+const buffs = [...buffMap.values()];
+console.log('buffs', buffs.length, buffs.filter(b => b.tgt === 'party').length, 'party', buffs.filter(b => b.tgt === 'target').length, 'target');
 
 // ---------------------------------------------------------------- клан-скилы (пассивные, 370–391), максимальный уровень
 const clan = Object.entries(skRaw)
