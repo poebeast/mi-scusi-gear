@@ -199,6 +199,10 @@ dialog::backdrop{background:rgba(10,25,60,.28);-webkit-backdrop-filter:blur(4px)
 /* Гардероб: окно выбора справа, кукла остаётся видна */
 @media (min-width:1100px){
   dialog#picker{margin:16px 16px 16px auto;height:calc(100vh - 32px);max-height:none;width:min(560px,40vw)}
+  dialog#picker:not(:modal){position:fixed;inset:0 0 0 auto;margin:16px;z-index:50}
+  /* Пока окно выбора открыто, страница сдвигается влево и слоты остаются доступны. */
+  body.picking .wrap{max-width:none;margin:0 calc(min(560px,40vw) + 32px) 0 0}
+  body.picking .charbar{grid-template-columns:repeat(3,minmax(0,1fr))}
   dialog#picker .dlg{height:100%;max-height:none}
   dialog#picker::backdrop{background:rgba(10,25,60,.08);-webkit-backdrop-filter:none;backdrop-filter:none}
 }

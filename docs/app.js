@@ -526,7 +526,8 @@
     root.append(wrap);
 
     els.dialog = h('dialog', { id: 'picker' });
-    els.dialog.addEventListener('close', () => { els.dialog.innerHTML = ''; });
+    els.dialog.addEventListener('close', () => { if (!els.dialog.open) document.body.classList.remove('picking'); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && els.dialog.open) els.dialog.close(); });
     document.body.append(els.dialog);
 
   }
@@ -805,8 +806,7 @@
           const selected = curIt && (curIt.base || curIt.id) === (it.base || it.id);
           const row = h('button', { class: 'row' + (selected ? ' sel' : ''), role: 'option', 'aria-selected': selected ? 'true' : 'false' },
             h('img', { src: icon(it.ic), alt: '', loading: 'lazy' }),
-            h('span', { class: 't' }, h('b', null, it.n, h('span', { class: 'gtag ' + it.g }, it.g), it.fnd ? h('span', { class: 'ftag' }, 'Rare') : null, it.pvp ? h('span', { class: 'ftag' }, 'PvP') : null),
-              h('small', null, [TYPE_RU[it.at || it.wtn] || '', it.set && SETS.get(it.set) ? 'set ' + SETS.get(it.set).n : '', (VARIANTS.get(it.base || it.id) || []).length > 1 ? 'has SA' : ''].filter(Boolean).join(' · '))),
+            h('span', { class: 't' }, h('b', null, it.n, h('span', { class: 'gtag ' + it.g }, it.g), it.fnd ? h('span', { class: 'ftag' }, 'Rare') : null, it.pvp ? h('span', { class: 'ftag' }, 'PvP') : null)),
             h('span', { class: 'v' }, mainText(it)));
           row.addEventListener('click', () => {
             const keepE = c.eq[slot] ? c.eq[slot].e || 0 : 0;
@@ -822,7 +822,8 @@
     }
     function changed() { update(true); if (dlg.open) { const st = dlg.querySelector('.list'); const sc = st ? st.scrollTop : 0; draw(); const nl = dlg.querySelector('.list'); if (nl) nl.scrollTop = sc; } }
     draw();
-    if (!dlg.open) dlg.showModal();
+    // На широком экране окно выбора не блокирует страницу: можно сразу нажать другой слот.
+    if (!dlg.open) { if (matchMedia('(min-width:1100px)').matches) { dlg.show(); document.body.classList.add('picking'); } else dlg.showModal(); }
   }
   const TYPE_RU = { heavy: 'Heavy', light: 'Light', robe: 'Robe', sword: 'Sword', bigsword: 'Two-handed sword', blunt: 'Blunt', bigblunt: 'Two-handed blunt', staff: 'Staff', bigstaff: 'Staff', dagger: 'Dagger', bow: 'Bow', pole: 'Polearm', fist: 'Fists', dualfist: 'Fists', dual: 'Dual swords', dualdagger: 'Dual daggers', dualblunt: 'Dual blunt', rapier: 'Rapier', ancientsword: 'Ancient sword' };
   function mainVal(it) { return it.c === 'weapon' ? (it.st.patk || 0) + (it.st.matk || 0) : (it.st.pdef || 0) + (it.st.mdef || 0); }
@@ -837,6 +838,7 @@
   function openTattoo(i) {
     const c = ch();
     const dlg = els.dialog;
+    if (dlg.open) dlg.close();
     const hn = c.hen[i] || { up: 'STR', down: 'CON', n: 4, kind: 'greater' };
     const pairs = { STR: ['CON', 'DEX'], CON: ['STR', 'DEX'], DEX: ['STR', 'CON'], INT: ['MEN', 'WIT'], MEN: ['INT', 'WIT'], WIT: ['INT', 'MEN'] };
     const draft = Object.assign({}, hn);
