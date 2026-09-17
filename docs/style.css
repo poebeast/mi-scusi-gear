@@ -73,12 +73,11 @@ button,select,input{font:inherit;color:inherit}
 /* Основная сетка */
 .main{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:14px;align-items:start;margin-top:14px}
 @media (max-width:1060px){.main{grid-template-columns:1fr}.side{position:static}}
-.stage{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;border-radius:22px;padding:14px;background:var(--stage)}
+.stage{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:12px;border-radius:22px;padding:14px;background:var(--stage)}
 .viewcol{display:flex;flex-direction:column;gap:12px;min-width:0}
 .viewcol .viewer{flex:1}
 .hands{display:flex;justify-content:center;gap:12px;padding:12px;border-radius:18px;background:var(--glass2);border:1px solid var(--edge)}
-.paperdoll{display:grid;grid-template-columns:repeat(3,62px);grid-auto-rows:62px;gap:9px;align-content:center;padding:14px;border-radius:18px;background:var(--glass2);border:1px solid var(--edge)}
-.paperdoll .slot{width:62px;height:62px}
+.slotcol{display:flex;flex-direction:column;justify-content:center;gap:10px}
 .viewer{position:relative;min-height:420px;border-radius:18px;background:var(--viewer);overflow:hidden;border:1px solid var(--edge);display:grid;place-items:center;padding:24px}
 .viewer .who{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;max-width:360px}
 .portrait{position:relative;width:128px;height:128px}
@@ -92,7 +91,7 @@ button,select,input{font:inherit;color:inherit}
 .setchips .chip{padding:3px 10px}
 .who b{display:block;font:700 22px/1.15 var(--display);letter-spacing:-.01em}
 .who small{color:var(--ink2);font-size:13px}
-@media (max-width:640px){.stage{grid-template-columns:1fr}.viewer{min-height:360px}.paperdoll{justify-content:center}}
+@media (max-width:640px){.stage{grid-template-columns:1fr}.viewer{min-height:360px}.slotcol{flex-direction:row;flex-wrap:wrap;justify-content:center}.viewcol{order:-1}}
 
 /* Слоты */
 .slot{position:relative;width:62px;height:62px;border-radius:14px;background:var(--glass2);border:1px solid var(--edge);display:grid;place-items:center;cursor:pointer;padding:0;transition:background .15s,transform .1s,box-shadow .15s;-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
@@ -107,9 +106,12 @@ button,select,input{font:inherit;color:inherit}
 .slotrow{display:flex;gap:9px}
 
 .side{display:flex;flex-direction:column;gap:14px;position:sticky;top:calc(env(safe-area-inset-top,0px) + 12px)}
-.tattoos{display:flex;flex-direction:column;gap:8px;border-radius:22px;padding:16px;background:var(--glass);-webkit-backdrop-filter:blur(18px) saturate(1.4);backdrop-filter:blur(18px) saturate(1.4);border:1px solid var(--edge);box-shadow:var(--shadow)}
-.tattoos h3{margin-bottom:4px}
-.tattoos .tat{align-self:stretch;flex:none;height:46px;min-height:0}
+.tattoos{display:flex;flex-direction:row;flex-wrap:wrap;gap:8px;border-radius:22px;padding:16px;background:var(--glass);-webkit-backdrop-filter:blur(18px) saturate(1.4);backdrop-filter:blur(18px) saturate(1.4);border:1px solid var(--edge);box-shadow:var(--shadow)}
+.tattoos h3{flex-basis:100%;margin-bottom:4px}
+.tattoos .tat{flex:1 1 0;min-width:0;height:auto;min-height:0;flex-direction:column;justify-content:center;gap:5px;padding:9px 6px;text-align:center}
+.tattoos .tat .sym{width:34px;height:34px;font-size:11px}
+.tattoos .tat .txt{font-size:11px;line-height:1.25}
+.tattoos .tat .txt .p,.tattoos .tat .txt .m{display:block}
 .tattoos h3,.sect h3{margin:0;font:700 17px/1 var(--display);letter-spacing:-.01em}
 .tat{display:flex;align-items:center;align-self:center;height:44px;gap:8px;background:var(--glass2);border:1px solid var(--edge);border-radius:14px;padding:6px 12px 6px 6px;cursor:pointer;min-height:42px}
 .tat:hover{background:var(--glass3)}
