@@ -505,7 +505,7 @@
     const wrap = h('div', { class: 'wrap' });
     els.save = h('div', { class: 'save' });
     wrap.append(h('header', { class: 'top' },
-      h('div', { class: 'brand' }, h('h1', null, 'Mi scusi'), h('span', null, 'Lu4 Gamma · party gear')),
+      h('div', { class: 'brand' }, h('h1', null, 'Mi scusi'), h('span', null, 'Lu4 Gamma')),
       els.save));
 
     els.charSel = h('select', { id: 'char-select', onchange: e => { cur = +e.target.value; try { sessionStorage.setItem('miscusi.cur', String(cur)); } catch (_) {} renderAll(); } });
