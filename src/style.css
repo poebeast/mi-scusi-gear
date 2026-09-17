@@ -74,6 +74,9 @@ button,select,input{font:inherit;color:inherit}
 .main{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:14px;align-items:start;margin-top:14px}
 @media (max-width:1060px){.main{grid-template-columns:1fr}.side{position:static}}
 .stage{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;border-radius:22px;padding:14px;background:var(--stage)}
+.viewcol{display:flex;flex-direction:column;gap:12px;min-width:0}
+.viewcol .viewer{flex:1}
+.hands{display:flex;justify-content:center;gap:12px;padding:12px;border-radius:18px;background:var(--glass2);border:1px solid var(--edge)}
 .paperdoll{display:grid;grid-template-columns:repeat(3,62px);grid-auto-rows:62px;gap:9px;align-content:center;padding:14px;border-radius:18px;background:var(--glass2);border:1px solid var(--edge)}
 .paperdoll .slot{width:62px;height:62px}
 .viewer{position:relative;min-height:420px;border-radius:18px;background:var(--viewer);overflow:hidden;border:1px solid var(--edge);display:grid;place-items:center;padding:24px}
