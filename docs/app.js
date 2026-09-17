@@ -511,7 +511,7 @@
     els.viewer = h('div', { class: 'viewer' }, els.who);
     els.tattoos = h('div', { class: 'tattoos' });
     els.stats = h('aside', { class: 'stats', 'aria-label': 'Stats' });
-    wrap.append(h('div', { class: 'main' }, h('section', { class: 'stage' }, els.viewer, els.left, els.tattoos), els.stats));
+    wrap.append(h('div', { class: 'main' }, h('section', { class: 'stage' }, els.viewer, els.left), h('div', { class: 'side' }, els.stats, els.tattoos)));
     els.buffs = h('section', { class: 'sect', 'aria-label': 'Buffs' });
     wrap.append(els.buffs);
     wrap.append(h('p', { class: 'note foot' }, 'Item and skill data: masterwork.wiki, Lu4: Gamma. Base HP/MP/CP and racial attributes use standard L2 formulas and may differ from the server by a few percent; class passive skills are not included yet.'));
@@ -609,9 +609,9 @@
   }
 
   function renderSlots() {
-    // Сетка как в окне снаряжения L2: бижутерия сверху, оружие и броня под ней.
+    // Сетка снаряжения: бижутерия сверху, броня в середине, оружие и щит внизу.
     els.left.innerHTML = '';
-    [[null, 'head', null], ['ear1', 'neck', 'ear2'], ['ring1', null, 'ring2'], ['weapon', 'chest', 'shield'], ['gloves', 'legs', 'feet']]
+    [[null, 'head', null], ['ear1', 'neck', 'ear2'], ['ring1', null, 'ring2'], ['gloves', 'chest', 'feet'], ['weapon', 'legs', 'shield']]
       .flat().forEach(s => els.left.append(s ? slotButton(s) : h('i', { class: 'gap' })));
   }
 
