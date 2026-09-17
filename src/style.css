@@ -54,7 +54,7 @@ button,select,input{font:inherit;color:inherit}
 
 /* Основная сетка */
 .main{display:grid;grid-template-columns:340px minmax(0,1fr);gap:14px;align-items:start;margin-top:14px}
-@media (max-width:1060px){.main{grid-template-columns:1fr}.side{position:static}}
+@media (max-width:1060px){.main{grid-template-columns:1fr}.side{position:static}.stage{order:-1}}
 .stage{display:flex;flex-direction:column;gap:12px;border-radius:28px;padding:14px;background:var(--stage)}
 .gearrow{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;padding:14px;border-radius:24px;background:var(--glass2);border:1px solid var(--edge)}
 .viewer{position:relative;min-height:420px;border-radius:24px;background:var(--viewer);overflow:hidden;border:1px solid var(--edge);display:grid;place-items:center;padding:24px}
