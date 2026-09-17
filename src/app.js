@@ -68,7 +68,7 @@
   const ATK_SPD = { sword: 379, blunt: 379, dagger: 433, bow: 293, pole: 325, fist: 325, dualfist: 325, bigsword: 325, bigblunt: 325, staff: 325, bigstaff: 325, dual: 325, dualdagger: 433, dualblunt: 325, rapier: 406, ancientsword: 350 };
   const BASE_CRIT = { sword: 8, bigsword: 8, blunt: 4, bigblunt: 4, staff: 4, bigstaff: 4, dagger: 12, dualdagger: 12, bow: 12, pole: 8, fist: 4, dualfist: 4, dual: 8, dualblunt: 5, rapier: 10, ancientsword: 8 };
   const TWO_HANDED = new Set(['bow', 'pole', 'bigsword', 'bigblunt', 'staff', 'bigstaff', 'dual', 'dualdagger', 'dualblunt', 'dualfist', 'fist', 'ancientsword']);
-  const GRADE_LVL = { B: 52, A: 61 };
+  const GRADE_LVL = { B: 52, A: 64 };
 
   // Бонусы заточки сета (Lu4 Gamma, статья «Enchantment bonuses for sets»).
   const SET_ENCH = {
