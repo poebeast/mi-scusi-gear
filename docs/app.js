@@ -163,6 +163,10 @@
   }
 
   // ---------------------------------------------------------------- состояние
+  // Оригинальные рендеры классов L2 с вики: свой класс, если совпадают раса, тип и пол, иначе типичный персонаж этой расы.
+  const ART_OWN = { paladin: [5, 'human', 'fighter', 'female'], bishop: [16, 'human', 'mystic', 'female'], elder: [30, 'elf', 'mystic', 'female'], swordsinger: [21, 'elf', 'fighter', 'female'], overlord: [51, 'orc', 'mystic', 'male'], hawkeye: [9, 'human', 'fighter', 'female'], silverranger: [24, 'elf', 'fighter', 'female'], phantomranger: [37, 'darkelf', 'fighter', 'male'] };
+  const ART_BY = { human: { fighter: { male: 1, female: 5 }, mystic: { male: 11, female: 16 } }, elf: { fighter: { male: 20, female: 21 }, mystic: { male: 26, female: 30 } }, darkelf: { fighter: { male: 37, female: 33 }, mystic: { male: 39, female: 42 } }, orc: { fighter: { male: 46, female: 47 }, mystic: { male: 51, female: 52 } }, dwarf: { fighter: { male: 56, female: 55 }, mystic: { male: 210, female: 209 } } };
+  const artFor = c => { const o = ART_OWN[c.cls]; return o && o[1] === c.race && o[2] === c.type && o[3] === c.gender ? o[0] : ART_BY[c.race][c.type][c.gender]; };
   const raceLabel = c => RACES.find(r => r[0] === c.race)[1] + ' ' + (c.type === 'mystic' ? 'Mystic' : 'Fighter');
   function blankChar(cls, i) {
     const c = CLASSES[cls];
@@ -580,10 +584,10 @@
     const worn = Object.keys(c.eq).length;
     const sets = activeSets(c);
     els.who.append(
-      h('div', { class: 'portrait' },
-        h('img', { class: 'head', src: 'icons/heads/' + c.race + '_' + c.gender + '.jpg', alt: '' }),
-        h('img', { class: 'badge', src: icon('cls_' + CLASS_ICON[c.cls]), alt: CLASSES[c.cls].n })),
-      h('b', null, c.nick || CLASSES[c.cls].n),
+      h('img', { class: 'figure', src: 'icons/art/' + artFor(c) + '.png', alt: '' }),
+      h('div', { class: 'namerow' },
+        h('img', { class: 'clsicon', src: 'icons/class_icon_' + CLASS_ICON[c.cls] + '.png', alt: CLASSES[c.cls].n }),
+        h('b', null, c.nick || CLASSES[c.cls].n)),
       h('small', null, `${CLASSES[c.cls].n} · ${raceLabel(c)} · ${c.gender === 'female' ? 'Female' : 'Male'} · Lv. ${c.level}`),
       h('div', { class: 'wornbar', role: 'img', 'aria-label': `${worn} of 12 slots equipped` }, Object.keys(SLOTS).map(s => h('i', { class: c.eq[s] ? 'on' : '' }))),
       h('span', { class: 'note' }, worn ? `${worn} of 12 slots equipped` : 'Nothing equipped yet — click a slot to pick an item'),
@@ -601,7 +605,7 @@
     if (it) {
       b.append(h('img', { src: icon(it.ic), alt: '' }));
       if (e.e) b.append(h('span', { class: 'en' }, '+' + e.e));
-      b.append(h('span', { class: 'gr', style: `color:var(--g${it.g})` }, it.g));
+      b.append(h('span', { class: 'gr ' + it.g }, it.g));
       if (it.sa) b.append(h('span', { class: 'sa' }));
       b.addEventListener('mouseenter', () => showTip(b, itemTip(it, e.e || 0)));
       b.addEventListener('mouseleave', hideTip);
