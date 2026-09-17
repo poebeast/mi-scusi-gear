@@ -460,38 +460,6 @@
     }
   }
 
-  function exportState() {
-    const text = JSON.stringify(STATE);
-    const dlg = els.dialog;
-    dlg.innerHTML = '';
-    const ta = h('textarea', { id: 'export-text', class: 'io', readonly: true, rows: '8' });
-    ta.value = text;
-    dlg.append(h('div', { class: 'dlg' },
-      h('div', { class: 'dlghead' }, h('h2', null, 'Export party'), h('button', { class: 'btn sm', onclick: () => dlg.close() }, 'Close')),
-      h('p', { class: 'note', style: 'padding:12px 16px 0' }, 'Copy this text and send it to a friend — they paste it into Import.'),
-      h('div', { style: 'padding:12px 16px' }, ta),
-      h('div', { class: 'dlgfoot' }, h('button', { class: 'btn primary', onclick: async () => { try { await navigator.clipboard.writeText(text); toast('Copied'); } catch (e) { ta.select(); } } }, 'Copy'))));
-    dlg.showModal();
-  }
-  function importState() {
-    const dlg = els.dialog;
-    dlg.innerHTML = '';
-    const ta = h('textarea', { id: 'import-text', class: 'io', rows: '8', placeholder: 'Paste exported text here' });
-    dlg.append(h('div', { class: 'dlg' },
-      h('div', { class: 'dlghead' }, h('h2', null, 'Import party'), h('button', { class: 'btn sm', onclick: () => dlg.close() }, 'Close')),
-      h('p', { class: 'note', style: 'padding:12px 16px 0' }, 'This replaces all nine characters with the pasted set.'),
-      h('div', { style: 'padding:12px 16px' }, ta),
-      h('div', { class: 'dlgfoot' }, h('button', { class: 'btn primary', onclick: () => {
-        try {
-          const st = JSON.parse(ta.value);
-          if (!st || !Array.isArray(st.chars) || st.chars.length !== ROSTER.length) throw new Error();
-          STATE = st; normalizeState(); saveLocal();
-          if (mode === 'firebase') STATE.chars.forEach((_, i) => pushChar(i));
-          dlg.close(); renderAll(); toast('Party imported');
-        } catch (e) { toast('That text is not an exported party. Copy the whole export and try again.'); }
-      } }, 'Import'))));
-    dlg.showModal();
-  }
 
   // ---------------------------------------------------------------- UI
   const root = $('#root');
@@ -576,9 +544,7 @@
       cls = ' ro';
       text = STATE.savedAt ? 'Saved in this browser ' + fmtTime(STATE.savedAt) : 'Saved in this browser';
     }
-    s.append(h('span', { class: 'dot' + cls }), h('span', null, text),
-      h('button', { class: 'btn sm', onclick: exportState }, 'Export'),
-      h('button', { class: 'btn sm', onclick: importState }, 'Import'));
+    s.append(h('span', { class: 'dot' + cls }), h('span', null, text));
   }
 
   function charLabel(c, i) {
