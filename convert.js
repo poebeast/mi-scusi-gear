@@ -217,7 +217,7 @@ fs.writeFileSync(R('data/passives.json'), JSON.stringify(passives));
 // ---------------------------------------------------------------- клан-скилы (пассивные, 370–391), максимальный уровень
 const clan = Object.entries(skRaw)
   .filter(([k, s]) => { const id = +k.split('-')[0]; return id >= 370 && id <= 391 && Object.keys(s.lv).length; })
-  .map(([k, s]) => { const top = Math.max(...Object.keys(s.lv).map(Number)); return { id: k.split('-')[0], n: s.name, ic: (s.icon || '').replace(/\.png$/, ''), l: top, text: s.lv[top] }; })
+  .map(([k, s]) => { const top = Math.max(...Object.keys(s.lv).map(Number)); return { id: k.split('-')[0], n: s.name, ic: (s.icon || '').replace(/\.png$/, ''), l: top, text: s.lv[top], lv: s.lv }; })
   .sort((a, b) => a.n.localeCompare(b.n));
 fs.writeFileSync(R('data/clan.json'), JSON.stringify(clan));
 console.log('clan skills', clan.length);

@@ -207,6 +207,9 @@
       // Тип расы (воин/маг) выбирается отдельно от класса.
       if (c.type !== 'fighter' && c.type !== 'mystic') c.type = CLASSES[c.cls].arch;
       c.eq = c.eq || {}; c.hen = c.hen || [null, null, null]; c.buffs = c.buffs || {}; c.clan = !!c.clan;
+      // Уровень каждого клан-скила (1…макс), по умолчанию максимальный.
+      c.clanLv = c.clanLv || {};
+      for (const k of CLAN) { const v = +c.clanLv[k.id]; c.clanLv[k.id] = v >= 1 && v <= k.l ? v : k.l; }
       // Старые наборы тату: урезаем плюсы сверх +5 на атрибут.
       const used = {};
       c.hen = c.hen.map(x => { if (!x) return null; const left = 5 - (used[x.up] || 0); if (left <= 0) return null; x.n = Math.min(x.n, left); used[x.up] = (used[x.up] || 0) + x.n; return x; });
@@ -346,7 +349,7 @@
       addMods(parseFx(x.text).mods, x.p.n);
     }
     // Клан-скилы максимального уровня, если включены у персонажа.
-    if (c.clan) for (const k of CLAN) addMods(parseFx(k.text).mods, k.n);
+    if (c.clan) for (const k of CLAN) addMods(parseFx(clanText(k, c.clanLv[k.id])).mods, k.n);
     for (const id in c.buffs) {
       const b = BUFFS.get(id);
       if (!b) continue;
@@ -678,6 +681,7 @@
     ['head', 'chest', 'legs', 'gloves', 'feet', 'weapon', 'shield', 'neck', 'ear1', 'ear2', 'ring1', 'ring2'].forEach(s => els.gear.append(slotButton(s)));
   }
 
+  const clanText = (k, l) => (k.lv && k.lv[l]) || k.text;
   function renderClan() {
     const c = ch();
     els.clan.innerHTML = '';
@@ -686,12 +690,17 @@
     const sw = h('input', { type: 'checkbox', id: 'clan-toggle', checked: c.clan ? true : null, onchange: e => { c.clan = e.target.checked; update(false); } });
     els.clan.append(
       h('div', { class: 'clanhead' }, h('h3', null, 'Clan skills'), h('label', { class: 'switch', for: 'clan-toggle' }, sw, h('span', null, c.clan ? 'On' : 'Off'))),
-      h('span', { class: 'note' }, `All ${CLAN.length} clan skills at max level. Hover an icon to see what it gives.`),
+      h('span', { class: 'note' }, c.clan ? 'Click a skill to change its level (1–3). Hover to see what it gives.' : 'Turn on to apply clan skills to this character.'),
       h('div', { class: 'clanlist' + (c.clan ? '' : ' off') }, CLAN.map(k => {
-        const b = h('div', { class: 'clanitem', tabindex: '0' }, h('img', { src: icon(k.ic), alt: k.n, loading: 'lazy' }));
-        const tip = `<b>${esc(k.n)} Lv. ${k.l}</b><div class="ln">${esc(k.text.replace(/^Clan members'\s*/gim, '').replace(/\n?Affects all clan members\.?/i, ''))}</div>`;
-        b.addEventListener('mouseenter', () => showTip(b, tip)); b.addEventListener('mouseleave', hideTip);
-        b.addEventListener('focus', () => showTip(b, tip)); b.addEventListener('blur', hideTip);
+        const l = c.clanLv[k.id];
+        const tipFor = lv => `<b>${esc(k.n)} Lv. ${lv}</b><div class="ln">${esc(clanText(k, lv).replace(/^Clan members'\s*/gim, '').replace(/\n?Affects all clan members\.?/i, ''))}</div>`;
+        const b = h('button', { class: 'clanitem', type: 'button', disabled: c.clan ? null : true, 'aria-label': `${k.n}, level ${l}` },
+          h('img', { src: icon(k.ic), alt: '', loading: 'lazy' }), h('span', { class: 'clanlv' }, l));
+        // Нажатие переключает уровень по кругу: 1 → 2 → 3 → 1.
+        b.addEventListener('click', () => { c.clanLv[k.id] = l >= k.l ? 1 : l + 1; update(false); showTip(els.clan.querySelector(`[data-clan="${k.id}"]`) || b, tipFor(c.clanLv[k.id])); });
+        b.dataset.clan = k.id;
+        b.addEventListener('mouseenter', () => showTip(b, tipFor(c.clanLv[k.id]))); b.addEventListener('mouseleave', hideTip);
+        b.addEventListener('focus', () => showTip(b, tipFor(c.clanLv[k.id]))); b.addEventListener('blur', hideTip);
         return b;
       })));
   }
