@@ -163,9 +163,10 @@
   }
 
   // ---------------------------------------------------------------- состояние
+  const raceLabel = c => RACES.find(r => r[0] === c.race)[1] + ' ' + (c.type === 'mystic' ? 'Mystic' : 'Fighter');
   function blankChar(cls, i) {
     const c = CLASSES[cls];
-    return { nick: '', cls, race: c.race, gender: CLASS_GENDER[cls] || 'male', level: 75, eq: {}, hen: [null, null, null], buffs: {} };
+    return { nick: '', cls, race: c.race, type: c.arch, gender: CLASS_GENDER[cls] || 'male', level: 75, eq: {}, hen: [null, null, null], buffs: {} };
   }
   function normalizeState() {
     if (!STATE || !Array.isArray(STATE.chars) || STATE.chars.length !== ROSTER.length) {
@@ -174,6 +175,9 @@
     STATE.chars.forEach((c, i) => {
       if (!CLASSES[c.cls]) Object.assign(c, blankChar(ROSTER[i]));
       c.level = Math.max(1, Math.min(75, +c.level || 75));
+      // Тип расы (воин/маг) выбирается отдельно от класса; у гномов только воин.
+      if (c.type !== 'fighter' && c.type !== 'mystic') c.type = CLASSES[c.cls].arch;
+      if (c.race === 'dwarf') c.type = 'fighter';
       c.eq = c.eq || {}; c.hen = c.hen || [null, null, null]; c.buffs = c.buffs || {};
       for (const s in c.eq) if (!c.eq[s] || !ITEMS.has(c.eq[s].id)) delete c.eq[s];
       for (const b in c.buffs) if (!BUFFS.has(b)) delete c.buffs[b];
@@ -273,7 +277,7 @@
 
   function compute(c) {
     const cls = CLASSES[c.cls];
-    const arch = cls.arch;
+    const arch = c.type || cls.arch;
     const lvl = c.level;
     const notes = [], warn = [];
     const base = BASE_ATTR[c.race][arch];
@@ -375,6 +379,7 @@
     if (hasShield) {
       const e = c.eq.shield, it = ITEMS.get(e.id);
       st.sdef = fin('sdef', itemStat(it, 'pdef', e.e || 0));
+      if (it.st && it.st.srate) st.srate = fin('srate', it.st.srate);
     }
 
     const misc = [];
@@ -503,7 +508,9 @@
 
     els.charSel = h('select', { id: 'char-select', onchange: e => { cur = +e.target.value; try { sessionStorage.setItem('miscusi.cur', String(cur)); } catch (_) {} renderAll(); } });
     els.nick = h('input', { id: 'char-nick', type: 'text', maxlength: '24', placeholder: 'In-game name', oninput: e => { ch().nick = e.target.value; renderCharOptions(); renderWho(); markDirty(); } });
-    els.race = h('select', { id: 'char-race', onchange: e => { ch().race = e.target.value; update(true); } }, RACES.map(([v, n]) => h('option', { value: v }, n)));
+    els.race = h('select', { id: 'char-race', onchange: e => { const [race, type] = e.target.value.split(':'); ch().race = race; ch().type = type; update(true); } },
+      RACES.map(([v, n]) => (v === 'dwarf' ? h('option', { value: v + ':fighter' }, n + ' Fighter')
+        : h('optgroup', { label: n }, h('option', { value: v + ':fighter' }, n + ' Fighter'), h('option', { value: v + ':mystic' }, n + ' Mystic')))));
     els.gender = h('select', { id: 'char-gender', onchange: e => { ch().gender = e.target.value; update(true); } }, GENDERS.map(([v, n]) => h('option', { value: v }, n)));
     els.lvlR = h('input', { id: 'char-level-range', type: 'range', min: '1', max: '75', oninput: e => setLevel(e.target.value) });
     els.lvlN = h('input', { id: 'char-level', type: 'number', min: '1', max: '75', onchange: e => setLevel(e.target.value) });
@@ -573,10 +580,10 @@
     const sets = activeSets(c);
     els.who.append(
       h('div', { class: 'portrait' },
-        h('img', { class: 'head', src: 'icons/heads/' + c.race + '_' + c.gender + '.png', alt: '' }),
+        h('img', { class: 'head', src: 'icons/heads/' + c.race + '_' + c.gender + '.jpg', alt: '' }),
         h('img', { class: 'badge', src: icon('cls_' + CLASS_ICON[c.cls]), alt: CLASSES[c.cls].n })),
       h('b', null, c.nick || CLASSES[c.cls].n),
-      h('small', null, `${CLASSES[c.cls].n} · ${RACES.find(r => r[0] === c.race)[1]} · ${c.gender === 'female' ? 'Female' : 'Male'} · Lv. ${c.level}`),
+      h('small', null, `${CLASSES[c.cls].n} · ${raceLabel(c)} · ${c.gender === 'female' ? 'Female' : 'Male'} · Lv. ${c.level}`),
       h('div', { class: 'wornbar', role: 'img', 'aria-label': `${worn} of 12 slots equipped` }, Object.keys(SLOTS).map(s => h('i', { class: c.eq[s] ? 'on' : '' }))),
       h('span', { class: 'note' }, worn ? `${worn} of 12 slots equipped` : 'Nothing equipped yet — click a slot to pick an item'),
       h('div', { class: 'setchips' }, sets.map(x => h('span', { class: 'chip' }, x.set.n + (x.minE >= 3 ? ' +' + Math.min(x.minE, 6) : '')))));
@@ -608,12 +615,20 @@
     const lines = [];
     const k = [];
     if (it.c === 'weapon') k.push(`P. Atk. ${itemStat(it, 'patk', e)} · M. Atk. ${itemStat(it, 'matk', e)}`);
-    if (it.st && it.st.pdef != null) k.push(`P. Def. ${itemStat(it, 'pdef', e)}`);
+    if (it.s === 'shield' && it.st && it.st.pdef != null) k.push(`Shield Def. ${itemStat(it, 'pdef', e)}` + (it.st.srate ? ` · block chance ${it.st.srate}%` : ''));
+    else if (it.st && it.st.pdef != null) k.push(`P. Def. ${itemStat(it, 'pdef', e)}`);
     if (it.st && it.st.mdef != null) k.push(`M. Def. ${itemStat(it, 'mdef', e)}`);
     if (it.en && it.en.hp && enchVal(it.en.hp, e)) k.push(`HP +${enchVal(it.en.hp, e)} from enchant`);
     if (it.sa) lines.push(`<div class="k">SA: ${esc(it.sa)}</div>`);
     if (it.fx) lines.push(`<div class="ln">${esc(it.fx)}</div>`);
-    if (it.set && SETS.get(it.set)) lines.push(`<div class="k">Set: ${esc(SETS.get(it.set).n)}</div>`);
+    const set = it.set && SETS.get(it.set);
+    if (set && (it.s === 'chest' || it.s === 'full')) {
+      // На верхе брони показываем, что даёт сет и какие части уже надеты.
+      const c = ch();
+      const worn = new Set(Object.values(c.eq).map(x => x.id));
+      const parts = set.parts.map(p => `<span class="${p.ids.some(id => worn.has(id)) ? 'p' : 'm'}">${esc(SLOTS[p.slot === 'chest' ? 'chest' : p.slot] ? SLOTS[p.slot === 'chest' ? 'chest' : p.slot].n : p.slot)}${p.shield ? ' (optional)' : ''}</span>`).join(' · ');
+      lines.push(`<div class="k">Set: ${esc(set.n)}</div><div class="ln">${esc(set.fx || '')}</div><div class="ln setparts">${parts}</div>`);
+    } else if (set) lines.push(`<div class="k">Set: ${esc(set.n)}</div>`);
     return `<b>${esc(it.n)}${e ? ' +' + e : ''} <span class="gtag ${it.g}">${it.g}</span></b><div class="ln">${esc(k.join('\n'))}</div>${lines.join('')}`;
   }
 
@@ -657,7 +672,7 @@
     box.append(h('div', { class: 'bars' },
       [['CP', S.cp, 'var(--cp)'], ['HP', S.hp, 'var(--hp)'], ['MP', S.mp, 'var(--mp)']].map(([n, v, col]) =>
         h('div', { class: 'bar' }, h('span', null, n), h('i', { style: `width:${Math.max(4, (v / maxBar) * 100)}%;background:${col}` }), h('b', null, fmt(v))))));
-    const pairs = [['patk', 'P. Atk.'], ['matk', 'M. Atk.'], ['pdef', 'P. Def.'], ['mdef', 'M. Def.'], ['acc', 'Accuracy'], ['eva', 'Evasion'], ['crit', 'Critical'], ['aspd', 'Atk. Spd.'], ['cspd', 'Casting Spd.'], ['speed', 'Speed'], ['sdef', 'Shield Def.']];
+    const pairs = [['patk', 'P. Atk.'], ['matk', 'M. Atk.'], ['pdef', 'P. Def.'], ['mdef', 'M. Def.'], ['acc', 'Accuracy'], ['eva', 'Evasion'], ['crit', 'Critical'], ['aspd', 'Atk. Spd.'], ['cspd', 'Casting Spd.'], ['speed', 'Speed'], ['sdef', 'Shield Def.'], ['srate', 'Shield rate %']];
     const g = h('div', { class: 'grid2' });
     for (const [k, n] of pairs) {
       if (S[k] == null) continue;
@@ -734,7 +749,7 @@
   function renderForm() {
     const c = ch();
     els.nick.value = c.nick || '';
-    els.race.value = c.race; els.gender.value = c.gender;
+    els.race.value = c.race + ':' + (c.race === 'dwarf' ? 'fighter' : c.type); els.gender.value = c.gender;
     els.lvlR.value = c.level; els.lvlN.value = c.level;
   }
   function renderModel() { renderWho(); }
@@ -830,6 +845,7 @@
   function mainText(it) {
     if (it.c === 'weapon') return `${it.st.patk || 0} / ${it.st.matk || 0}`;
     if (it.st.mdef != null && it.s !== 'shield' && ['neck', 'ear', 'ring'].includes(it.s)) return `M.Def ${it.st.mdef}`;
+    if (it.s === 'shield' && it.st.pdef != null) return `S.Def ${it.st.pdef}` + (it.st.srate ? ` · ${it.st.srate}%` : '');
     if (it.st.pdef != null) return `P.Def ${it.st.pdef}`;
     return '';
   }

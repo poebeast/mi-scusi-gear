@@ -86,6 +86,8 @@ for (const r of Object.values(rawItems)) {
   for (const [k, v] of Object.entries(r.st || {})) {
     if (IGNORE_STATS.has(k)) continue;
     if (k === 'Физ. Атк. / Маг. Атк.') { const [p, m] = String(v).split('/'); st.patk = num(p); st.matk = num(m); continue; }
+    // «256 (20%)»: защита щитом и шанс блока.
+    if (k === 'Защита Щитом') { st.pdef = num(v); const m = String(v).match(/\(\s*(\d+(?:[.,]\d+)?)\s*%/); if (m) st.srate = parseFloat(m[1].replace(',', '.')); continue; }
     if (STAT_KEYS[k]) { st[STAT_KEYS[k]] = num(v); continue; }
     unknown.stats.add(k);
   }
@@ -98,6 +100,8 @@ for (const r of Object.values(rawItems)) {
       en[key] = r.en.rows.map(row => num(row[col]) || 0);
     });
   }
+  // У щитов таблица заточки даёт прибавку (от 0) — накладываем её на защиту щитом.
+  if (sk.s === 'shield' && en && en.pdef && st.pdef != null) en.pdef = en.pdef.map(v => st.pdef + v - en.pdef[0]);
   if (sk.wt === 'bigblunt' && st.matk && st.patk && st.matk >= st.patk * 0.75) sk.wt = 'staff';
   items.push(Object.assign({ id, n: r.name, g: r.g, ic: (r.icon || '').replace(/\.png$/, ''), st, en, fx: cleanFx(r.fx) || undefined, sa, fnd: fnd || undefined, pvp: pvp || undefined, set: r.set ? idOf(r.set) : undefined, key: [r.name, fnd, pvp, sk.at || ''].join('|') }, sk));
 }
