@@ -32,6 +32,8 @@ const cfg = fs.existsSync(R('config.js')) ? read('config.js') : 'window.MISCUSI_
 fs.writeFileSync(path.join(out, 'config.js'), cfg);
 fs.writeFileSync(path.join(out, '.nojekyll'), '');
 
+// Метка версии: браузеры не держат в кеше старые данные после обновления.
+const V = Date.now().toString(36);
 fs.writeFileSync(path.join(out, 'index.html'), `<!doctype html>
 <html lang="en">
 <head>
@@ -42,13 +44,13 @@ fs.writeFileSync(path.join(out, 'index.html'), `<!doctype html>
 <link rel="icon" href="icons/cls_5.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Onest:wght@400;500;600;700&family=Unbounded:wght@600;700&display=swap">
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=${V}">
 </head>
 <body>
 <div id="root"></div>
-<script src="config.js"></script>
-<script src="data.js"></script>
-<script src="app.js"></script>
+<script src="config.js?v=${V}"></script>
+<script src="data.js?v=${V}"></script>
+<script src="app.js?v=${V}"></script>
 </body>
 </html>
 `);
