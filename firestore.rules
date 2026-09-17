@@ -17,5 +17,14 @@ service cloud.firestore {
         && request.resource.data.status is string
         && request.resource.data.status.size() < 300;
     }
+    // Service docs: scraped wiki data handed over in chunks.
+    match /parties/{partyId}/dump/{chunkId} {
+      allow read: if partyId == 'ms-00f529c6acff2d5c47';
+      allow write: if partyId == 'ms-00f529c6acff2d5c47'
+        && chunkId.matches('d[0-9]{1,3}')
+        && request.resource.data.keys().hasOnly(['data'])
+        && request.resource.data.data is string
+        && request.resource.data.data.size() < 900000;
+    }
   }
 }

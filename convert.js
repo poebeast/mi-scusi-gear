@@ -6,8 +6,9 @@ const raw = name => JSON.parse(fs.readFileSync(R('data/raw/' + name), 'utf8'));
 
 const rawItems = raw('items.json');
 const rawSets = raw('sets.json');
-const rawSkills = raw('skills.json');
-const classSkills = raw('classSkills.json');
+const rawOr = (name, d) => (fs.existsSync(R('data/raw/' + name)) ? raw(name) : d);
+const rawSkills = rawOr('skills.json', {});
+const classSkills = rawOr('classSkills.json', {});
 
 const idOf = href => (href.match(/\/(\d+)-/) || [])[1];
 const num = s => { const m = String(s || '').replace(/\s/g, '').match(/[-+]?\d+(?:[.,]\d+)?/); return m ? parseFloat(m[0].replace(',', '.')) : null; };
@@ -43,7 +44,7 @@ function slotAndKind(type, name) {
     const all = parts.slice(1).join(' ');
     res.at = /тяж/.test(all) ? 'heavy' : /легк|лёгк/.test(all) ? 'light' : /роб|мант|магич/.test(all) ? 'robe' : undefined;
     const p = parts[parts.length - 1];
-    res.s = /полн/.test(p) ? 'full' : /верх|нагруд|торс/.test(p) ? 'chest' : /низ|ног|штан|поножи/.test(p) ? 'legs'
+    res.s = /полн/.test(p) ? 'full' : /верх|нагруд|торс/.test(p) ? 'chest' : /низ|ниж|ног|штан|поножи/.test(p) ? 'legs'
       : /голов|шлем/.test(p) ? 'head' : /перчат|рук/.test(p) ? 'gloves' : /сапог|обув|ступ/.test(p) ? 'feet' : /щит/.test(p) ? 'shield' : /сигил/.test(p) ? 'sigil' : null;
     if (!res.s) unknown.types.add(type);
   } else unknown.types.add(type);
@@ -51,9 +52,10 @@ function slotAndKind(type, name) {
 }
 
 const STAT_KEYS = {
-  'Физ. Защ.': 'pdef', 'Маг. Защ.': 'mdef', 'Шанс Физ. Крит. Атк.': 'crit', 'Точность': 'acc', 'Уклонение': 'eva', 'Скор. Атк.': 'aspd', 'Скорость Атк.': 'aspd',
+  'Защита Щитом': 'pdef',
+  'Физ. Защ.': 'pdef', 'Маг. Защ.': 'mdef', 'Шанс Физ. Крит. Атк.': 'crit', 'Точность': 'acc', 'Уклонение': 'eva', 'Скор. Атк.': 'aspd', 'Скорость Атк.': 'aspd', 'Бонус MP': 'mpb',
 };
-const HEAD_KEYS = { 'Физ. Защ.': 'pdef', 'Маг. Защ.': 'mdef', 'Физ. Атк.': 'patk', 'Маг. Атк.': 'matk', 'HP Bonus': 'hp' };
+const HEAD_KEYS = { 'Защита Щитом': 'pdef', 'Физ. Защ.': 'pdef', 'Маг. Защ.': 'mdef', 'Физ. Атк.': 'patk', 'Маг. Атк.': 'matk', 'HP Bonus': 'hp' };
 const IGNORE_STATS = new Set(['In English', 'Стоимость продажи NPC', 'Вес', 'Часть комплекта', 'Умения предмета', 'Расход Зарядов Души / Духа', 'Исходный предмет', 'Оригинальный предмет', 'Предметные умения', 'Рецепты', 'Кристаллы Души']);
 
 function cleanFx(fx) {
@@ -68,11 +70,16 @@ for (const r of Object.values(rawItems)) {
   if (!r || !r.name || !/^[AB]$/.test(r.g || '')) continue;
   // PvP-версии не нужны.
   if (/\{pvp\}|\bpvp\b/i.test(r.name + ' ' + (r.add || []).join(' '))) continue;
+  // Предметы-оружие монстров (иконка weapon_monster) — не экипировка игрока.
+  if (/monster/i.test(r.icon || '')) continue;
   const id = idOf(r.href);
   const sk = slotAndKind(r.type, r.name);
   if (!sk.s) continue;
-  const add = (r.add || []).map(s => s.trim()).filter(Boolean);
-  const fnd = add.some(a => /foundation/i.test(a)) || /foundation/i.test(r.name);
+  // «Heavy Armor / Light Armor / Robe» у перчаток, ботинок и шлемов — это тип брони, а не SA.
+  const ARM = { 'heavy armor': 'heavy', 'light armor': 'light', robe: 'robe' };
+  const add = (r.add || []).map(s => s.trim()).filter(Boolean).filter(a => { const k = ARM[a.toLowerCase()]; if (k) { sk.at = k; return false; } return true; });
+  // Редкая версия (Lu4 Gamma): у неё есть блок <Rare Item Effect>.
+  const fnd = /<Rare Item Effect>/i.test(r.fx || '') || add.some(a => /foundation/i.test(a));
   const pvp = /\{pvp\}/i.test(r.name);
   const sa = add.filter(a => !/foundation/i.test(a)).join(' ') || undefined;
   const st = {};
@@ -83,7 +90,7 @@ for (const r of Object.values(rawItems)) {
     unknown.stats.add(k);
   }
   let en;
-  if (r.en && r.en.rows && r.en.rows.length) {
+  if (r.en && r.en.rows && r.en.rows.length && r.en.heads[0] === 'Модификация') {
     en = {};
     r.en.heads.forEach((head, col) => {
       const key = HEAD_KEYS[head];
@@ -92,7 +99,28 @@ for (const r of Object.values(rawItems)) {
     });
   }
   if (sk.wt === 'bigblunt' && st.matk && st.patk && st.matk >= st.patk * 0.75) sk.wt = 'staff';
-  items.push(Object.assign({ id, n: r.name, g: r.g, ic: (r.icon || '').replace(/\.png$/, ''), st, en, fx: cleanFx(r.fx) || undefined, sa, fnd: fnd || undefined, pvp: pvp || undefined, set: r.set ? idOf(r.set) : undefined, key: [r.name, fnd, pvp].join('|') }, sk));
+  items.push(Object.assign({ id, n: r.name, g: r.g, ic: (r.icon || '').replace(/\.png$/, ''), st, en, fx: cleanFx(r.fx) || undefined, sa, fnd: fnd || undefined, pvp: pvp || undefined, set: r.set ? idOf(r.set) : undefined, key: [r.name, fnd, pvp, sk.at || ''].join('|') }, sk));
+}
+// Если на странице первой шла таблица дропа, берём таблицу заточки у одноимённого предмета.
+const enByName = {};
+for (const it of items) if (it.en && !enByName[it.n + '|' + it.s]) enByName[it.n + '|' + it.s] = it.en;
+for (const it of items) if (!it.en && enByName[it.n + '|' + it.s]) it.en = enByName[it.n + '|' + it.s];
+// Если таблицы нет совсем — берём прибавки за заточку у вещи того же грейда и слота и накладываем на базовые статы.
+const deltaDonor = {};
+for (const it of items) if (it.en) { const k = [it.g, it.s, it.wt || '', it.at || ''].join('|'); if (!deltaDonor[k]) deltaDonor[k] = it; }
+for (const it of items) {
+  if (it.en) continue;
+  const d = deltaDonor[[it.g, it.s, it.wt || '', it.at || ''].join('|')] || items.find(o => o.en && o.g === it.g && o.s === it.s) || items.find(o => o.en && o.en.pdef && o.g === it.g && o.c === 'armor' && ['head', 'gloves', 'feet'].includes(o.s));
+  // Для брони без своей таблицы прибавка приблизительная: как у шлема/перчаток того же грейда, у цельной — вдвое.
+  if (!d) { console.warn('без заточки:', it.n); continue; }
+  it.en = {};
+  for (const [k, arr] of Object.entries(d.en)) {
+    if (k === 'hp') continue;
+    const base = it.st[k]; if (base == null) continue;
+    const scale = it.s === 'full' && d.s !== 'full' ? 2 : 1;
+    if (k !== 'pdef' && k !== 'mdef' && d.c !== it.c) continue;
+    it.en[k] = arr.map(v => base + (v - arr[0]) * scale);
+  }
 }
 // Варианты SA одного оружия: base — вариант без SA (или первый).
 const groups = {};
@@ -117,7 +145,9 @@ for (const r of Object.values(rawSets)) {
   const hasFull = chestItem && chestItem.s === 'full';
   // Для цельной брони слот штанов не требуется.
   const finalParts = hasFull ? parts.filter(p => p.slot !== 'legs') : parts;
-  sets.push({ id: idOf(r.href), n: r.name, g: r.g, at: chestItem && chestItem.at, fx: r.fx, parts: finalParts });
+  // Редкий сет — тот, где верх брони в редкой версии.
+  const rare = chestItem && chestItem.fnd;
+  sets.push({ id: idOf(r.href), n: r.name + (rare ? ' (Rare)' : ''), g: r.g, at: chestItem && chestItem.at, fx: r.fx, parts: finalParts });
 }
 
 const CLASS_OF = classSkills;

@@ -243,7 +243,14 @@
       const shield = set.parts.some(p => p.shield && p.ids.some(id => equippedIds.has(id)));
       res.push({ set, minE, shield });
     }
-    return res;
+    // Обычный и редкий вариант одного сета дают одинаковый бонус — засчитываем один раз, предпочитая редкий.
+    const byName = new Map();
+    for (const r of res) {
+      const k = r.set.n.replace(' (Rare)', '');
+      const prev = byName.get(k);
+      if (!prev || (/(Rare)/.test(r.set.n) && !/(Rare)/.test(prev.set.n))) byName.set(k, r);
+    }
+    return [...byName.values()];
   }
 
   function availableBuffs(c) {
@@ -320,15 +327,16 @@
     const lm = lvlMod(lvl);
     const st = {};
     // HP / MP / CP: кривые по классу; бонус от заточки брони — плоско.
-    let hpItems = 0;
+    let hpItems = 0, mpItems = 0;
     for (const s of ['head', 'chest', 'legs', 'gloves', 'feet', 'shield']) {
       const e = c.eq[s]; const it = e && ITEMS.get(e.id);
       if (it && it.en && it.en.hp) hpItems += enchVal(it.en.hp, e.e || 0) || 0;
+      if (it && it.st && it.st.mpb) mpItems += it.st.mpb;
     }
     const hpBase = curve(arch === 'fighter' ? 80 : 101, 10, cls.hp, lvl);
     const mpBase = curve(arch === 'fighter' ? 30 : 40, 4, cls.mp, lvl);
     st.hp = fin('hp', hpBase * bonus.CON(attrs.CON)) + hpItems;
-    st.mp = fin('mp', mpBase * bonus.MEN(attrs.MEN));
+    st.mp = fin('mp', mpBase * bonus.MEN(attrs.MEN)) + mpItems;
     st.cp = fin('cp', hpBase * cls.cpr * bonus.CON(attrs.CON));
 
     const wE = c.eq.weapon ? c.eq.weapon.e || 0 : 0;
@@ -759,7 +767,7 @@
         const variants = VARIANTS.get(curIt.base || curIt.id) || [curIt];
         const curRow = h('div', { class: 'cur' },
           h('img', { src: icon(curIt.ic), alt: '' }),
-          h('div', { class: 'nm' }, curIt.n, h('span', { class: 'gtag ' + curIt.g }, curIt.g), curIt.fnd ? h('span', { class: 'ftag' }, 'Foundation') : null),
+          h('div', { class: 'nm' }, curIt.n, h('span', { class: 'gtag ' + curIt.g }, curIt.g), curIt.fnd ? h('span', { class: 'ftag' }, 'Rare') : null),
           h('span', { class: 'lbl' }, 'Enchant'),
           h('span', { class: 'step' },
             h('button', { 'aria-label': 'Decrease enchant', onclick: () => { e.e = Math.max(0, (e.e || 0) - 1); changed(); } }, '−'),
@@ -797,7 +805,7 @@
           const selected = curIt && (curIt.base || curIt.id) === (it.base || it.id);
           const row = h('button', { class: 'row' + (selected ? ' sel' : ''), role: 'option', 'aria-selected': selected ? 'true' : 'false' },
             h('img', { src: icon(it.ic), alt: '', loading: 'lazy' }),
-            h('span', { class: 't' }, h('b', null, it.n, h('span', { class: 'gtag ' + it.g }, it.g), it.fnd ? h('span', { class: 'ftag' }, 'Foundation') : null, it.pvp ? h('span', { class: 'ftag' }, 'PvP') : null),
+            h('span', { class: 't' }, h('b', null, it.n, h('span', { class: 'gtag ' + it.g }, it.g), it.fnd ? h('span', { class: 'ftag' }, 'Rare') : null, it.pvp ? h('span', { class: 'ftag' }, 'PvP') : null),
               h('small', null, [TYPE_RU[it.at || it.wtn] || '', it.set && SETS.get(it.set) ? 'set ' + SETS.get(it.set).n : '', (VARIANTS.get(it.base || it.id) || []).length > 1 ? 'has SA' : ''].filter(Boolean).join(' · '))),
             h('span', { class: 'v' }, mainText(it)));
           row.addEventListener('click', () => {
