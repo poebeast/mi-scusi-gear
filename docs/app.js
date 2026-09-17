@@ -179,6 +179,9 @@
       if (c.type !== 'fighter' && c.type !== 'mystic') c.type = CLASSES[c.cls].arch;
       if (c.race === 'dwarf') c.type = 'fighter';
       c.eq = c.eq || {}; c.hen = c.hen || [null, null, null]; c.buffs = c.buffs || {};
+      // Старые наборы тату: урезаем плюсы сверх +5 на атрибут.
+      const used = {};
+      c.hen = c.hen.map(x => { if (!x) return null; const left = 5 - (used[x.up] || 0); if (left <= 0) return null; x.n = Math.min(x.n, left); used[x.up] = (used[x.up] || 0) + x.n; return x; });
       for (const s in c.eq) if (!c.eq[s] || !ITEMS.has(c.eq[s].id)) delete c.eq[s];
       for (const b in c.buffs) if (!BUFFS.has(b)) delete c.buffs[b];
     });
@@ -858,12 +861,18 @@
     const hn = c.hen[i] || { up: 'STR', down: 'CON', n: 4, kind: 'greater' };
     const pairs = { STR: ['CON', 'DEX'], CON: ['STR', 'DEX'], DEX: ['STR', 'CON'], INT: ['MEN', 'WIT'], MEN: ['INT', 'WIT'], WIT: ['INT', 'MEN'] };
     const draft = Object.assign({}, hn);
+    // Сколько атрибут ещё можно поднять: сумма плюсов всех тату к одному атрибуту — не больше +5.
+    const room = a => 5 - c.hen.reduce((s, x, j) => s + (x && j !== i && x.up === a ? x.n : 0), 0);
+    const maxN = a => Math.max(0, Math.min(4, room(a)));
+    if (!c.hen[i] && !maxN(draft.up)) { const free = ATTRS.find(x => maxN(x)); if (free) { draft.up = free; draft.down = pairs[free][0]; } }
     function draw() {
       dlg.innerHTML = '';
+      draft.n = Math.max(1, Math.min(draft.n, maxN(draft.up) || 1));
+      const can = maxN(draft.up) > 0;
       const minus = draft.kind === 'greater' ? draft.n : draft.n + 1;
-      const up = h('select', { id: 'tat-up', onchange: e => { draft.up = e.target.value; if (!pairs[draft.up].includes(draft.down)) draft.down = pairs[draft.up][0]; draw(); } }, ATTRS.map(a => h('option', { value: a, selected: a === draft.up ? true : null }, a)));
+      const up = h('select', { id: 'tat-up', onchange: e => { draft.up = e.target.value; if (!pairs[draft.up].includes(draft.down)) draft.down = pairs[draft.up][0]; draw(); } }, ATTRS.map(a => h('option', { value: a, selected: a === draft.up ? true : null, disabled: maxN(a) ? null : true }, a + (maxN(a) ? '' : ' (max)'))));
       const down = h('select', { id: 'tat-down', onchange: e => { draft.down = e.target.value; draw(); } }, pairs[draft.up].map(a => h('option', { value: a, selected: a === draft.down ? true : null }, a)));
-      const n = h('select', { id: 'tat-n', onchange: e => { draft.n = +e.target.value; draw(); } }, [1, 2, 3, 4].map(v => h('option', { value: v, selected: v === draft.n ? true : null }, '+' + v)));
+      const n = h('select', { id: 'tat-n', onchange: e => { draft.n = +e.target.value; draw(); } }, [1, 2, 3, 4].filter(v => v <= Math.max(1, maxN(draft.up))).map(v => h('option', { value: v, selected: v === draft.n ? true : null }, '+' + v)));
       const kind = h('select', { id: 'tat-kind', onchange: e => { draft.kind = e.target.value; draw(); } },
         h('option', { value: 'greater', selected: draft.kind === 'greater' ? true : null }, 'Greater Dye (1:1)'),
         h('option', { value: 'normal', selected: draft.kind === 'normal' ? true : null }, 'Regular dye (+n −n−1)'));
@@ -874,10 +883,10 @@
           h('div', { class: 'field' }, h('label', { for: 'tat-n' }, 'By'), n),
           h('div', { class: 'field' }, h('label', { for: 'tat-down' }, 'Lowers'), down),
           h('div', { class: 'field' }, h('label', { for: 'tat-kind' }, 'Dye'), kind)),
-        h('p', { class: 'note', style: 'padding:0 14px' }, `Result: ${draft.up} +${draft.n}, ${draft.down} −${minus}. Tattoos can raise an attribute by +5 at most.`),
+        h('p', { class: 'note', style: 'padding:0 14px' }, `Result: ${draft.up} +${draft.n}, ${draft.down} −${minus}. Tattoos can raise an attribute by +5 at most${room(draft.up) < 5 ? ` — ${draft.up} can still go up by ${maxN(draft.up)}` : ''}.`),
         h('div', { class: 'dlgfoot' },
           c.hen[i] ? h('button', { class: 'btn', onclick: () => { c.hen[i] = null; dlg.close(); update(false); } }, 'Remove') : null,
-          h('button', { class: 'btn primary', onclick: () => { c.hen[i] = Object.assign({}, draft); dlg.close(); update(false); } }, 'Apply'))));
+          h('button', { class: 'btn primary', disabled: can ? null : true, onclick: () => { if (!can) return; c.hen[i] = Object.assign({}, draft); dlg.close(); update(false); } }, 'Apply'))));
     }
     draw();
     dlg.showModal();
