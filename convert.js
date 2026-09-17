@@ -67,7 +67,9 @@ function cleanFx(fx) {
 
 const items = [];
 for (const r of Object.values(rawItems)) {
-  if (!r || !r.name || !/^[AB]$/.test(r.g || '')) continue;
+  // Кроме B/A берём кольца Queen Ant (C-грейд) — группа их носит.
+  const EXTRA = new Set(['6660', '36454']);
+  if (!r || !r.name || !(/^[AB]$/.test(r.g || '') || EXTRA.has(idOf(r.href)))) continue;
   // PvP-версии не нужны.
   if (/\{pvp\}|\bpvp\b/i.test(r.name + ' ' + (r.add || []).join(' '))) continue;
   // Предметы-оружие монстров (иконка weapon_monster) — не экипировка игрока.
@@ -114,7 +116,7 @@ const deltaDonor = {};
 for (const it of items) if (it.en) { const k = [it.g, it.s, it.wt || '', it.at || ''].join('|'); if (!deltaDonor[k]) deltaDonor[k] = it; }
 for (const it of items) {
   if (it.en) continue;
-  const d = deltaDonor[[it.g, it.s, it.wt || '', it.at || ''].join('|')] || items.find(o => o.en && o.g === it.g && o.s === it.s) || items.find(o => o.en && o.en.pdef && o.g === it.g && o.c === 'armor' && ['head', 'gloves', 'feet'].includes(o.s));
+  const d = deltaDonor[[it.g, it.s, it.wt || '', it.at || ''].join('|')] || items.find(o => o.en && o.g === it.g && o.s === it.s) || items.find(o => o.en && o.en.pdef && o.g === it.g && o.c === 'armor' && ['head', 'gloves', 'feet'].includes(o.s)) || items.find(o => o.en && o.s === it.s && o.g === 'B');
   // Для брони без своей таблицы прибавка приблизительная: как у шлема/перчаток того же грейда, у цельной — вдвое.
   if (!d) { console.warn('без заточки:', it.n); continue; }
   it.en = {};
