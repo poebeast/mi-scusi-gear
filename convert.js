@@ -70,6 +70,8 @@ for (const r of Object.values(rawItems)) {
   // Кроме B/A берём кольца Queen Ant (C-грейд) — группа их носит.
   const EXTRA = new Set(['6660', '36454']);
   if (!r || !r.name || !(/^[AB]$/.test(r.g || '') || EXTRA.has(idOf(r.href)))) continue;
+  // Версии «The 1st …» эпической бижутерии не нужны.
+  if (/^The 1st /i.test(r.name)) continue;
   // PvP-версии не нужны.
   if (/\{pvp\}|\bpvp\b/i.test(r.name + ' ' + (r.add || []).join(' '))) continue;
   // Предметы-оружие монстров (иконка weapon_monster) — не экипировка игрока.
