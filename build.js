@@ -10,6 +10,7 @@ const sets = readJson('data/sets.json', []);
 const buffs = readJson('data/buffs.json', []);
 const passives = readJson('data/passives.json', {});
 const clan = readJson('data/clan.json', []);
+const hptab = readJson('data/hptab.json', {});
 const state = readJson('data/state.json', {});
 
 const out = R('docs');
@@ -28,7 +29,7 @@ fs.cpSync(R('icons/art'), path.join(out, 'icons', 'art'), { recursive: true });
 for (const n of [5, 16, 30, 21, 51, 9, 24, 37]) fs.copyFileSync(R('icons/class_icon_' + n + '.png'), path.join(out, 'icons', 'class_icon_' + n + '.png'));
 if (missing.length) console.warn('нет иконок:', missing.length, missing.slice(0, 10).join(', '));
 
-fs.writeFileSync(path.join(out, 'data.js'), 'window.MISCUSI_DATA=' + JSON.stringify({ items, sets, buffs, passives, clan, state }) + ';\n');
+fs.writeFileSync(path.join(out, 'data.js'), 'window.MISCUSI_DATA=' + JSON.stringify({ items, sets, buffs, passives, clan, hptab, state }) + ';\n');
 fs.copyFileSync(R('src/app.js'), path.join(out, 'app.js'));
 fs.copyFileSync(R('src/style.css'), path.join(out, 'style.css'));
 const cfg = fs.existsSync(R('config.js')) ? read('config.js') : 'window.MISCUSI_CONFIG = {};\n';

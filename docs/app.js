@@ -65,8 +65,10 @@
   };
   const EMPTY_PDEF = { fighter: { head: 12, chest: 31, legs: 18, gloves: 8, feet: 7 }, mystic: { head: 12, chest: 15, legs: 8, gloves: 8, feet: 7 } };
   const EMPTY_MDEF = { neck: 13, ear1: 9, ear2: 9, ring1: 5, ring2: 5 };
-  const ATK_SPD = { sword: 379, blunt: 379, dagger: 433, bow: 293, pole: 325, fist: 325, dualfist: 325, bigsword: 325, bigblunt: 325, staff: 325, bigstaff: 325, dual: 325, dualdagger: 433, dualblunt: 325, rapier: 406, ancientsword: 350 };
-  const BASE_CRIT = { sword: 8, bigsword: 8, blunt: 4, bigblunt: 4, staff: 4, bigstaff: 4, dagger: 12, dualdagger: 12, bow: 12, pole: 8, fist: 4, dualfist: 4, dual: 8, dualblunt: 5, rapier: 10, ancientsword: 8 };
+  const ATK_SPD = { sword: 379, blunt: 379, dagger: 433, bow: 293, pole: 325, fist: 325, dualfist: 325, bigsword: 325, bigblunt: 325, staff: 379, bigstaff: 325, dual: 325, dualdagger: 400, dualblunt: 305, rapier: 406, ancientsword: 350 };
+  const BASE_CRIT = { sword: 8, bigsword: 8, blunt: 4, bigblunt: 4, staff: 4, bigstaff: 4, dagger: 12, dualdagger: 12, bow: 12, pole: 8, fist: 4, dualfist: 4, dual: 8, dualblunt: 6, rapier: 10, ancientsword: 8 };
+  const HIT_MOD = { sword: 0, bigsword: 0, dual: 0, blunt: 4.75, bigblunt: 4.75, dualblunt: 4.75, staff: 4.75, bigstaff: 4.75, fist: 4.75, dualfist: 4.75, dagger: -3.75, dualdagger: -3.75, bow: -3.75, pole: -3.75 };
+  const RANDOM_DMG = { sword: 10, bigsword: 10, dual: 10, blunt: 20, bigblunt: 20, dualblunt: 20, staff: 20, bigstaff: 20, fist: 5, dualfist: 5, dagger: 5, dualdagger: 10, bow: 5, pole: 10 };
   const TWO_HANDED = new Set(['bow', 'pole', 'bigsword', 'bigblunt', 'staff', 'bigstaff', 'dual', 'dualdagger', 'dualblunt', 'dualfist', 'fist', 'ancientsword']);
   const GRADE_LVL = { B: 52, A: 64 };
 
@@ -149,6 +151,7 @@
     dagger: ['dagger'], 'dual dagger': ['dualdagger'], 'dual sword': ['dual'], 'dual blunt': ['dualblunt'],
     bow: ['bow'], polearm: ['pole'], pole: ['pole'], fist: ['fist', 'dualfist'], fists: ['fist', 'dualfist'],
     'dual fist': ['dualfist'], staff: ['staff', 'bigstaff'], rapier: ['rapier'], 'ancient sword': ['ancientsword'],
+    'short-range weapon': ['sword', 'bigsword', 'blunt', 'bigblunt', 'dagger', 'dualdagger', 'dual', 'dualblunt', 'pole', 'fist', 'dualfist', 'staff', 'bigstaff', 'rapier', 'ancientsword'],
   };
   // «Light Armor and Dagger/Dual Dagger» → ['armor:light', 'w:dagger|dualdagger'].
   function parseCond(s) {
@@ -179,14 +182,16 @@
       if (!line || /^Affects all clan members/i.test(line)) continue;
       let lineCond = cond;
       // «With Heavy Armor:», «With Light Armor and Dagger/Dual Dagger:» — условия по броне и оружию.
-      const wm = line.match(/^With ([^:]{1,60})\s*:\s*/i);
+      const wm = line.match(/^(?:Only\s+)?(With|Without) ([^:]{1,60})\s*:\s*/i);
       if (wm) {
-        const cs = parseCond(wm[1]);
-        if (cs) { cond = cs.join('+'); lineCond = cond; line = line.slice(wm[0].length); if (!line) continue; }
+        let cs = /^any weapon$/i.test(wm[2].trim()) ? [] : parseCond(wm[2]);
+        // «Without Robe Armor:» — штраф, если надета броня другого типа.
+        if (cs && /^without/i.test(wm[1])) cs = cs.map(x => 'not:' + x);
+        if (cs) { cond = cs.length ? cs.join('+') : null; lineCond = cond; line = line.slice(wm[0].length); if (!line) continue; }
       }
       line = line.replace(/^(?:For|Applies to) [^:]*members\s*:\s*/i, '');
       if (!line) continue;
-      if (/^When attacked|^When HP is below/i.test(line)) { cond = 'skip'; notes.push(line); continue; }
+      if (/^When attacked|^When HP is below|^When taking|^When using|^During /i.test(line)) { cond = 'skip'; notes.push(line); continue; }
       const cm = line.match(/^(If a shield is equipped|Shield Equip Bonus|When HP\s*<\s*\d+%|For party members|Totally)\s*:\s*/i);
       if (cm) {
         const c = cm[1].toLowerCase();
@@ -196,14 +201,17 @@
         line = line.slice(cm[0].length);
         if (!line) continue;
       }
-      if (/when HP\s*<|when HP is below|when equipped with/i.test(line) || /during a critical|from behind|chance to|when attacking|when using a (?:harmful|beneficial)/i.test(line)) { notes.push(line); continue; }
-      let any = false, neg = false;
-      for (let chunk of line.split(/,\s*|\s+and\s+(?=[a-z]*\s*(?:[A-Z]|increases|decreases))/i)) {
+      if (/when HP\s*<|when HP is below|(?:when|while) (?:running|sitting)/i.test(line) || /during a critical|from behind|chance to|when attacking|when using a (?:harmful|beneficial)/i.test(line)) { notes.push(line); continue; }
+      let any = false, neg = false, last = null;
+      for (let chunk of line.split(/,\s*|(?<=[\d%])\.\s+|\s+and\s+(?=[a-z]*\s*(?:[A-Z]|increases|decreases))/i)) {
         chunk = chunk.replace(/\.$/, '').replace(/^and\s+/i, '').trim();
         const dir = chunk.match(/^(?:additionally\s+)?(increases|decreases)\s+/i);
         if (dir) { neg = /^decreases/i.test(dir[1]); chunk = chunk.slice(dir[0].length); }
         chunk = chunk.replace(/^(?:additionally\s+|the user's\s+|nearby (?:party|clan) members'\s+)+/i, '').trim();
         if (!chunk) continue;
+        let eqCond = null;
+        const we = chunk.match(/^(.*?)\s+when equipped with\s+(?:a\s+)?(.+?)\.?$/i);
+        if (we) { eqCond = parseCond(we[2]); if (!eqCond) { notes.push(line); continue; } chunk = we[1]; }
         let m = chunk.match(/^(.*?)\s*([+\-−–]\s?\d[\d ]*(?:[.,]\d+)?)\s*(%)?$/);
         if (!m) { const b = chunk.match(/^(.*?)\s+by\s+(\d[\d ]*(?:[.,]\d+)?)\s*(%)?(?:\s+(?:one-handed|two-handed|when|with|for)\b.*)?$/i); if (b) m = [b[0], b[1], (neg ? '-' : '+') + b[2], b[3]]; }
         if (!m) continue;
@@ -217,14 +225,20 @@
           name = name.slice(0, nc.index).trim();
         }
         const val = parseFloat(m[2].replace(/[−–]/, '-').replace(/\s/g, '').replace(',', '.'));
+        if (!name && last) {
+          if (lineCond !== 'skip') mods.push(Object.assign({}, last, { v: val, pct: !!m[3] }));
+          any = true;
+          continue;
+        }
         for (const [re, key, sub] of ALIASES) {
           const mm = name.match(re);
           if (!mm) continue;
           if (lineCond !== 'skip') {
             const mod = { k: key === 'attr' ? mm[1].toUpperCase() : key, v: val, pct: !!m[3] };
-            const cs = [lineCond, sub, nameCond].filter(Boolean);
+            const cs = [lineCond, sub, nameCond, eqCond && eqCond.join('+')].filter(Boolean);
             if (cs.length) mod.cond = cs.join('+');
             mods.push(mod);
+            last = mod;
           }
           any = true;
           break;
@@ -274,14 +288,19 @@
   const ch = () => STATE.chars[cur];
 
   // ---------------------------------------------------------------- формулы
+  const r2 = x => Math.round(x * 100) / 100;
   const bonus = {
-    STR: v => Math.pow(1.036, v - 34.845),
-    INT: v => Math.pow(1.02, v - 31.375),
-    DEX: v => Math.pow(1.009, v - 19.36),
-    WIT: v => Math.pow(1.05, v - 20),
-    CON: v => Math.pow(1.03, v - 27.632),
-    MEN: v => Math.pow(1.01, v + 0.06),
+    STR: v => r2(Math.pow(1.036, v - 34.845)),
+    INT: v => r2(Math.pow(1.02, v - 31.375)),
+    DEX: v => r2(Math.pow(1.009, v - 19.36)),
+    WIT: v => r2(Math.pow(1.05, v - 20)),
+    CON: v => r2(Math.pow(1.03, v - 27.632)),
+    MEN: v => r2(Math.pow(1.01, v + 0.06)),
   };
+  // Базовые значения шаблона персонажа: складываются с экипировкой, а не заменяются ею.
+  const TEMPLATE = { fighter: { patk: 4, matk: 6, pdef: 80, mdef: 41 }, mystic: { patk: 3, matk: 6, pdef: 54, mdef: 41 } };
+  // HP/MP/CP по уровням до модификаторов CON/MEN (сверено с расчётом Lu4 Planner).
+  const HPTAB = DATA.hptab || {};
   const lvlMod = l => (l + 89) / 100;
   const curve = (b0, a, target, lvl) => {
     const k = (target - b0 - a * 74) / (74 * 74);
@@ -370,6 +389,7 @@
     return String(cond).split('+').every(x => {
       if (x === 'shield') return s.hasShield;
       if (x === 'bow') return s.wtype === 'bow';
+      if (x.startsWith('not:armor:')) return !!s.at && !x.slice(10).split('|').includes(s.at);
       if (x.startsWith('armor:')) return !!s.at && x.slice(6).split('|').includes(s.at);
       if (x.startsWith('w:')) return !!s.wtype && x.slice(2).split('|').includes(s.wtype);
       return false;
@@ -432,7 +452,7 @@
     const add = {}, mul = {};
     for (const m of live) {
       if (ATTRS.includes(m.k)) continue;
-      if (m.pct) mul[m.k] = (mul[m.k] || 1) * (1 + m.v / 100);
+      if (m.pct) mul[m.k] = (mul[m.k] || 1) + m.v / 100;
       else add[m.k] = (add[m.k] || 0) + m.v;
     }
     const fin = (k, v) => v * (mul[k] || 1) + (add[k] || 0);
@@ -441,40 +461,42 @@
     const st = {};
     // HP / MP / CP: кривые по классу; бонус от заточки брони — плоско.
     let hpItems = 0, mpItems = 0;
-    for (const s of ['head', 'chest', 'legs', 'gloves', 'feet', 'shield']) {
+    for (const s of ['head', 'chest', 'legs', 'gloves', 'feet', 'shield', 'neck', 'ear1', 'ear2', 'ring1', 'ring2']) {
       const e = c.eq[s]; const it = e && ITEMS.get(e.id);
       if (it && it.en && it.en.hp) hpItems += enchVal(it.en.hp, e.e || 0) || 0;
       if (it && it.st && it.st.mpb) mpItems += it.st.mpb;
     }
-    const hpBase = curve(arch === 'fighter' ? 80 : 101, 10, cls.hp, lvl);
-    const mpBase = curve(arch === 'fighter' ? 30 : 40, 4, cls.mp, lvl);
-    st.hp = fin('hp', hpBase * bonus.CON(attrs.CON)) + hpItems;
-    st.mp = fin('mp', mpBase * bonus.MEN(attrs.MEN)) + mpItems;
-    st.cp = fin('cp', hpBase * cls.cpr * bonus.CON(attrs.CON));
+    const tab = HPTAB[c.cls];
+    const hpBase = tab ? tab.hp[lvl - 1] : curve(arch === 'fighter' ? 80 : 101, 10, cls.hp, lvl);
+    const mpBase = tab ? tab.mp[lvl - 1] : curve(arch === 'fighter' ? 30 : 40, 4, cls.mp, lvl);
+    const cpBase = tab ? tab.cp[lvl - 1] : hpBase * cls.cpr;
+    // Бонусы HP/MP самих вещей входят в базу и усиливаются процентными эффектами.
+    st.hp = fin('hp', hpBase * bonus.CON(attrs.CON) + hpItems);
+    st.mp = fin('mp', mpBase * bonus.MEN(attrs.MEN) + mpItems);
+    st.cp = fin('cp', cpBase * bonus.CON(attrs.CON));
 
     const wE = c.eq.weapon ? c.eq.weapon.e || 0 : 0;
-    const basePatk = w ? itemStat(w, 'patk', wE) : arch === 'fighter' ? 4 : 3;
-    const baseMatk = w ? itemStat(w, 'matk', wE) : arch === 'fighter' ? 6 : 7;
+    const T = TEMPLATE[arch];
+    const basePatk = T.patk + (w ? itemStat(w, 'patk', wE) : 0);
+    const baseMatk = T.matk + (w ? itemStat(w, 'matk', wE) : 0);
     st.patk = fin('patk', basePatk * bonus.STR(attrs.STR) * lm);
     st.matk = fin('matk', baseMatk * Math.pow(bonus.INT(attrs.INT), 2) * lm * lm);
 
-    let pdef = 0;
-    const full = c.eq.chest && ITEMS.get(c.eq.chest.id) && ITEMS.get(c.eq.chest.id).s === 'full';
+    let pdef = T.pdef;
     for (const s of ['head', 'chest', 'legs', 'gloves', 'feet']) {
       const e = c.eq[s]; const it = e && ITEMS.get(e.id);
       if (it) pdef += itemStat(it, 'pdef', e.e || 0);
-      else if (!(s === 'legs' && full)) pdef += EMPTY_PDEF[arch][s];
     }
     st.pdef = fin('pdef', pdef * lm);
-    let mdef = 0;
+    let mdef = T.mdef;
     for (const s in EMPTY_MDEF) {
       const e = c.eq[s]; const it = e && ITEMS.get(e.id);
-      mdef += it ? itemStat(it, 'mdef', e.e || 0) : EMPTY_MDEF[s];
+      if (it) mdef += itemStat(it, 'mdef', e.e || 0);
     }
     st.mdef = fin('mdef', mdef * bonus.MEN(attrs.MEN) * lm);
 
     const sq = Math.sqrt(attrs.DEX) * 6 + lvl;
-    st.acc = fin('acc', sq + (w && w.st && w.st.acc ? w.st.acc : 0));
+    st.acc = fin('acc', sq + (w ? (HIT_MOD[wtype] != null ? HIT_MOD[wtype] : (w.st && w.st.acc) || 0) : 0));
     let armEva = 0;
     for (const s of ['head', 'chest', 'legs', 'gloves', 'feet', 'shield']) { const e = c.eq[s]; const it = e && ITEMS.get(e.id); if (it && it.st && it.st.eva) armEva += it.st.eva; }
     st.eva = fin('eva', sq + armEva);
@@ -829,6 +851,9 @@
     renderCharOptions();
     renderWho();
   }
+
+  // Для сверки со сторонним калькулятором в тестах.
+  window.__msCompute = compute;
 
   function renderBuffs() {
     const c = ch();

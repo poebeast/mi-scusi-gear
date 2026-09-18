@@ -165,7 +165,14 @@ for (const r of Object.values(rawSets)) {
 // ---------------------------------------------------------------- пассивки классов
 // Уровни изучения: 1-я профессия (20–39) и 2-я (40–75). На уровне персонажа L берём наибольший уровень умения, выученный не позже L.
 const clsRaw = rawOr('cls.json', {});
-const skRaw = rawOr('skills2.json', {});
+// skills3.json — дособранные страницы: умения базовых классов и одноуровневые умения с описанием вне таблицы.
+const skRaw = Object.assign({}, rawOr('skills2.json', {}));
+for (const [k, v] of Object.entries(rawOr('skills3.json', {}))) if (v && v.lv && Object.keys(v.lv).length) skRaw[k] = v;
+// Базовый класс (уровни 1–19): Fighter, Mage, Elven Fighter и т. д.
+const baseRaw = rawOr('base.json', {});
+const BASE_OF = { paladin: '0-fighter', hawkeye: '0-fighter', bishop: '10-mage', elder: '25-elvenmage', swordsinger: '18-elvenfighter', silverranger: '18-elvenfighter', phantomranger: '31-darkfighter', overlord: '49-orcmage' };
+const baseSched = cls => Object.fromEntries(Object.entries((baseRaw[BASE_OF[cls]] || {}).sched || {}).filter(([L]) => +L < 20));
+const isPassiveType = t => /^(Passive|Пассивн)/i.test(t || '') && !/Clan|Клан/i.test(t || '');
 const PASS = /^icon_type-(11|12|14|18)$/;
 // Мастерства оружия действуют только с подходящим оружием.
 const WEAPON_OF = [
@@ -181,12 +188,12 @@ const WEAPON_OF = [
 const passives = {};
 for (const [cls, c] of Object.entries(clsRaw)) {
   const learn = {};
-  for (const table of [c.first || {}, c.sched || {}])
+  for (const table of [baseSched(cls), c.first || {}, c.sched || {}])
     for (const [L, rows] of Object.entries(table))
       for (const [sk, l] of rows) (learn[sk] = learn[sk] || []).push([+L, l]);
   passives[cls] = [];
   for (const [sk, list] of Object.entries(learn)) {
-    if (!PASS.test(c.groups[sk] || '')) continue;
+    if (!(PASS.test(c.groups[sk] || '') || (!c.groups[sk] && isPassiveType((skRaw[sk] || {}).type)))) continue;
     const s = skRaw[sk];
     if (!s || !Object.keys(s.lv).length) continue;
     list.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
@@ -196,6 +203,10 @@ for (const [cls, c] of Object.entries(clsRaw)) {
     passives[cls].push({ id: sk.split('-')[0], n: s.name, ic: (s.icon || '').replace(/\.png$/, ''), learn: list, lv, wt });
   }
 }
+// Мастерство оружия магов на сервере даёт ещё P. Atk. +45% и M. Atk. +17% — в тексте вики этого нет,
+// сверено с расчётом Lu4 Planner на всех уровнях 7–75.
+const HIDDEN = { 249: ['P. Atk. +45%', 'M. Atk. +17%'], 250: ['P. Atk. +45%', 'M. Atk. +17%'] };
+for (const list of Object.values(passives)) for (const p of list) if (HIDDEN[p.id]) for (const l in p.lv) p.lv[l] = [p.lv[l], ...HIDDEN[p.id]].join('\n');
 fs.writeFileSync(R('data/passives.json'), JSON.stringify(passives));
 
 // ---------------------------------------------------------------- баффы и тогглы (icon_type-2 и -6)
@@ -244,6 +255,9 @@ fs.writeFileSync(R('data/clan.json'), JSON.stringify(clan));
 console.log('clan skills', clan.length);
 console.log('passives', Object.entries(passives).map(([k, v]) => k + ':' + v.length).join(' '));
 
+// Бонус MP бижутерии — по данным сервера Lu4 (калькулятор Lu4 Planner); на вики его нет.
+const JEWEL_MPB = { 'Majestic Earring': 25, 'Majestic Necklace': 33, 'Majestic Ring': 17, 'Phoenix Earring': 20, 'Phoenix Necklace': 26, 'Phoenix Ring': 13, 'Physical Ring of Queen Ant': 25, 'Magical Ring of Queen Ant': 25, 'Earring of Orfen': 35, 'Ring of Core': 25 };
+for (const it of items) if (JEWEL_MPB[it.n] && ['ear', 'neck', 'ring'].includes(it.s)) it.st.mpb = JEWEL_MPB[it.n];
 fs.writeFileSync(R('data/items.json'), JSON.stringify(items));
 fs.writeFileSync(R('data/sets.json'), JSON.stringify(sets));
 fs.writeFileSync(R('data/buffs.json'), JSON.stringify(buffs));
