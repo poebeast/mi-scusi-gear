@@ -205,6 +205,8 @@ for (const [cls, c] of Object.entries(clsRaw)) {
 }
 // Мастерство оружия магов на сервере даёт ещё P. Atk. +45% и M. Atk. +17% — в тексте вики этого нет,
 // сверено с расчётом Lu4 Planner на всех уровнях 7–75.
+const BOOK = { 758: "Spellbook: Fighter's Will", 759: "Spellbook: Archer's Will", 945: "Spellbook: Magician's Will" };
+for (const list of Object.values(passives)) for (const p of list) if (BOOK[p.id]) p.book = BOOK[p.id];
 const HIDDEN = { 249: ['P. Atk. +45%', 'M. Atk. +17%'], 250: ['P. Atk. +45%', 'M. Atk. +17%'] };
 for (const list of Object.values(passives)) for (const p of list) if (HIDDEN[p.id]) for (const l in p.lv) p.lv[l] = [p.lv[l], ...HIDDEN[p.id]].join('\n');
 fs.writeFileSync(R('data/passives.json'), JSON.stringify(passives));

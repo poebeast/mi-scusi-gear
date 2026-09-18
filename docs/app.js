@@ -109,14 +109,18 @@
       let wtOff = false;
       if (p.wt && !(w && p.wt.includes(w.wt))) { off = 'needs a matching weapon'; wtOff = true; }
       if (!off) for (const line of text.split(/\n+/)) {
-        const m = line.match(/^With ([^:]{1,60})\s*:/i);
+        // Часть «With any weapon:» действует всегда — пассивку целиком не выключаем.
+        if (/^With any weapon/i.test(line)) break;
+        const m = line.match(/^(?:Only\s+)?With ([^:]{1,60})\s*:/i);
         const cs = m && parseCond(m[1]);
         if (!cs || condOk(cs.join('+'), st)) continue;
         const need = cs.filter(x => !condOk(x, st)).map(x => x.startsWith('armor:') ? x.slice(6).split('|').join('/') + ' armor' : 'a matching weapon');
         off = 'needs ' + need.join(' and ');
         break;
       }
-      out.push({ p, l, text, off, wtOff });
+      const unlearned = !!(p.book && c.noBook && c.noBook[p.id]);
+      if (unlearned) off = 'book not learned';
+      out.push({ p, l, text, off, wtOff, unlearned });
     }
     return out;
   }
@@ -273,6 +277,8 @@
       c.eq = c.eq || {}; c.hen = c.hen || [null, null, null]; c.buffs = c.buffs || {}; c.clan = !!c.clan;
       // Уровень каждого клан-скила (1…макс), по умолчанию максимальный.
       c.clanLv = c.clanLv || {};
+      // Пассивки из книг, которые персонаж не выучил.
+      c.noBook = c.noBook || {};
       for (const k of CLAN) { const v = +c.clanLv[k.id]; c.clanLv[k.id] = v >= 1 && v <= k.l ? v : k.l; }
       // Старые наборы тату: урезаем плюсы сверх +5 на атрибут.
       const used = {};
@@ -431,7 +437,7 @@
     // Пассивки класса: с подходящим оружием; условия по броне проверяются ниже, в live.
     const pass = activePassives(c);
     for (const x of pass) {
-      if (x.wtOff) continue;
+      if (x.wtOff || x.unlearned) continue;
       addMods(parseFx(x.text).mods, x.p.n);
     }
     // Клан-скилы максимального уровня, если включены у персонажа.
@@ -842,10 +848,16 @@
     if (r.sets.length) box.append(h('div', { class: 'misc' }, h('div', { class: 'lbl' }, 'Set bonus'), r.sets.map(a => h('div', null, h('span', null, a.set.n), h('b', null, a.minE >= 3 ? '+' + a.minE : 'complete')))));
     if (r.misc.length) box.append(h('div', { class: 'misc' }, r.misc.map(([n, v]) => h('div', null, h('span', null, n), h('b', null, v)))));
     r.warn.forEach(w => box.append(h('div', { class: 'warn' }, w)));
-    if (r.pass.length) box.append(h('details', { class: 'note passives' }, h('summary', null, `Passive skills (${r.pass.length})`),
-      h('div', { class: 'plist' }, r.pass.map(x => h('div', { class: 'pitem' + (x.off ? ' off' : '') },
-        h('img', { src: icon(x.p.ic), alt: '', loading: 'lazy' }),
-        h('div', null, h('b', null, `${x.p.n} Lv. ${x.l}`), x.off ? h('small', null, x.off) : null, h('span', null, x.text)))))));
+    if (r.pass.length) {
+      const det = h('details', { class: 'note passives', open: passivesOpen ? true : null }, h('summary', null, `Passive skills (${r.pass.length})`),
+        h('div', { class: 'plist' }, r.pass.map(x => h('div', { class: 'pitem' + (x.off ? ' off' : '') },
+          h('img', { src: icon(x.p.ic), alt: '', loading: 'lazy' }),
+          h('div', null, h('b', null, `${x.p.n} Lv. ${x.l}`), x.off ? h('small', null, x.off) : null, h('span', null, x.text),
+            // Книжные пассивки можно выключить, если книга не изучена.
+            x.p.book ? h('label', { class: 'book' }, h('input', { type: 'checkbox', checked: x.unlearned ? null : true, onchange: e => { if (e.target.checked) delete c.noBook[x.p.id]; else c.noBook[x.p.id] = true; update(false); } }), h('em', null, `Learned from ${x.p.book}`)) : null)))));
+      det.addEventListener('toggle', () => { passivesOpen = det.open; });
+      box.append(det);
+    }
     if (r.notes.length) box.append(h('details', { class: 'note' }, h('summary', null, `Effects not counted in stats (${r.notes.length})`), h('div', { class: 'misc' }, r.notes.map(n => h('div', null, n)))));
     prevStats = { cls: c.cls + cur, st: S };
     renderCharOptions();
@@ -855,6 +867,7 @@
   // Для сверки со сторонним калькулятором в тестах.
   window.__msCompute = compute;
 
+  var passivesOpen = false; // var: renderStats вызывается раньше этой строки
   function renderBuffs() {
     const c = ch();
     const box = els.buffs;
