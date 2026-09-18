@@ -236,3 +236,17 @@ dialog::backdrop{background:rgba(10,25,60,.28);-webkit-backdrop-filter:blur(4px)
 .pitem .book input{accent-color:var(--accent);width:14px;height:14px;margin:0}
 .pitem .book em{font-style:normal;font-weight:600}
 .pitem.off .book{opacity:1}
+.dmg .dsel{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--ink)}
+.dmg .dsel select{font:inherit;padding:4px 8px;border-radius:10px;border:1px solid var(--edge);background:var(--glass)}
+.dtarget{font-size:12.5px;color:var(--ink2);margin:-4px 0 10px}
+.dwrap{overflow-x:auto}
+.dtable{width:100%;border-collapse:collapse;font-size:13px}
+.dtable th{text-align:right;font-weight:600;color:var(--mute);padding:6px 8px;border-bottom:1px solid var(--edge);white-space:nowrap}
+.dtable th:first-child{text-align:left}
+.dtable td{text-align:right;padding:6px 8px;border-bottom:1px solid var(--edge);font-family:var(--mono);white-space:nowrap}
+.dtable td.sk{text-align:left;font-family:inherit;display:flex;align-items:center;gap:8px}
+.dtable td.sk img,.dtable td.sk .na{width:26px;height:26px;border-radius:6px;flex:none;display:inline-flex;align-items:center;justify-content:center}
+.dtable td.sk small{color:var(--mute)}
+.dtable td.sk .why{color:var(--bad)}
+.dtable td.dps{font-weight:800;color:var(--ink)}
+.dtable tr.off td{opacity:.5}

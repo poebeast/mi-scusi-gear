@@ -148,6 +148,11 @@
     [/^Shield (?:Defen[cs]e|Def\.) Rate/i, 'srate'],
     [/^Shield (?:Defen[cs]e|Def\.)(?: Power)?/i, 'sdef'],
     [/^(STR|DEX|CON|INT|WIT|MEN)\b/, 'attr'],
+    [/^(?:Damage|Dmg\.?) in PvP|^PvP Damage/i, 'pvpdmg'],
+    [/^P\.\s?Skills? Crit(?:ical)?\.? Damage/i, 'pskillcrit'],
+    [/^P\.\s?Skills? Power/i, 'pskill'],
+    [/^M\.\s?Skills? Power/i, 'mskill'],
+    [/^Received P\.\s?Crit(?:ical)?\.? Damage/i, 'rcvcrit'],
   ];
   const WWORD = {
     sword: ['sword', 'bigsword'], 'two-handed sword': ['bigsword'], 'one-handed sword': ['sword'],
@@ -532,7 +537,7 @@
       if (mm && mm !== 1) parts.push((mm > 1 ? '+' : '') + Math.round((mm - 1) * 1000) / 10 + '%');
       if (parts.length) misc.push([STAT_LABEL[k], parts.join(', ')]);
     }
-    return { attrs, base: Object.fromEntries(ATTRS.map((a, i) => [a, base[i]])), st, misc, sets, warn, pass, notes: [...new Set(notes)] };
+    return { attrs, base: Object.fromEntries(ATTRS.map((a, i) => [a, base[i]])), st, misc, sets, warn, pass, add, mul, notes: [...new Set(notes)] };
   }
 
   // ---------------------------------------------------------------- общее сохранение
@@ -670,6 +675,8 @@
     wrap.append(h('div', { class: 'main' }, h('div', { class: 'side' }, els.stats, els.tattoos, els.clan), h('section', { class: 'stage' }, els.viewer, els.gear)));
     els.buffs = h('section', { class: 'sect', 'aria-label': 'Buffs' });
     wrap.append(els.buffs);
+    els.dmg = h('section', { class: 'sect dmg', 'aria-label': 'Damage' });
+    wrap.append(els.dmg);
     wrap.append(h('p', { class: 'note foot' }, 'Item and skill data: masterwork.wiki, Lu4: Gamma. Base HP/MP/CP and racial attributes use standard L2 formulas and may differ from the server by a few percent.'));
     root.append(wrap);
 
@@ -872,6 +879,118 @@
   window.__msCompute = compute;
 
   var passivesOpen = false; // var: renderStats вызывается раньше этой строки
+  // ---------------------------------------------------------------- калькулятор урона
+  // Формулы — по статье вики «Урон физических умений» и расчёту Lu4 Planner:
+  //   физика: (сила + P. Atk.) × соска × 70 (лук) / 77 ÷ P. Def.; крит ×2
+  //   магия: √(M. Atk. × соска) × сила × 91 ÷ M. Def.; крит ×2,5
+  //   обычная атака: P. Atk. × соска × 70/77 ÷ P. Def., раз в 500 / Atk. Spd. секунд.
+  // var и функции: первый рендер идёт раньше этих строк.
+  var dmgPrefs;
+  // Шанс попадания обычной атакой от разницы Accuracy − Evasion (точки из расчёта Lu4 Planner).
+  function hitChance(d) {
+    const HIT_PTS = [[-30, 30], [-20, 32.6], [-15, 60.3], [-10, 73.55], [-5, 83.13], [0, 90.84], [5, 97.41], [6, 98]];
+    if (d <= HIT_PTS[0][0]) return HIT_PTS[0][1];
+    for (let i = 1; i < HIT_PTS.length; i++) if (d <= HIT_PTS[i][0]) { const [x0, y0] = HIT_PTS[i - 1], [x1, y1] = HIT_PTS[i]; return y0 + (y1 - y0) * (d - x0) / (x1 - x0); }
+    return 98;
+  }
+  function pctOf(r, k) { return (r.mul[k] || 1) - 1; }
+  function skillLevel(sk, lvl) { return sk.learn.reduce((m, [L, l]) => (L <= lvl && l > m ? l : m), 0); }
+  function powerAt(sk, l) { let p = 0; for (const k in sk.pw) if (+k <= l && sk.pw[k]) p = sk.pw[k]; return p; }
+  function damageRows(c, t) {
+    const A = compute(c), D = compute(t);
+    const a = A.st, d = D.st;
+    const w = c.eq.weapon && ITEMS.get(c.eq.weapon.id);
+    const wt = w ? w.wt : null;
+    const bow = wt === 'bow';
+    const K = bow ? 70 : 77;
+    const ss = dmgPrefs.ss ? 2 : 1;
+    const pvp = 1 + pctOf(A, 'pvpdmg') + (A.add.pvpdmg || 0) / 100;
+    const pos = ({ front: 1, side: 1.2, back: 1.3 })[dmgPrefs.pos];
+    const rows = [];
+    // Обычная атака.
+    {
+      const hit = Math.min(98, hitChance(a.acc - d.eva) * pos) / 100;
+      const cc = Math.min(1, a.crit / 1000 * pos);
+      const norm = a.patk * ss * K / d.pdef * pvp;
+      const crit = (a.patk * ss * 2 * (1 + pctOf(A, 'critdmg')) + (A.add.critdmg || 0)) * K / d.pdef * pvp * (1 + pctOf(D, 'rcvcrit'));
+      let avg = (1 - cc) * norm + cc * crit;
+      // Щит блокирует только спереди; по лучникам шанс ×3 (как в Lu4 Planner).
+      const sh = t.eq.shield && ITEMS.get(t.eq.shield.id);
+      let block = 0;
+      if (sh && dmgPrefs.pos === 'front') {
+        block = Math.min(0.9, (sh.st.srate || 0) * bonus.DEX(D.attrs.DEX) * (bow ? 3 : 1) / 100);
+        const bn = a.patk * ss * K / (d.pdef + (d.sdef || 0)) * pvp;
+        avg = (1 - block) * avg + block * ((1 - cc) * bn + cc * bn * 2);
+      }
+      const cycle = 500 / a.aspd;
+      rows.push({ n: 'Normal attack', ic: null, lv: '', norm, crit, hit, cc, block, cycle, exp: hit * avg, ok: true });
+    }
+    for (const sk of (DATA.attacks || {})[c.cls] || []) {
+      const l = skillLevel(sk, c.level);
+      if (!l) continue;
+      const power = powerAt(sk, l);
+      if (!power) continue;
+      let why = '';
+      if (sk.weapon === 'bow' && !bow) why = 'needs a bow';
+      else if (sk.weapon === 'dagger' && !/dagger/.test(wt || '')) why = 'needs a dagger';
+      else if (sk.weapon === 'shield' && !(c.eq.shield && ITEMS.get(c.eq.shield.id))) why = 'needs a shield';
+      else if (!sk.magic && !sk.weapon && bow) why = 'not with a bow';
+      const cast = sk.hit * 333 / (sk.magic ? a.cspd : a.aspd);
+      const cycle = Math.max(sk.reuse || 0, cast);
+      let norm, crit, cc;
+      if (sk.magic) {
+        norm = Math.sqrt(a.matk * dmgPrefs.mshot) * power * 91 / d.mdef * pvp * (1 + pctOf(A, 'mskill'));
+        crit = norm * sk.cm * (1 + pctOf(A, 'mcritdmg'));
+        cc = Math.min(1, (5 * bonus.WIT(A.attrs.WIT) * (A.mul.mcrit || 1) + (A.add.mcrit || 0)) / 100);
+      } else {
+        const pdef = d.pdef * (1 - (sk.defIgn || 0) / 100);
+        norm = (power + a.patk) * ss * K / pdef * pvp * (1 + pctOf(A, 'pskill'));
+        crit = norm * sk.cm * (1 + pctOf(A, 'pskillcrit'));
+        cc = Math.min(1, sk.cc / 100 * bonus.STR(A.attrs.STR));
+      }
+      const avg = (1 - cc) * norm + cc * crit;
+      rows.push({ n: sk.n, ic: sk.ic, lv: l, magic: sk.magic, norm, crit, hit: 1, cc, block: 0, cycle, cast, reuse: sk.reuse, exp: avg, ok: !why, why, mp: sk.mp });
+    }
+    rows.forEach(r => (r.dps = r.ok ? r.exp / r.cycle : 0));
+    return { rows, A, D };
+  }
+
+  function renderDamage() {
+    const c = ch();
+    const box = els.dmg;
+    if (!box) return;
+    if (!dmgPrefs) dmgPrefs = { target: null, pos: 'front', ss: true, mshot: 4 };
+    box.innerHTML = '';
+    const others = STATE.chars.map((x, i) => [x, i]).filter(([x]) => x !== c);
+    if (dmgPrefs.target == null || STATE.chars[dmgPrefs.target] === c) dmgPrefs.target = others[0][1];
+    const t = STATE.chars[dmgPrefs.target];
+    const nameOf = x => (x.nick ? x.nick + ' — ' : '') + CLASSES[x.cls].n + ' · ' + x.level;
+    const set = (k, v) => { dmgPrefs[k] = v; renderDamage(); };
+    box.append(h('div', { class: 'secthead' },
+      h('h3', null, 'Damage'),
+      h('span', { class: 'note' }, `${CLASSES[c.cls].n} against a party member, with both characters' gear, passives and selected buffs.`),
+      h('label', { class: 'dsel' }, 'Target ', h('select', { onchange: e => set('target', +e.target.value) }, others.map(([x, i]) => h('option', { value: i, selected: i === dmgPrefs.target ? true : null }, nameOf(x))))),
+      h('label', { class: 'dsel' }, 'Position ', h('select', { onchange: e => set('pos', e.target.value) }, [['front', 'Front'], ['side', 'Side'], ['back', 'Back']].map(([v, n]) => h('option', { value: v, selected: v === dmgPrefs.pos ? true : null }, n)))),
+      h('label', { class: 'dsel' }, h('input', { type: 'checkbox', checked: dmgPrefs.ss ? true : null, onchange: e => set('ss', e.target.checked) }), ' Soulshot'),
+      h('label', { class: 'dsel' }, 'Spiritshot ', h('select', { onchange: e => set('mshot', +e.target.value) }, [[4, 'Blessed'], [2, 'Normal'], [1, 'None']].map(([v, n]) => h('option', { value: v, selected: v === dmgPrefs.mshot ? true : null }, n))))));
+    const { rows, D } = damageRows(c, t);
+    const f0 = x => Math.round(x).toLocaleString('en-US');
+    const d = D.st;
+    box.append(h('div', { class: 'dtarget' }, `Target: P. Def. ${f0(d.pdef)} · M. Def. ${f0(d.mdef)} · Evasion ${f0(d.eva)} · HP ${f0(d.hp)} · CP ${f0(d.cp)}` + (t.eq.shield && ITEMS.get(t.eq.shield.id) ? ` · shield ${f0(d.sdef || 0)}` : '')));
+    const sorted = rows.slice().sort((x, y) => (y.ok - x.ok) || y.dps - x.dps);
+    const tb = h('tbody', null, sorted.map(r => h('tr', { class: r.ok ? '' : 'off' },
+      h('td', { class: 'sk' }, r.ic ? h('img', { src: icon(r.ic), alt: '', loading: 'lazy' }) : h('span', { class: 'na' }, '⚔'), h('span', null, h('b', null, r.n), r.lv ? h('small', null, ' Lv. ' + r.lv) : null, r.why ? h('small', { class: 'why' }, ' — ' + r.why) : null)),
+      h('td', null, f0(r.norm)),
+      h('td', null, f0(r.crit)),
+      h('td', null, (r.hit < 1 ? Math.round(r.hit * 100) + '% / ' : '') + Math.round(r.cc * 100) + '%' + (r.block ? ` · block ${Math.round(r.block * 100)}%` : '')),
+      h('td', null, f0(r.exp * r.hit)),
+      h('td', null, r.cycle.toFixed(2) + ' s'),
+      h('td', { class: 'dps' }, r.ok ? f0(r.dps) : '—'))));
+    box.append(h('div', { class: 'dwrap' }, h('table', { class: 'dtable' },
+      h('thead', null, h('tr', null, ['Skill', 'Hit', 'Crit', 'Hit / crit chance', 'Average', 'Cycle', 'DPS'].map(x => h('th', null, x)))), tb)));
+    box.append(h('p', { class: 'note' }, 'Average includes crit chance and, for normal attacks, miss and shield block. Cycle is the longer of reuse and cast time (cast time scales with Atk. Spd. / Casting Spd.). PvP, no attributes.'));
+  }
+
   function renderBuffs() {
     const c = ch();
     const box = els.buffs;
@@ -935,10 +1054,10 @@
 
   function renderAll() {
     prevStats = null;
-    renderForm(); renderSlots(); renderTattoos(); renderClan(); renderStats(); renderBuffs(); renderModel(); renderSave();
+    renderForm(); renderSlots(); renderTattoos(); renderClan(); renderStats(); renderBuffs(); renderDamage(); renderModel(); renderSave();
   }
   function update(model) {
-    renderSlots(); renderTattoos(); renderClan(); renderStats(); renderBuffs();
+    renderSlots(); renderTattoos(); renderClan(); renderStats(); renderBuffs(); renderDamage();
     if (model !== false) renderModel();
     markDirty();
   }

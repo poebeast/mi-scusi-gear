@@ -248,6 +248,51 @@ for (const [cls, c] of Object.entries(clsRaw)) {
   }
 }
 const buffs = [...buffMap.values()];
+
+// ---------------------------------------------------------------- атакующие умения для калькулятора урона
+// Список умений с уроном и их механика (время применения, перезарядка, база крита) — из расчёта Lu4 Planner,
+// сила по уровням — со страниц умений на вики.
+const skMeta = rawOr('skillmeta.json', { meta: {}, classes: {} });
+const PLANNER_CLS = { paladin: 'paladin', bishop: 'bishop', elder: 'elder', swordsinger: 'swordsinger', overlord: 'overlord', hawkeye: 'hawkeye', silverranger: 'silver_ranger', phantomranger: 'phantom_ranger' };
+// Урон по MP и умения только против нежити в PvP не нужны.
+const NOT_PVP = new Set(['1102', '1210', '1398', '1399', '1031', '405', '1400', '49']);
+// Какое оружие нужно умению.
+const SK_WEAPON = { 19: 'bow', 24: 'bow', 56: 'bow', 101: 'bow', 343: 'bow', 354: 'bow', 987: 'bow', 990: 'bow', 314: 'bow', 16: 'dagger', 223: 'dagger', 984: 'shield' };
+const powerOf = t => {
+  const m = String(t).match(/Power:\s*(\d[\d ]*)/i) || String(t).match(/(\d[\d ]*)\s*Power/i);
+  return m ? +m[1].replace(/\s/g, '') : 0;
+};
+const attacks = {};
+for (const [cls, c] of Object.entries(clsRaw)) {
+  const learn = {};
+  for (const table of [baseSched(cls), c.first || {}, c.sched || {}])
+    for (const [L, rows] of Object.entries(table))
+      for (const [sk, l] of rows) (learn[sk] = learn[sk] || []).push([+L, l]);
+  const ids = new Set(((skMeta.classes || {})[PLANNER_CLS[cls]] || []).map(x => x.split(':')[0]));
+  attacks[cls] = [];
+  for (const [sk, list] of Object.entries(learn)) {
+    const id = sk.split('-')[0];
+    if (!ids.has(id) || NOT_PVP.has(id)) continue;
+    const s = skRaw[sk];
+    const m = skMeta.meta[id];
+    if (!s || !m || m.err) continue;
+    const pw = {};
+    for (const [l, t] of Object.entries(s.lv)) { const p = powerOf(t); if (p) pw[l] = p; }
+    if (!Object.keys(pw).length) continue;
+    const text = Object.values(s.lv).slice(-1)[0] || '';
+    const ign = (text.match(/Ignores (\d+)% of enemy's P\. Def/i) || [])[1];
+    attacks[cls].push({
+      id, n: s.name, ic: (s.icon || '').replace(/\.png$/, ''), learn: list.sort((a, b) => a[0] - b[0] || a[1] - b[1]), pw,
+      magic: !!m.magic, hit: m.hit, reuse: m.reuse, cc: m.cc, cm: m.cm,
+      mp: +(String((s.st || {}).Consumes || '').match(/\d+/) || [0])[0],
+      noShield: /Ignores Shield Defen/i.test(text) || undefined, defIgn: ign ? +ign : undefined,
+      blow: /Mortal Blow/.test(s.name) || undefined, weapon: SK_WEAPON[id],
+    });
+  }
+  attacks[cls].sort((a, b) => a.learn[0][0] - b.learn[0][0]);
+}
+fs.writeFileSync(R('data/attacks.json'), JSON.stringify(attacks));
+console.log('attacks', Object.entries(attacks).map(([k, v]) => k + ':' + v.length).join(' '));
 console.log('buffs', buffs.length, buffs.filter(b => b.tgt === 'party').length, 'party', buffs.filter(b => b.tgt === 'target').length, 'target');
 
 // ---------------------------------------------------------------- клан-скилы (пассивные, 370–391), максимальный уровень
@@ -265,7 +310,7 @@ for (const it of items) if (JEWEL_MPB[it.n] && ['ear', 'neck', 'ring'].includes(
 fs.writeFileSync(R('data/items.json'), JSON.stringify(items));
 fs.writeFileSync(R('data/sets.json'), JSON.stringify(sets));
 fs.writeFileSync(R('data/buffs.json'), JSON.stringify(buffs));
-const iconList = [...new Set([...items.map(i => i.ic), ...buffs.map(b => b.ic), ...Object.values(passives).flat().map(p => p.ic), ...clan.map(c => c.ic)].filter(Boolean))];
+const iconList = [...new Set([...items.map(i => i.ic), ...buffs.map(b => b.ic), ...Object.values(passives).flat().map(p => p.ic), ...clan.map(c => c.ic), ...Object.values(attacks).flat().map(a => a.ic)].filter(Boolean))];
 fs.writeFileSync(R('data/raw/icon-list.txt'), iconList.join('\n'));
 console.log('items', items.length, 'sets', sets.length, 'buffs', buffs.length, 'icons', iconList.length);
 console.log('slots', JSON.stringify(items.reduce((o, i) => ((o[i.s] = (o[i.s] || 0) + 1), o), {})));
