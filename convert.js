@@ -57,7 +57,7 @@ const STAT_KEYS = {
   'Защита Щитом': 'pdef',
   'P. Def.': 'pdef', 'M. Def.': 'mdef', 'Физ. Защ.': 'pdef', 'Маг. Защ.': 'mdef', 'Шанс Физ. Крит. Атк.': 'crit', 'Точность': 'acc', 'Уклонение': 'eva', 'Скор. Атк.': 'aspd', 'Скорость Атк.': 'aspd', 'Бонус MP': 'mpb',
 };
-const HEAD_KEYS = { 'Защита Щитом': 'pdef', 'Физ. Защ.': 'pdef', 'Маг. Защ.': 'mdef', 'Физ. Атк.': 'patk', 'Маг. Атк.': 'matk', 'HP Bonus': 'hp' };
+const HEAD_KEYS = { 'Защита Щитом': 'pdef', 'Физ. Защ.': 'pdef', 'Маг. Защ.': 'mdef', 'Физ. Атк.': 'patk', 'Маг. Атк.': 'matk', 'HP Bonus': 'hp', 'Бонус зарядов': 'shot' };
 const IGNORE_STATS = new Set(['Restrictions', 'Crystal Amount', 'NPC Sell Price', 'Weight', 'Item Skills', 'Item skills', 'Recipes', 'Set', 'In English', 'Стоимость продажи NPC', 'Вес', 'Часть комплекта', 'Умения предмета', 'Расход Зарядов Души / Духа', 'Исходный предмет', 'Оригинальный предмет', 'Предметные умения', 'Рецепты', 'Кристаллы Души']);
 
 function cleanFx(fx) {
@@ -104,7 +104,7 @@ for (const r of Object.values(rawItems)) {
     en = {};
     r.en.heads.forEach((head, col) => {
       const key = HEAD_KEYS[head];
-      if (!key) { if (!/Модификац|Кристалл|Бонус зарядов|NPC|Количество|Шанс|Предмет|Тип получения/.test(head)) unknown.heads.add(head); return; }
+      if (!key) { if (!/Модификац|Кристалл|NPC|Количество|Шанс|Предмет|Тип получения/.test(head)) unknown.heads.add(head); return; }
       en[key] = r.en.rows.map(row => num(row[col]) || 0);
     });
   }
@@ -128,6 +128,8 @@ for (const it of items) {
   it.en = {};
   for (const [k, arr] of Object.entries(d.en)) {
     if (k === 'hp') continue;
+    // Бонус зарядов одинаков у всего оружия грейда — копируем как есть.
+    if (k === 'shot') { if (d.c === it.c) it.en.shot = arr.slice(); continue; }
     const base = it.st[k]; if (base == null) continue;
     const scale = it.s === 'full' && d.s !== 'full' ? 2 : 1;
     if (k !== 'pdef' && k !== 'mdef' && d.c !== it.c) continue;

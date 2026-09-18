@@ -250,3 +250,22 @@ dialog::backdrop{background:rgba(10,25,60,.28);-webkit-backdrop-filter:blur(4px)
 .dtable td.sk .why{color:var(--bad)}
 .dtable td.dps{font-weight:800;color:var(--ink)}
 .dtable tr.off td{opacity:.5}
+
+/* Компоновка: слева статы и тату, справа кукла, гир и карточки пассивок/клана; колонки одной высоты */
+.main{align-items:stretch}
+.side{position:static}
+.stage .viewer{flex:1 1 auto}
+.stats{flex:0 0 auto}.side .clan{flex:1 1 auto}
+.stage .passives{display:flex;flex-direction:column;gap:10px;padding:14px 16px;border-radius:24px;background:var(--glass2);border:1px solid var(--edge)}
+.kithead{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.kithead h3{margin:0;font:700 16px/1 var(--display);letter-spacing:-.01em}
+.iconlist{display:grid;grid-template-columns:repeat(auto-fill,minmax(36px,1fr));gap:8px 6px}
+.pic{position:relative;display:block;padding:0;border:0;background:none;border-radius:8px;justify-self:center}
+.pic img{width:36px;height:36px;border-radius:8px;display:block}
+button.pic{cursor:pointer}
+.pic.off img{filter:grayscale(1) opacity(.45)}
+.pic.off .clanlv{background:var(--mute)}
+.pic.book::before{content:"";position:absolute;left:-3px;top:-3px;width:9px;height:9px;border-radius:50%;background:#14b8a6;box-shadow:0 0 0 2px #fff;z-index:1}
+.pic.book.off::before{background:var(--bad)}
+.tip .k.bad{color:var(--bad);font-weight:600}
+@media (min-width:1061px){.figure{height:360px}}

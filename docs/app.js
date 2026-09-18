@@ -671,8 +671,10 @@
     els.viewer = h('div', { class: 'viewer' }, els.who);
     els.tattoos = h('div', { class: 'tattoos' });
     els.clan = h('div', { class: 'clan' });
+    els.passives = h('div', { class: 'passives' });
     els.stats = h('aside', { class: 'stats', 'aria-label': 'Stats' });
-    wrap.append(h('div', { class: 'main' }, h('div', { class: 'side' }, els.stats, els.tattoos, els.clan), h('section', { class: 'stage' }, els.viewer, els.gear)));
+    wrap.append(h('div', { class: 'main' }, h('div', { class: 'side' }, els.stats, els.tattoos, els.clan),
+      h('section', { class: 'stage' }, els.viewer, els.gear, els.passives)));
     els.buffs = h('section', { class: 'sect', 'aria-label': 'Buffs' });
     wrap.append(els.buffs);
     els.dmg = h('section', { class: 'sect dmg', 'aria-label': 'Damage' });
@@ -767,6 +769,7 @@
     else if (it.st && it.st.pdef != null) k.push(`P. Def. ${itemStat(it, 'pdef', e)}`);
     if (it.st && it.st.mdef != null) k.push(`M. Def. ${itemStat(it, 'mdef', e)}`);
     if (it.en && it.en.hp && enchVal(it.en.hp, e)) k.push(`HP +${enchVal(it.en.hp, e)} from enchant`);
+    if (it.c === 'weapon' && shotBonus(it, e)) k.push(`Shot damage bonus +${shotBonus(it, e)}%`);
     if (it.sa) lines.push(`<div class="k">SA: ${esc(it.sa)}</div>`);
     if (it.fx) lines.push(`<div class="ln">${esc(it.fx)}</div>`);
     const set = it.set && SETS.get(it.set);
@@ -859,16 +862,7 @@
     if (r.sets.length) box.append(h('div', { class: 'misc' }, h('div', { class: 'lbl' }, 'Set bonus'), r.sets.map(a => h('div', null, h('span', null, a.set.n), h('b', null, a.minE >= 3 ? '+' + a.minE : 'complete')))));
     if (r.misc.length) box.append(h('div', { class: 'misc' }, r.misc.map(([n, v]) => h('div', null, h('span', null, n), h('b', null, v)))));
     r.warn.forEach(w => box.append(h('div', { class: 'warn' }, w)));
-    if (r.pass.length) {
-      const det = h('details', { class: 'note passives', open: passivesOpen ? true : null }, h('summary', null, `Passive skills (${r.pass.length})`),
-        h('div', { class: 'plist' }, r.pass.map(x => h('div', { class: 'pitem' + (x.off ? ' off' : '') },
-          h('img', { src: icon(x.p.ic), alt: '', loading: 'lazy' }),
-          h('div', null, h('b', null, `${x.p.n} Lv. ${x.l}`), x.off ? h('small', null, x.off) : null, h('span', null, x.text),
-            // Книжные пассивки можно выключить, если книга не изучена.
-            x.p.book ? h('label', { class: 'book' }, h('input', { type: 'checkbox', checked: x.unlearned ? null : true, onchange: e => { if (e.target.checked) delete c.noBook[x.p.id]; else c.noBook[x.p.id] = true; update(false); } }), h('em', null, `Learned from ${x.p.book}`)) : null)))));
-      det.addEventListener('toggle', () => { passivesOpen = det.open; });
-      box.append(det);
-    }
+    renderPassives(r);
     if (r.notes.length) box.append(h('details', { class: 'note' }, h('summary', null, `Effects not counted in stats (${r.notes.length})`), h('div', { class: 'misc' }, r.notes.map(n => h('div', null, n)))));
     prevStats = { cls: c.cls + cur, st: S };
     renderCharOptions();
@@ -878,7 +872,31 @@
   // Для сверки со сторонним калькулятором в тестах.
   window.__msCompute = compute;
 
-  var passivesOpen = false; // var: renderStats вызывается раньше этой строки
+  // Пассивки — иконками, описание в подсказке. Книжную пассивку нажатием отмечают изученной или нет.
+  function renderPassives(r) {
+    const c = ch();
+    const box = els.passives;
+    box.innerHTML = '';
+    const on = r.pass.filter(x => !x.off).length;
+    box.append(h('div', { class: 'kithead' }, h('h3', null, 'Passive skills'), h('span', { class: 'note' }, r.pass.length ? `${on} of ${r.pass.length} active` : 'None at this level')));
+    const tipFor = x => `<b>${esc(x.p.n)} Lv. ${x.l}</b>${x.off ? `<div class="k bad">Not counted: ${esc(x.off)}</div>` : ''}<div class="ln">${esc(x.text)}</div>`
+      + (x.p.book ? `<div class="k">Learned from ${esc(x.p.book)}. Click to mark it as ${x.unlearned ? 'learned' : 'not learned'}.</div>` : '');
+    box.append(h('div', { class: 'iconlist' }, r.pass.map(x => {
+      const b = h(x.p.book ? 'button' : 'span', { class: 'pic' + (x.off ? ' off' : '') + (x.p.book ? ' book' : ''), tabindex: x.p.book ? null : '0', type: x.p.book ? 'button' : null, 'aria-label': `${x.p.n}, level ${x.l}${x.off ? ', not counted' : ''}` },
+        h('img', { src: icon(x.p.ic), alt: '', loading: 'lazy' }), h('span', { class: 'clanlv' }, x.l));
+      if (x.p.book) b.addEventListener('click', () => {
+        if (x.unlearned) delete c.noBook[x.p.id]; else c.noBook[x.p.id] = true;
+        update(false);
+        const nb = els.passives.querySelector(`[data-pid="${x.p.id}"]`);
+        const nx = compute(c).pass.find(y => y.p.id === x.p.id);
+        if (nb && nx) showTip(nb, tipFor(nx));
+      });
+      b.dataset.pid = x.p.id;
+      b.addEventListener('mouseenter', () => showTip(b, tipFor(x))); b.addEventListener('mouseleave', hideTip);
+      b.addEventListener('focus', () => showTip(b, tipFor(x))); b.addEventListener('blur', hideTip);
+      return b;
+    })));
+  }
   // ---------------------------------------------------------------- калькулятор урона
   // Формулы — по статье вики «Урон физических умений» и расчёту Lu4 Planner:
   //   физика: (сила + P. Atk.) × соска × 70 (лук) / 77 ÷ P. Def.; крит ×2
@@ -894,6 +912,14 @@
     return 98;
   }
   function pctOf(r, k) { return (r.mul[k] || 1) - 1; }
+  // Бонус зарядов от заточки оружия (+0.7% за уровень у B/A): прибавляется к множителю заряда —
+  // соска ×2.07 на +10, благословенный спиритшот ×4.07 (так считает Lu4 Planner).
+  function shotBonus(w, e) { return w && w.en && w.en.shot ? Math.round((enchVal(w.en.shot, e || 0) || 0) * 10) / 10 : 0; }
+  function shotMul(c) {
+    const w = c.eq.weapon && ITEMS.get(c.eq.weapon.id);
+    const sb = shotBonus(w, c.eq.weapon && c.eq.weapon.e) / 100;
+    return { ss: dmgPrefs.ss ? 2 + sb : 1, ms: dmgPrefs.mshot > 1 ? dmgPrefs.mshot + sb : 1, sb };
+  }
   function skillLevel(sk, lvl) { return sk.learn.reduce((m, [L, l]) => (L <= lvl && l > m ? l : m), 0); }
   function powerAt(sk, l) { let p = 0; for (const k in sk.pw) if (+k <= l && sk.pw[k]) p = sk.pw[k]; return p; }
   function damageRows(c, t) {
@@ -903,7 +929,8 @@
     const wt = w ? w.wt : null;
     const bow = wt === 'bow';
     const K = bow ? 70 : 77;
-    const ss = dmgPrefs.ss ? 2 : 1;
+    const shots = shotMul(c);
+    const ss = shots.ss;
     const pvp = 1 + pctOf(A, 'pvpdmg') + (A.add.pvpdmg || 0) / 100;
     const pos = ({ front: 1, side: 1.2, back: 1.3 })[dmgPrefs.pos];
     const rows = [];
@@ -939,7 +966,7 @@
       const cycle = Math.max(sk.reuse || 0, cast);
       let norm, crit, cc;
       if (sk.magic) {
-        norm = Math.sqrt(a.matk * dmgPrefs.mshot) * power * 91 / d.mdef * pvp * (1 + pctOf(A, 'mskill'));
+        norm = Math.sqrt(a.matk * shots.ms) * power * 91 / d.mdef * pvp * (1 + pctOf(A, 'mskill'));
         crit = norm * sk.cm * (1 + pctOf(A, 'mcritdmg'));
         cc = Math.min(1, (5 * bonus.WIT(A.attrs.WIT) * (A.mul.mcrit || 1) + (A.add.mcrit || 0)) / 100);
       } else {
@@ -952,7 +979,7 @@
       rows.push({ n: sk.n, ic: sk.ic, lv: l, magic: sk.magic, norm, crit, hit: 1, cc, block: 0, cycle, cast, reuse: sk.reuse, exp: avg, ok: !why, why, mp: sk.mp });
     }
     rows.forEach(r => (r.dps = r.ok ? r.exp / r.cycle : 0));
-    return { rows, A, D };
+    return { rows, A, D, shots };
   }
 
   function renderDamage() {
@@ -973,9 +1000,11 @@
       h('label', { class: 'dsel' }, 'Position ', h('select', { onchange: e => set('pos', e.target.value) }, [['front', 'Front'], ['side', 'Side'], ['back', 'Back']].map(([v, n]) => h('option', { value: v, selected: v === dmgPrefs.pos ? true : null }, n)))),
       h('label', { class: 'dsel' }, h('input', { type: 'checkbox', checked: dmgPrefs.ss ? true : null, onchange: e => set('ss', e.target.checked) }), ' Soulshot'),
       h('label', { class: 'dsel' }, 'Spiritshot ', h('select', { onchange: e => set('mshot', +e.target.value) }, [[4, 'Blessed'], [2, 'Normal'], [1, 'None']].map(([v, n]) => h('option', { value: v, selected: v === dmgPrefs.mshot ? true : null }, n))))));
-    const { rows, D } = damageRows(c, t);
+    const { rows, D, shots } = damageRows(c, t);
     const f0 = x => Math.round(x).toLocaleString('en-US');
     const d = D.st;
+    const fx = v => '×' + (Math.round(v * 100) / 100);
+    box.append(h('div', { class: 'dtarget' }, `Shots: soulshot ${dmgPrefs.ss ? fx(shots.ss) : 'off'} · spiritshot ${dmgPrefs.mshot > 1 ? fx(shots.ms) : 'off'}` + (shots.sb ? ` (weapon enchant adds +${Math.round(shots.sb * 1000) / 10}%)` : ' (no enchant bonus)')));
     box.append(h('div', { class: 'dtarget' }, `Target: P. Def. ${f0(d.pdef)} · M. Def. ${f0(d.mdef)} · Evasion ${f0(d.eva)} · HP ${f0(d.hp)} · CP ${f0(d.cp)}` + (t.eq.shield && ITEMS.get(t.eq.shield.id) ? ` · shield ${f0(d.sdef || 0)}` : '')));
     const sorted = rows.slice().sort((x, y) => (y.ok - x.ok) || y.dps - x.dps);
     const tb = h('tbody', null, sorted.map(r => h('tr', { class: r.ok ? '' : 'off' },
