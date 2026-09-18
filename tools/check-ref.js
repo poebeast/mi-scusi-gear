@@ -1,4 +1,7 @@
 // Сверка наших статов с расчётом Lu4 Planner (data/raw/ref.json): node tools/check-ref.js [фильтр] [строк]
+// Важно: Lu4 Planner прибавляет базу персонажа (P. Def. 80, M. Def. 41, P. Atk. 4) к экипировке всегда,
+// а в игре надетая вещь заменяет базу слота (сверено с окном персонажа). Поэтому в случаях с гиром
+// P. Atk./M. Atk./P. Def./M. Def. расходятся с ним намеренно; голые персонажи совпадают полностью.
 const fs = require('fs');
 const { execFileSync } = require('child_process');
 const SP = require('path').join(require('os').tmpdir(), 'ms-check');

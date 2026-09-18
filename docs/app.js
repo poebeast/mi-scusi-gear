@@ -303,8 +303,10 @@
     CON: v => r2(Math.pow(1.03, v - 27.632)),
     MEN: v => r2(Math.pow(1.01, v + 0.06)),
   };
-  // Базовые значения шаблона персонажа: складываются с экипировкой, а не заменяются ею.
-  const TEMPLATE = { fighter: { patk: 4, matk: 6, pdef: 80, mdef: 41 }, mystic: { patk: 3, matk: 6, pdef: 54, mdef: 41 } };
+  // Базовые значения шаблона персонажа. Надетая вещь заменяет базу своего слота — так в игре
+  // (сверено с окном персонажа). Калькулятор Lu4 Planner прибавляет базу всегда, в этом он ошибается.
+  // P. Def.: 4 — бельё и плащ, их слотов у нас нет; остальное — EMPTY_PDEF по слотам.
+  const TEMPLATE = { fighter: { patk: 4, matk: 6, pdef: 4 }, mystic: { patk: 3, matk: 6, pdef: 4 } };
   // HP/MP/CP по уровням до модификаторов CON/MEN (сверено с расчётом Lu4 Planner).
   const HPTAB = DATA.hptab || {};
   const lvlMod = l => (l + 89) / 100;
@@ -483,21 +485,23 @@
 
     const wE = c.eq.weapon ? c.eq.weapon.e || 0 : 0;
     const T = TEMPLATE[arch];
-    const basePatk = T.patk + (w ? itemStat(w, 'patk', wE) : 0);
-    const baseMatk = T.matk + (w ? itemStat(w, 'matk', wE) : 0);
+    const basePatk = w ? itemStat(w, 'patk', wE) : T.patk;
+    const baseMatk = w ? itemStat(w, 'matk', wE) : T.matk;
     st.patk = fin('patk', basePatk * bonus.STR(attrs.STR) * lm);
     st.matk = fin('matk', baseMatk * Math.pow(bonus.INT(attrs.INT), 2) * lm * lm);
 
     let pdef = T.pdef;
+    const full = c.eq.chest && ITEMS.get(c.eq.chest.id) && ITEMS.get(c.eq.chest.id).s === 'full';
     for (const s of ['head', 'chest', 'legs', 'gloves', 'feet']) {
       const e = c.eq[s]; const it = e && ITEMS.get(e.id);
       if (it) pdef += itemStat(it, 'pdef', e.e || 0);
+      else if (!(s === 'legs' && full)) pdef += EMPTY_PDEF[arch][s];
     }
     st.pdef = fin('pdef', pdef * lm);
-    let mdef = T.mdef;
+    let mdef = 0;
     for (const s in EMPTY_MDEF) {
       const e = c.eq[s]; const it = e && ITEMS.get(e.id);
-      if (it) mdef += itemStat(it, 'mdef', e.e || 0);
+      mdef += it ? itemStat(it, 'mdef', e.e || 0) : EMPTY_MDEF[s];
     }
     st.mdef = fin('mdef', mdef * bonus.MEN(attrs.MEN) * lm);
 
