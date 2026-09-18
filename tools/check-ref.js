@@ -27,7 +27,7 @@ const m = dom.match(/<pre id="dump">([\s\S]*?)<\/pre>/);
 if (!m) { console.log('нет дампа'); process.exit(1); }
 const ours = JSON.parse(m[1].replace(/&quot;/g, '"').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>'));
 
-const KEYS = [['hp', 'hp'], ['mp', 'mp'], ['cp', 'cp'], ['patk', 'patk'], ['matk', 'matk'], ['pdef', 'pdef'], ['mdef', 'mdef'], ['acc', 'accuracy'], ['eva', 'evasion'], ['crit', 'critical', 10], ['aspd', 'attackSpeed'], ['cspd', 'magicSpeed'], ['speed', 'moveSpeed']];
+const KEYS = [['hp', 'hp'], ['mp', 'mp'], ['cp', 'cp'], ['patk', 'patk'], ['matk', 'matk'], ['pdef', 'pdef'], ['mdef', 'mdef'], ['acc', 'accuracy'], ['eva', 'evasion'], ['crit', 'critical', 10], ['aspd', 'attackSpeed'], ['cspd', 'magicSpeed'], ['speed', 'moveSpeed'], ['sdef', 'shieldDefence'], ['srate', 'shieldRate']];
 const worst = {};
 const rows = [];
 cases.forEach((c, i) => {

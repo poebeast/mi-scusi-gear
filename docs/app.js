@@ -764,9 +764,9 @@
       const c = ch();
       const worn = new Set(Object.values(c.eq).map(x => x.id));
       const parts = set.parts.map(p => `<span class="${p.ids.some(id => worn.has(id)) ? 'p' : 'm'}">${esc(SLOTS[p.slot === 'chest' ? 'chest' : p.slot] ? SLOTS[p.slot === 'chest' ? 'chest' : p.slot].n : p.slot)}${p.shield ? ' (optional)' : ''}</span>`).join(' · ');
-      lines.push(`<div class="k">Set: ${esc(set.n)}</div><div class="ln">${esc(set.fx || '')}</div><div class="ln setparts">${parts}</div>`);
+      lines.push(`<div class="k">Set: ${esc(set.n)}</div><div class="ln">${esc(set.fx || '')}</div>${set.shieldFx ? `<div class="ln"><b>With shield:</b> ${esc(set.shieldFx)}</div>` : ''}<div class="ln setparts">${parts}</div>`);
     } else if (set) lines.push(`<div class="k">Set: ${esc(set.n)}</div>`);
-    return `<b>${esc(it.n)}${e ? ' +' + e : ''} <span class="gtag ${it.g}">${it.g}</span></b><div class="ln">${esc(k.join('\n'))}</div>${lines.join('')}`;
+    return `<b>${esc(it.n)}${e ? ' +' + e : ''} <span class="gtag ${it.g}">${it.g}</span>${it.s === 'head' ? ` <span class="atag">${helmLabel(it)}</span>` : ''}</b><div class="ln">${esc(k.join('\n'))}</div>${lines.join('')}`;
   }
 
   function renderSlots() {
@@ -868,6 +868,9 @@
   window.__msCompute = compute;
 
   var passivesOpen = false; // var: renderStats вызывается раньше этой строки
+  // function, а не const: подсказки и выбор предметов могут строиться раньше этой строки.
+  function helmLabel(it) { return ({ heavy: 'Heavy', light: 'Light', robe: 'Robe' })[it.at] || 'Any armor'; }
+  function helmTag(it) { return it.s === 'head' ? h('span', { class: 'atag' }, helmLabel(it)) : null; }
   function renderBuffs() {
     const c = ch();
     const box = els.buffs;
@@ -958,7 +961,7 @@
         const variants = VARIANTS.get(curIt.base || curIt.id) || [curIt];
         const curRow = h('div', { class: 'cur' },
           h('img', { src: icon(curIt.ic), alt: '' }),
-          h('div', { class: 'nm' }, curIt.n, h('span', { class: 'gtag ' + curIt.g }, curIt.g), curIt.fnd ? h('span', { class: 'ftag' }, 'Rare') : null),
+          h('div', { class: 'nm' }, curIt.n, h('span', { class: 'gtag ' + curIt.g }, curIt.g), curIt.fnd ? h('span', { class: 'ftag' }, 'Rare') : null, helmTag(curIt)),
           h('span', { class: 'lbl' }, 'Enchant'),
           h('span', { class: 'step' },
             h('button', { 'aria-label': 'Decrease enchant', onclick: () => { e.e = Math.max(0, (e.e || 0) - 1); changed(); } }, '−'),
@@ -996,7 +999,7 @@
           const selected = curIt && (curIt.base || curIt.id) === (it.base || it.id);
           const row = h('button', { class: 'row' + (selected ? ' sel' : ''), role: 'option', 'aria-selected': selected ? 'true' : 'false' },
             h('img', { src: icon(it.ic), alt: '', loading: 'lazy' }),
-            h('span', { class: 't' }, h('b', null, it.n, h('span', { class: 'gtag ' + it.g }, it.g), it.fnd ? h('span', { class: 'ftag' }, 'Rare') : null, it.pvp ? h('span', { class: 'ftag' }, 'PvP') : null)),
+            h('span', { class: 't' }, h('b', null, it.n, h('span', { class: 'gtag ' + it.g }, it.g), it.fnd ? h('span', { class: 'ftag' }, 'Rare') : null, it.pvp ? h('span', { class: 'ftag' }, 'PvP') : null, helmTag(it))),
             h('span', { class: 'v' }, mainText(it)));
           row.addEventListener('click', () => {
             const keepE = c.eq[slot] ? c.eq[slot].e || 0 : 0;

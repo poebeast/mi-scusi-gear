@@ -159,7 +159,9 @@ for (const r of Object.values(rawSets)) {
   const finalParts = hasFull ? parts.filter(p => p.slot !== 'legs') : parts;
   // Редкий сет — тот, где верх брони в редкой версии.
   const rare = chestItem && chestItem.fnd;
-  sets.push({ id: idOf(r.href), n: r.name + (rare ? ' (Rare)' : ''), g: r.g, at: chestItem && chestItem.at, fx: r.fx, parts: finalParts });
+  const SHIELD_FX = { 'Avadon Breastplate': 'Increases Shield Defence Rate.', 'Doom Plate Armor': 'Increases Shield Defence Rate.', 'Dark Crystal Breastplate': 'Shield Defense Rate +20%.', 'Armor of Nightmare': 'Reflects 5% of any damage received.' };
+  const shieldFx = finalParts.some(p => p.shield) ? SHIELD_FX[r.name] : undefined;
+  sets.push({ id: idOf(r.href), n: r.name + (rare ? ' (Rare)' : ''), g: r.g, at: chestItem && chestItem.at, fx: r.fx, shieldFx, parts: finalParts });
 }
 
 // ---------------------------------------------------------------- пассивки классов
