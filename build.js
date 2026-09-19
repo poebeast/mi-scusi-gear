@@ -33,6 +33,9 @@ fs.writeFileSync(path.join(out, 'data.js'), 'window.MISCUSI_DATA=' + JSON.string
 fs.copyFileSync(R('src/app.js'), path.join(out, 'app.js'));
 fs.copyFileSync(R('src/style.css'), path.join(out, 'style.css'));
 fs.copyFileSync(R('src/themes.css'), path.join(out, 'themes.css'));
+// Инструкция: страница и скриншоты к ней (собираются tools/guide/build_guide.js).
+fs.copyFileSync(R('src/guide.html'), path.join(out, 'guide.html'));
+fs.cpSync(R('src/guide'), path.join(out, 'guide'), { recursive: true });
 const cfg = fs.existsSync(R('config.js')) ? read('config.js') : 'window.MISCUSI_CONFIG = {};\n';
 fs.writeFileSync(path.join(out, 'config.js'), cfg);
 fs.writeFileSync(path.join(out, '.nojekyll'), '');
