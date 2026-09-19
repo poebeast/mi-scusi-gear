@@ -707,8 +707,19 @@
     root.innerHTML = '';
     const wrap = h('div', { class: 'wrap' });
     els.save = h('div', { class: 'save' });
+    // Выбор варианта дизайна (временно, пока выбираем).
+    const THEMES = [['frost', 'Frost (current)'], ['glacier', 'Glacier Dark'], ['obsidian', 'Obsidian Gold'], ['parchment', 'Aden Parchment'], ['grove', 'Elven Grove'], ['night', 'Dark Elf Night'], ['terminal', 'Terminal'], ['nordic', 'Nordic Minimal'], ['crimson', 'Crimson Siege'], ['sunset', 'Sunset Pastel'], ['royal', 'Royal Heraldry']];
+    const DARK = new Set(['obsidian', 'night', 'terminal', 'crimson', 'royal', 'glacier']);
+    const curTheme = document.documentElement.dataset.theme || 'frost';
+    const themeSel = h('select', { class: 'themesel', 'aria-label': 'Design', onchange: e => {
+      const t = e.target.value, de = document.documentElement;
+      if (t === 'frost') delete de.dataset.theme; else de.dataset.theme = t;
+      if (DARK.has(t)) de.dataset.dark = ''; else delete de.dataset.dark;
+      try { localStorage.setItem('miscusi.theme', t); } catch (_) {}
+    } }, THEMES.map(([v, n]) => h('option', { value: v, selected: v === curTheme ? true : null }, n)));
     wrap.append(h('header', { class: 'top' },
       h('div', { class: 'brand' }, h('h1', null, 'Mi scusi'), h('span', null, 'Lu4 Gamma')),
+      h('label', { class: 'themepick' }, 'Design ', themeSel),
       els.save));
 
     els.charSel = h('select', { id: 'char-select', onchange: e => { const v = e.target.value; cur = v.startsWith('f:') ? v : +v; try { sessionStorage.setItem('miscusi.cur', String(cur)); } catch (_) {} renderAll(); } });

@@ -278,3 +278,6 @@ button.pic{cursor:pointer}
 .clsicon.sm{width:38px;height:38px;padding:4px}
 .duel .vs{font-size:20px;color:var(--mute)}
 .dctl{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin-left:auto}
+
+.themepick{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--ink2)}
+.themesel{background:var(--glass2);border:1px solid var(--edge);border-radius:999px;padding:6px 12px;color:var(--ink)}

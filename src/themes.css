@@ -1,0 +1,122 @@
+/* Варианты дизайна: <html data-theme="…">. frost — исходный, без переопределений. */
+
+/* ---------- общие правки для тёмных тем ---------- */
+[data-dark] body{color:var(--ink)}
+[data-dark] .note,[data-dark] .field label,[data-dark] .who small,[data-dark] .bar span,[data-dark] .st span,[data-dark] .save,[data-dark] .brand span,[data-dark] .tat .txt,[data-dark] .attr span,[data-dark] .lbl,[data-dark] .slot .ph{text-shadow:none}
+[data-dark] .clanlv,[data-dark] .slot .gr,[data-dark] .pic.book::before{box-shadow:0 0 0 2px var(--bg0)}
+[data-dark] .figure{filter:drop-shadow(0 16px 22px rgba(0,0,0,.6))}
+[data-dark] select option,[data-dark] select optgroup{background:var(--bg0);color:var(--ink)}
+[data-dark] .buff img{filter:grayscale(1) opacity(.45)}
+[data-dark] .buff.on img,[data-dark] .buff:hover img{filter:none}
+
+/* ---------- 2. Obsidian Gold: тёмное стекло и золото, как интерфейс клиента L2 ---------- */
+[data-theme=obsidian]{--bg0:#0c0b0a;--sky1:#141210;--sky2:#0e0d0c;--sky3:#0a0908;--sky4:#2a1d0c;
+  --glass:rgba(28,24,19,.72);--glass2:rgba(40,34,26,.72);--glass3:rgba(52,44,33,.92);--edge:rgba(214,176,98,.22);--edge2:rgba(214,176,98,.18);
+  --shadow:0 14px 40px rgba(0,0,0,.55);--ink:#f1e6cf;--ink2:#cbb893;--mute:#8f7e5f;--accent:#d6a64a;--accent2:#b5852c;--accentink:#1a1206;
+  --stage:linear-gradient(180deg,rgba(40,33,24,.7),rgba(20,17,13,.6));
+  --viewer:radial-gradient(55% 45% at 50% 62%,rgba(214,166,74,.28),rgba(0,0,0,0) 70%),linear-gradient(180deg,#1d1812 0%,#2a2117 60%,#15110d 100%);
+  --display:"Cinzel",serif;--body:"Inter",system-ui,sans-serif;color-scheme:dark}
+[data-theme=obsidian] body{background:radial-gradient(900px 500px at 70% 0%,rgba(214,166,74,.14),transparent 60%),linear-gradient(180deg,#15120f,#0b0a09) fixed}
+[data-theme=obsidian] .brand h1{color:var(--accent);letter-spacing:.06em}
+
+/* ---------- 3. Aden Parchment: пергамент, сепия, книжная антиква ---------- */
+[data-theme=parchment]{--sky1:#efe3c8;--sky2:#f4ead6;--sky3:#f8f1e2;--sky4:#ead6b8;
+  --glass:rgba(255,248,232,.66);--glass2:rgba(255,250,238,.8);--glass3:rgba(255,252,244,.95);--edge:rgba(120,86,40,.22);--edge2:rgba(120,86,40,.16);
+  --shadow:0 6px 18px rgba(90,60,20,.14);--ink:#3b2a14;--ink2:#5e4526;--mute:#8a7150;--accent:#8e3b1f;--accent2:#6f2b14;--accentink:#fff8ec;
+  --stage:linear-gradient(180deg,rgba(255,250,238,.7),rgba(245,232,205,.5));
+  --viewer:radial-gradient(60% 50% at 50% 62%,rgba(255,250,235,.9),rgba(255,255,255,0) 70%),linear-gradient(180deg,#e2cfa6 0%,#efe2c4 60%,#f7efdd 100%);
+  --display:"Cormorant Garamond",serif;--body:"EB Garamond",Georgia,serif}
+[data-theme=parchment] body{background:radial-gradient(1000px 600px at 20% 0%,rgba(255,255,255,.5),transparent 60%),linear-gradient(180deg,#eadbb8,#f6eedc) fixed;font-size:16px}
+[data-theme=parchment] :is(.top,.charbar,.stage,.stats,.sect,.tattoos,.clan){border-radius:10px;-webkit-backdrop-filter:none;backdrop-filter:none;border:1px solid rgba(120,86,40,.35);box-shadow:var(--shadow),inset 0 0 0 4px rgba(255,250,238,.6),inset 0 0 0 5px rgba(120,86,40,.18)}
+[data-theme=parchment] :is(.gearrow,.viewer,.stage .passives,.bg,.duel){border-radius:8px}
+[data-theme=parchment] :is(.st,.attr,.tat,.field select,.field input){border-radius:6px}
+[data-theme=parchment] .brand h1,[data-theme=parchment] h3{font-weight:700;letter-spacing:.02em}
+[data-theme=parchment] .brand h1{font-size:32px}
+
+/* ---------- 4. Elven Grove: мятный, зелень, мягкие формы ---------- */
+[data-theme=grove]{--sky1:#cdeedd;--sky2:#e6f7ee;--sky3:#fbfffc;--sky4:#fff1d6;
+  --glass:rgba(255,255,255,.5);--glass2:rgba(255,255,255,.7);--glass3:rgba(255,255,255,.9);--edge:rgba(255,255,255,.8);--edge2:rgba(20,90,60,.14);
+  --shadow:0 12px 36px rgba(30,110,80,.16);--ink:#12382a;--ink2:#2b5a47;--mute:#5d8272;--accent:#16a36b;--accent2:#0f7f52;
+  --viewer:radial-gradient(60% 50% at 50% 62%,rgba(255,255,255,.8),rgba(255,255,255,0) 70%),linear-gradient(180deg,#8fd9b6 0%,#cdf0de 55%,#f4fff8 100%);
+  --display:"Nunito",system-ui,sans-serif;--body:"Nunito",system-ui,sans-serif}
+[data-theme=grove] body{background:radial-gradient(900px 500px at 80% 100%,#fff1d6,transparent 65%),linear-gradient(180deg,#cdeedd,#f8fffb) fixed}
+[data-theme=grove] .brand h1,[data-theme=grove] h3{font-weight:900}
+[data-theme=grove] :is(.top,.charbar,.stage,.stats,.sect,.tattoos,.clan){border-radius:36px}
+
+/* ---------- 5. Dark Elf Night: фиолетовая ночь, неоновая маджента ---------- */
+[data-theme=night]{--bg0:#120a1f;--sky1:#1a0f2e;--sky2:#120a1f;--sky3:#0b0614;--sky4:#3a1450;
+  --glass:rgba(40,24,66,.55);--glass2:rgba(58,36,92,.55);--glass3:rgba(70,44,110,.92);--edge:rgba(196,140,255,.22);--edge2:rgba(196,140,255,.16);
+  --shadow:0 16px 44px rgba(10,0,30,.6);--ink:#f2e9ff;--ink2:#c9b5ec;--mute:#9580bd;--accent:#e04bd6;--accent2:#b92fb0;--accentink:#fff;
+  --stage:linear-gradient(180deg,rgba(58,36,92,.5),rgba(26,15,46,.4));
+  --viewer:radial-gradient(55% 45% at 50% 62%,rgba(224,75,214,.3),rgba(0,0,0,0) 70%),linear-gradient(180deg,#2a1645 0%,#3b1f5e 55%,#1a0f2e 100%);
+  --display:"Exo 2",system-ui,sans-serif;--body:"Exo 2",system-ui,sans-serif;color-scheme:dark}
+[data-theme=night] body{background:radial-gradient(900px 500px at 15% 0%,rgba(224,75,214,.18),transparent 60%),radial-gradient(800px 500px at 90% 90%,rgba(90,70,255,.2),transparent 60%),linear-gradient(180deg,#1a0f2e,#0b0614) fixed}
+[data-theme=night] .brand h1{background:linear-gradient(90deg,#f7a8ff,#9f8bff);-webkit-background-clip:text;background-clip:text;color:transparent}
+
+/* ---------- 6. Terminal: чёрный, моноширинный, зелёный ---------- */
+[data-theme=terminal]{--bg0:#050805;--sky1:#050805;--sky2:#050805;--sky3:#050805;--sky4:#050805;
+  --glass:#0a110a;--glass2:#0f180f;--glass3:#132013;--edge:rgba(80,255,120,.22);--edge2:rgba(80,255,120,.16);
+  --shadow:none;--ink:#c8ffd2;--ink2:#7fdc92;--mute:#4e9a5d;--accent:#39ff6a;--accent2:#1fd24d;--accentink:#031a08;
+  --hp:#ff5c5c;--mp:#4fa3ff;--cp:#ffd24f;--stage:#070c07;
+  --viewer:radial-gradient(55% 45% at 50% 62%,rgba(57,255,106,.14),rgba(0,0,0,0) 70%),repeating-linear-gradient(0deg,rgba(57,255,106,.05) 0 1px,transparent 1px 4px),#060a06;
+  --display:"JetBrains Mono",monospace;--body:"JetBrains Mono",monospace;color-scheme:dark}
+[data-theme=terminal] body{background:#050805;font-size:13.5px}
+[data-theme=terminal] :is(.top,.charbar,.stage,.stats,.sect,.tattoos,.clan,.gearrow,.viewer,.stage .passives,.bg,.duel,.st,.attr,.tat,.chip,.btn,.field select,.field input,.seg,dialog,.tip){border-radius:2px!important;-webkit-backdrop-filter:none;backdrop-filter:none}
+[data-theme=terminal] .slot{border-radius:2px}
+[data-theme=terminal] .brand h1::before{content:"> ";color:var(--accent)}
+[data-theme=terminal] .brand h1{text-transform:lowercase}
+[data-theme=terminal] h3{text-transform:uppercase;letter-spacing:.08em;font-size:14px!important}
+
+/* ---------- 7. Nordic Minimal: белый, плоский, без стекла ---------- */
+[data-theme=nordic]{--sky1:#f5f5f4;--sky2:#f5f5f4;--sky3:#f5f5f4;--sky4:#f5f5f4;
+  --glass:#fff;--glass2:#f7f7f6;--glass3:#fff;--edge:#e6e5e3;--edge2:#e6e5e3;
+  --shadow:none;--ink:#111;--ink2:#555;--mute:#8a8a8a;--accent:#111;--accent2:#333;--accentink:#fff;
+  --stage:#fff;--viewer:linear-gradient(180deg,#efeeec,#fafaf9);
+  --display:"Inter",system-ui,sans-serif;--body:"Inter",system-ui,sans-serif}
+[data-theme=nordic] body{background:#f5f5f4}
+[data-theme=nordic] :is(.top,.charbar,.stage,.stats,.sect,.tattoos,.clan){border-radius:12px;-webkit-backdrop-filter:none;backdrop-filter:none}
+[data-theme=nordic] :is(.gearrow,.viewer,.stage .passives,.bg,.duel){border-radius:10px}
+[data-theme=nordic] :is(.st,.attr,.tat,.field select,.field input,.btn,.chip){border-radius:8px}
+[data-theme=nordic] .slot{box-shadow:none;border-radius:12px}
+[data-theme=nordic] .note,[data-theme=nordic] .field label,[data-theme=nordic] .st span,[data-theme=nordic] .lbl,[data-theme=nordic] .attr span{text-shadow:none}
+[data-theme=nordic] .brand h1,[data-theme=nordic] h3{font-weight:700;letter-spacing:-.03em}
+
+/* ---------- 8. Crimson Siege: графит и красный, рубленый шрифт ---------- */
+[data-theme=crimson]{--bg0:#141414;--sky1:#1c1c1c;--sky2:#161616;--sky3:#101010;--sky4:#3a0d0d;
+  --glass:rgba(34,34,34,.8);--glass2:rgba(44,44,44,.8);--glass3:rgba(54,54,54,.95);--edge:rgba(255,255,255,.08);--edge2:rgba(255,255,255,.08);
+  --shadow:0 12px 30px rgba(0,0,0,.5);--ink:#f3f3f3;--ink2:#c2c2c2;--mute:#8a8a8a;--accent:#e0313b;--accent2:#b81f28;--accentink:#fff;
+  --stage:linear-gradient(180deg,#232323,#1a1a1a);
+  --viewer:radial-gradient(55% 45% at 50% 62%,rgba(224,49,59,.25),rgba(0,0,0,0) 70%),linear-gradient(180deg,#2a1414 0%,#241c1c 60%,#171717 100%);
+  --display:"Oswald",sans-serif;--body:"Roboto",system-ui,sans-serif;color-scheme:dark}
+[data-theme=crimson] body{background:linear-gradient(180deg,#1b1b1b,#0f0f0f) fixed}
+[data-theme=crimson] :is(.top,.charbar,.stage,.stats,.sect,.tattoos,.clan){border-radius:6px;border-top:3px solid var(--accent)}
+[data-theme=crimson] :is(.gearrow,.viewer,.stage .passives,.bg,.duel,.st,.attr,.tat,.field select,.field input){border-radius:4px}
+[data-theme=crimson] .brand h1,[data-theme=crimson] h3{text-transform:uppercase;letter-spacing:.06em;font-weight:600}
+
+/* ---------- 9. Sunset Pastel: персик и розовый, игривый ---------- */
+[data-theme=sunset]{--sky1:#ffd9c2;--sky2:#ffe9dc;--sky3:#fff8f3;--sky4:#ffd1e4;
+  --glass:rgba(255,255,255,.45);--glass2:rgba(255,255,255,.65);--glass3:rgba(255,255,255,.9);--edge:rgba(255,255,255,.8);--edge2:rgba(170,70,60,.14);
+  --shadow:0 14px 40px rgba(220,110,90,.2);--ink:#3d1f2b;--ink2:#6b3a4b;--mute:#a07080;--accent:#ff6b6b;--accent2:#e84f5e;
+  --viewer:radial-gradient(60% 50% at 50% 62%,rgba(255,255,255,.8),rgba(255,255,255,0) 70%),linear-gradient(180deg,#ffb199 0%,#ffd6c7 55%,#fff5ef 100%);
+  --display:"Poppins",system-ui,sans-serif;--body:"Poppins",system-ui,sans-serif}
+[data-theme=sunset] body{background:radial-gradient(900px 500px at 90% 10%,#ffd1e4,transparent 60%),linear-gradient(180deg,#ffd9c2,#fff8f3) fixed;font-size:14px}
+[data-theme=sunset] .brand h1{font-weight:800}
+
+/* ---------- 10. Royal Heraldry: тёмно-синий, серебро, геральдика ---------- */
+[data-theme=royal]{--bg0:#0d1630;--sky1:#101b3a;--sky2:#0d1630;--sky3:#091024;--sky4:#1d2c5c;
+  --glass:rgba(22,36,74,.7);--glass2:rgba(30,48,96,.65);--glass3:rgba(36,56,110,.95);--edge:rgba(200,214,255,.2);--edge2:rgba(200,214,255,.14);
+  --shadow:0 16px 40px rgba(0,5,25,.55);--ink:#eef2ff;--ink2:#bac6e8;--mute:#8595c2;--accent:#c9d4f2;--accent2:#a9b8e6;--accentink:#0d1630;
+  --stage:linear-gradient(180deg,rgba(30,48,96,.6),rgba(13,22,48,.5));
+  --viewer:radial-gradient(55% 45% at 50% 62%,rgba(170,190,255,.25),rgba(0,0,0,0) 70%),linear-gradient(180deg,#1b2b5e 0%,#24386f 55%,#101b3a 100%);
+  --display:"Marcellus",serif;--body:"Inter",system-ui,sans-serif;color-scheme:dark}
+[data-theme=royal] body{background:radial-gradient(900px 500px at 50% 0%,rgba(120,150,255,.18),transparent 60%),linear-gradient(180deg,#101b3a,#080e20) fixed}
+[data-theme=royal] :is(.top,.charbar,.stage,.stats,.sect,.tattoos,.clan){border-radius:14px;border:1px solid rgba(200,214,255,.28);box-shadow:var(--shadow),inset 0 1px 0 rgba(255,255,255,.08)}
+[data-theme=royal] .brand h1{letter-spacing:.08em}
+
+/* ---------- 11. Glacier Dark: исходный «Frost», но ночной ---------- */
+[data-theme=glacier]{--bg0:#0a1424;--sky1:#0c1a30;--sky2:#0a1424;--sky3:#070e1a;--sky4:#16284a;
+  --glass:rgba(30,56,96,.42);--glass2:rgba(40,72,120,.42);--glass3:rgba(44,78,130,.92);--edge:rgba(160,200,255,.22);--edge2:rgba(160,200,255,.16);
+  --shadow:0 14px 40px rgba(0,10,30,.55);--ink:#e8f2ff;--ink2:#b3cbee;--mute:#7f9cc7;--accent:#5aa9ff;--accent2:#3b8cff;--accentink:#04101f;
+  --stage:linear-gradient(180deg,rgba(40,72,120,.4),rgba(12,26,48,.3));
+  --viewer:radial-gradient(60% 50% at 50% 62%,rgba(140,200,255,.3),rgba(0,0,0,0) 70%),linear-gradient(180deg,#153058 0%,#1d3f6e 55%,#0c1a30 100%);color-scheme:dark}
+[data-theme=glacier] body{background:radial-gradient(900px 420px at 12% 8%,rgba(90,169,255,.18),transparent 60%),radial-gradient(900px 500px at 70% 100%,rgba(150,120,255,.14),transparent 65%),linear-gradient(180deg,#0c1a30,#070e1a) fixed}
