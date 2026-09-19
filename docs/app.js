@@ -866,7 +866,8 @@
   }
   const henText = hn => (hn ? `${hn.up} +${hn.n} · ${hn.down} −${hn.kind === 'greater' ? hn.n : hn.n + 1}` : 'Empty slot');
   // Ряд из трёх символов с подсказками и кнопкой, открывающей окно тату.
-  function henRow(c, cls) {
+  // noBtn — без кнопки в ряду (в карточке тату она стоит отдельно под символами).
+  function henRow(c, cls, noBtn) {
     return h('div', { class: 'hrow ' + (cls || '') }, c.hen.map((hn, i) => {
       // Символ — кнопка: открывает окно тату.
       const el = h('button', { class: 'hbtn', type: 'button', 'aria-label': 'Tattoo ' + (i + 1) + ': ' + henText(hn), onclick: () => { hideTip(); openTattoos(c); } }, henSymbol(hn));
@@ -874,14 +875,15 @@
       el.addEventListener('mouseenter', () => showTip(el, tipHtml)); el.addEventListener('mouseleave', hideTip);
       el.addEventListener('focus', () => showTip(el, tipHtml)); el.addEventListener('blur', hideTip);
       return el;
-    }), h('button', { class: 'btn sm', onclick: () => { hideTip(); openTattoos(c); } }, 'Change tattoos'));
+    }), noBtn ? null : henBtn(c));
   }
+  const henBtn = c => h('button', { class: 'btn sm', onclick: () => { hideTip(); openTattoos(c); } }, 'Change tattoos');
   function renderTattoos() {
     const c = ch();
     els.tattoos.innerHTML = '';
     const hm = hennaMods(c);
     const sum = ATTRS.filter(a => hm[a]).map(a => h('span', { class: hm[a] > 0 ? 'p' : 'm' }, `${a} ${hm[a] > 0 ? '+' : '−'}${Math.abs(hm[a])}`));
-    els.tattoos.append(h('h3', null, 'Tattoos'), henRow(c), sum.length ? h('div', { class: 'hsum' }, sum) : null);
+    els.tattoos.append(h('h3', null, 'Tattoos'), henRow(c, '', true), sum.length ? h('div', { class: 'hsum' }, sum) : null, h('div', { class: 'hbtnrow' }, henBtn(c)));
   }
 
 
