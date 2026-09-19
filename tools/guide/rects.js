@@ -1,6 +1,8 @@
 const q = (s, i) => { const l = document.querySelectorAll(s); return l[i || 0]; };
 const R = el => { if (!el) return null; const r = el.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.top + scrollY), Math.round(r.width), Math.round(r.height)]; };
+const TXT = el => { if (!el) return null; const rg = document.createRange(); rg.selectNodeContents(el); const r = rg.getBoundingClientRect(); return [Math.round(r.left), Math.round(r.top + scrollY), Math.round(r.width), Math.round(r.height)]; };
 const map = {
+  lblChar: TXT(q('label[for="char-select"]')), lblNick: TXT(q('label[for="char-nick"]')), lblLvl: TXT(q('label[for="char-level"]')), tgPT: R(q('.buffgroups .bg:nth-child(2) .buff .tg')),
   H: document.documentElement.scrollHeight,
   top: R(q('.top')), save: R(q('.save')), charbar: R(q('.charbar')), charsel: R(q('#char-select')), nick: R(q('#char-nick')), lvl: R(q('.lvl')),
   stage: R(q('.stage')), who: R(q('.who')), sets: R(q('.setchips')), worn: R(q('.wornnote')), gear: R(q('.gearrow')), slotW: R(q('.gearrow .slot', 5)), slot0: R(q('.gearrow .slot', 0)), slotLocked: R([...document.querySelectorAll('.gearrow .slot')].find(b => b.disabled)),

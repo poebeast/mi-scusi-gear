@@ -674,7 +674,8 @@
     // Выбор варианта дизайна (временно, пока выбираем).
     wrap.append(h('header', { class: 'top' },
       h('div', { class: 'brand' }, h('h1', null, 'Mi scusi'), h('span', null, 'Lu4 Gamma')),
-      h('a', { class: 'btn sm guidebtn', href: 'guide.html', target: '_blank', rel: 'noopener' }, 'Guide'),
+      // Кнопка инструкции мигает, пока её ни разу не открыли в этом браузере.
+      h('a', { class: 'btn sm guidebtn' + (guideSeen() ? '' : ' blink'), href: 'guide.html', target: '_blank', rel: 'noopener', onclick: e => { try { localStorage.setItem('miscusi.guideSeen', '1'); } catch (_) {} e.currentTarget.classList.remove('blink'); } }, 'Guide'),
       els.save));
 
     els.charSel = h('select', { id: 'char-select', onchange: e => { cur = e.target.value; try { sessionStorage.setItem('miscusi.cur', String(cur)); } catch (_) {} renderAll(); } });
@@ -720,6 +721,7 @@
       els.lay.append(row);
     }
   }
+  function guideSeen() { try { return localStorage.getItem('miscusi.guideSeen') === '1'; } catch (e) { return false; } }
   function setLevel(v) {
     const l = Math.max(1, Math.min(75, Math.round(+v || 1)));
     ch().level = l;
@@ -1035,29 +1037,6 @@
     return { rows, A, D, shots };
   }
 
-  // Ротация: в каждый момент бьём самым выгодным готовым умением (урон за время применения),
-  // если оно выгоднее обычной атаки, иначе — обычной атакой. Перезарядка идёт с момента применения.
-  function rotation(rows, limitT, limitDmg) {
-    const na = rows.find(r => r.ok && r.cast == null);
-    const naPer = na ? na.exp / na.cycle : 0;
-    const sk = rows.filter(r => r.ok && r.cast != null && r.exp > 0).map(r => ({ r, per: r.exp / r.cast, ready: 0 }));
-    let t = 0, d = 0;
-    const counts = new Map();
-    for (let guard = 0; guard < 100000 && t < limitT && d < limitDmg; guard++) {
-      let best = null;
-      for (const x of sk) if (x.ready <= t + 1e-9 && (!best || x.per > best.per)) best = x;
-      if (best && best.per >= naPer) {
-        d += best.r.exp; best.ready = t + Math.max(best.r.reuse || 0, best.r.cast); t += best.r.cast;
-        counts.set(best.r.n, (counts.get(best.r.n) || 0) + 1);
-      } else if (na) {
-        d += na.exp; t += na.cycle;
-        counts.set(na.n, (counts.get(na.n) || 0) + 1);
-      } else if (sk.length) t = Math.min(...sk.map(x => x.ready));
-      else break;
-    }
-    return { t, d, counts };
-  }
-
   function renderDamage() {
     const c = ch();
     const box = els.dmg;
@@ -1099,16 +1078,7 @@
         h('button', { class: 'btn sm', onclick: () => openBuffs(t) }, nb ? `Buffs (${nb})` : 'Buffs'),
         h('label', { class: 'dsel' }, h('input', { type: 'checkbox', checked: t.clan ? true : null, onchange: e => { t.clan = e.target.checked; update(false, t); } }), ' Clan skills'))));
     const sorted = rows.slice().sort((x, y) => (y.ok - x.ok) || y.dps - x.dps);
-    // Строка ротации: DPS за минуту боя и время, за которое ротация снимает CP и HP цели.
-    const rot = rotation(rows, 60, Infinity);
-    const rotDps = rot.t ? rot.d / rot.t : 0;
-    const used = [...rot.counts].sort((a, b) => b[1] - a[1]).map(([n, k]) => `${n === 'Normal attack' ? 'attacks' : n} ×${k}`).join(' · ');
-    const rotRow = rotDps ? h('tr', { class: 'rot' },
-      h('td', { class: 'sk' }, h('span', { class: 'na' }, '↻'), h('span', null, h('b', null, 'Rotation'), h('small', { class: 'rotuse' }, 'per minute: ' + used))),
-      h('td', null, '—'), h('td', null, '—'), h('td', null, '—'), h('td', null, '—'), h('td', null, '—'),
-      h('td', { class: 'dps' }, f0(rotDps)),
-      h('td', null, (pool / rotDps).toFixed(1) + ' s')) : null;
-    const tb = h('tbody', null, rotRow, sorted.map(r => h('tr', { class: r.ok ? '' : 'off' },
+    const tb = h('tbody', null, sorted.map(r => h('tr', { class: r.ok ? '' : 'off' },
       h('td', { class: 'sk' }, r.ic ? h('img', { src: icon(r.ic), alt: '', loading: 'lazy' }) : h('span', { class: 'na' }, '⚔'), h('span', null, h('b', null, r.n), r.lv ? h('small', null, ' Lv. ' + r.lv) : null, r.why ? h('small', { class: 'why' }, ' — ' + r.why) : null)),
       h('td', null, f0(r.norm)),
       h('td', null, f0(r.crit)),
@@ -1119,7 +1089,7 @@
       h('td', null, r.ok && r.dps ? (pool / r.dps).toFixed(1) + ' s' : '—'))));
     box.append(h('div', { class: 'dwrap' }, h('table', { class: 'dtable' },
       h('thead', null, h('tr', null, ['Skill', 'Hit', 'Crit', 'Hit · crit %', 'Average', 'Cycle', 'DPS', 'CP+HP in'].map(x => h('th', null, x)))), tb)));
-    box.append(h('p', { class: 'note' }, 'Average includes crit chance and, for normal attacks, miss and shield block. Cycle is the longer of reuse and cast time (cast time scales with Atk. Spd. / Casting Spd.). «CP+HP in» — time to burn the target’s CP and HP using only that line. Rotation always casts the most damaging ready skill (damage per cast time) and fills the gaps with normal attacks. PvP, no attributes.'));
+    box.append(h('p', { class: 'note' }, 'Average includes crit chance and, for normal attacks, miss and shield block. Cycle is the longer of reuse and cast time (cast time scales with Atk. Spd. / Casting Spd.). «CP+HP in» — time to burn the target’s CP and HP using only that line. PvP, no attributes.'));
   }
 
   function renderBuffs() {

@@ -332,10 +332,9 @@ button.pic{cursor:pointer}
 .hbtnrow{display:flex}
 .hbtnrow .btn{flex:1}
 
-/* Строка ротации */
-.dtable tr.rot td{background:color-mix(in srgb,var(--accent) 12%,transparent);border-bottom:1px solid color-mix(in srgb,var(--accent) 35%,transparent)}
-.dtable tr.rot td.dps{color:var(--accent)}
-.dtable tr.rot .na{color:var(--accent);font-size:16px}
-.dtable td.sk .rotuse{display:block;white-space:normal;color:var(--ink2);font-size:11.5px;line-height:1.3;margin-top:2px}
-.dtable tr.rot td.sk>span:last-child{min-width:0}
 .guidebtn{text-decoration:none;color:var(--ink)}
+
+/* Мигающая кнопка «Guide» */
+@keyframes guidePulse{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 55%,transparent);border-color:var(--edge)}50%{box-shadow:0 0 0 7px color-mix(in srgb,var(--accent) 0%,transparent),0 0 18px color-mix(in srgb,var(--accent) 60%,transparent);border-color:var(--accent);color:var(--accent)}}
+.guidebtn.blink{animation:guidePulse 1.6s ease-in-out infinite}
+@media (prefers-reduced-motion:reduce){.guidebtn.blink{animation:none;border-color:var(--accent);color:var(--accent)}}
