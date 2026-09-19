@@ -19,7 +19,7 @@ fs.rmSync(out, { recursive: true, force: true });
 fs.mkdirSync(path.join(out, 'icons'), { recursive: true });
 
 // Кладём только иконки, на которые ссылаются данные.
-const used = new Set([...items.map(i => i.ic), ...buffs.map(b => b.ic), ...Object.values(passives).flat().map(p => p.ic), ...clan.map(c => c.ic), ...Object.values(attacks).flat().map(a => a.ic), ...[5, 16, 30, 21, 51, 9, 24, 37].map(n => 'cls_' + n)].filter(Boolean));
+const used = new Set([...items.map(i => i.ic), ...buffs.map(b => b.ic), ...Object.values(passives).flat().map(p => p.ic), ...clan.map(c => c.ic), ...Object.values(attacks).flat().map(a => a.ic), ...['str', 'dex', 'con', 'int', 'wit', 'men'].map(a => 'etc_' + a + '_symbol_i00'), ...[5, 16, 30, 21, 51, 9, 24, 37].map(n => 'cls_' + n)].filter(Boolean));
 const missing = [];
 for (const name of used) {
   const f = R('icons/' + name + '.png');

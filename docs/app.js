@@ -770,17 +770,18 @@
   function renderWho() {
     const c = ch();
     els.who.innerHTML = '';
-    const worn = Object.keys(c.eq).length;
     const sets = activeSets(c);
+    // Пустые слоты: штаны под цельной бронёй и щит при двуручном оружии заняты, их не считаем.
+    const w = c.eq.weapon && ITEMS.get(c.eq.weapon.id), chest = c.eq.chest && ITEMS.get(c.eq.chest.id);
+    const covered = s => (s === 'legs' && chest && chest.s === 'full') || (s === 'shield' && w && TWO_HANDED.has(w.wt));
+    const empty = Object.keys(SLOTS).filter(s => !c.eq[s] && !covered(s)).map(s => SLOTS[s].n);
     // Компактная строка вместо рендера: иконка класса, имя, сеты, заполненность слотов.
     els.who.append(
       h('img', { class: 'clsicon', src: 'icons/class_icon_' + CLASS_ICON[c.cls] + '.png', alt: CLASSES[c.cls].n }),
       h('div', { class: 'idtext' }, h('b', null, c.nick || CLASSES[c.cls].n),
         h('small', null, `${CLASSES[c.cls].n} · ${raceLabel(c)} · ${c.gender === 'female' ? 'Female' : 'Male'} · Lv. ${c.level}`)),
       h('div', { class: 'setchips' }, sets.map(x => h('span', { class: 'chip' }, x.set.n + (x.minE >= 3 ? ' +' + Math.min(x.minE, 6) : '')))),
-      h('div', { class: 'wornbox' },
-        h('div', { class: 'wornbar', role: 'img', 'aria-label': `${worn} of 12 slots equipped` }, Object.keys(SLOTS).map(s => h('i', { class: c.eq[s] ? 'on' : '' }))),
-        h('span', { class: 'note' }, worn ? `${worn} of 12 slots equipped` : 'Nothing equipped — click a slot below')));
+      h('span', { class: 'note wornnote' }, !empty.length ? 'Full gear' : empty.length === Object.keys(SLOTS).length ? 'Nothing equipped — click a slot below' : 'Empty: ' + [...new Set(empty)].join(', ')));
   }
 
   function slotButton(slot, who) {
@@ -858,24 +859,22 @@
   }
 
   // Символ тату в игровом стиле: тёмный слот, светящаяся эмблема цвета атрибута.
-  const SYM_COLOR = { STR: '#ff4b3e', DEX: '#45d16e', CON: '#f2b233', INT: '#4b9bff', WIT: '#b76bff', MEN: '#35d3de' };
+  // Символ тату — иконка из клиента игры (etc_str_symbol_i00 и т. д., с вики).
   function henSymbol(hn) {
     if (!hn) return h('span', { class: 'hsym none' });
-    const col = SYM_COLOR[hn.up] || '#ccc';
-    return h('span', { class: 'hsym', style: '--sc:' + col, html: '<svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="11" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="16" cy="16" r="6.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M16 3v6M16 23v6M3 16h6M23 16h6M7 7l4.2 4.2M20.8 20.8L25 25M25 7l-4.2 4.2M11.2 20.8L7 25" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="16" cy="16" r="2.4" fill="currentColor"/></svg>' });
+    return h('span', { class: 'hsym' }, h('img', { src: icon('etc_' + hn.up.toLowerCase() + '_symbol_i00'), alt: hn.up }));
   }
   const henText = hn => (hn ? `${hn.up} +${hn.n} · ${hn.down} −${hn.kind === 'greater' ? hn.n : hn.n + 1}` : 'Empty slot');
   // Ряд из трёх символов с подсказками и кнопкой, открывающей окно тату.
   function henRow(c, cls) {
     return h('div', { class: 'hrow ' + (cls || '') }, c.hen.map((hn, i) => {
-      const el = henSymbol(hn);
-      el.setAttribute('tabindex', '0');
-      el.setAttribute('aria-label', 'Tattoo ' + (i + 1) + ': ' + henText(hn));
+      // Символ — кнопка: открывает окно тату.
+      const el = h('button', { class: 'hbtn', type: 'button', 'aria-label': 'Tattoo ' + (i + 1) + ': ' + henText(hn), onclick: () => { hideTip(); openTattoos(c); } }, henSymbol(hn));
       const tipHtml = `<b>Tattoo ${i + 1}</b><div class="ln">${esc(henText(hn))}</div>`;
       el.addEventListener('mouseenter', () => showTip(el, tipHtml)); el.addEventListener('mouseleave', hideTip);
       el.addEventListener('focus', () => showTip(el, tipHtml)); el.addEventListener('blur', hideTip);
       return el;
-    }), h('button', { class: 'btn sm', onclick: () => { hideTip(); openTattoos(c); } }, 'Tattoos'));
+    }), h('button', { class: 'btn sm', onclick: () => { hideTip(); openTattoos(c); } }, 'Change tattoos'));
   }
   function renderTattoos() {
     const c = ch();
