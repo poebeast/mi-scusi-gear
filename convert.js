@@ -172,6 +172,28 @@ const clsRaw = rawOr('cls.json', {});
 // skills3.json — дособранные страницы: умения базовых классов и одноуровневые умения с описанием вне таблицы.
 const skRaw = Object.assign({}, rawOr('skills2.json', {}));
 for (const [k, v] of Object.entries(rawOr('skills3.json', {}))) if (v && v.lv && Object.keys(v.lv).length) skRaw[k] = v;
+// skills4.json — умения остальных классов (противники).
+for (const [k, v] of Object.entries(rawOr('skills4.json', {}))) if (v && v.lv && Object.keys(v.lv).length && !skRaw[k]) skRaw[k] = v;
+
+// ---------------------------------------------------------------- остальные классы 2-й профессии (противники)
+// Группы умений — со страницы класса на вики (/all). Уровни изучения — из Lu4 Planner:
+// пассивки по уровням персонажа 1–75, атакующие умения по magicLevel (он совпадает с уровнем изучения).
+const allRaw = rawOr('all.json', {});
+const pj = rawOr('planner.json', { curve: {}, skills: {}, meta: {} });
+const NEW_PL = { gladiator: 'gladiator', warlord: 'warlord', darkavenger: 'dark_avenger', treasurehunter: 'treasure_hunter', sorcerer: 'sorcerer', necromancer: 'necromancer', warlock: 'warlock', prophet: 'prophet', templeknight: 'temple_knight', plainwalker: 'plain_walker', spellsinger: 'spellsinger', elementalsummoner: 'elemental_summoner', shillienknight: 'shillien_knight', bladedancer: 'bladedancer', abysswalker: 'abyss_walker', spellhowler: 'spellhowler', phantomsummoner: 'phantom_summoner', shillienelder: 'shillien_elder', destroyer: 'destroyer', tyrant: 'tyrant', warcryer: 'warcryer', bountyhunter: 'bounty_hunter', warsmith: 'warsmith', terramancer: 'terramancer' };
+const keyById = {};
+for (const k of Object.keys(skRaw)) { const id = k.split('-')[0]; if (!keyById[id]) keyById[id] = k; }
+for (const c of Object.values(allRaw)) for (const k of Object.keys(c.groups || {})) { const id = k.split('-')[0]; if (!keyById[id]) keyById[id] = k; }
+// Пассивки противника по уровням: [[уровень персонажа, уровень умения], …] из расчёта планнера.
+const plannerPassives = pid => {
+  const cv = (pj.curve || {})[pid] || {};
+  const learn = {};
+  for (let L = 1; L <= 75; L++) {
+    const x = cv[L]; if (!x || !x.pas) continue;
+    for (const p of x.pas.split(',')) { const [id, l] = p.split(':'); if (!id) continue; const arr = learn[id] = learn[id] || []; if (!arr.some(a => a[1] === +l)) arr.push([L, +l]); }
+  }
+  return learn;
+};
 // Базовый класс (уровни 1–19): Fighter, Mage, Elven Fighter и т. д.
 const baseRaw = rawOr('base.json', {});
 const BASE_OF = { paladin: '0-fighter', hawkeye: '0-fighter', bishop: '10-mage', elder: '25-elvenmage', swordsinger: '18-elvenfighter', silverranger: '18-elvenfighter', phantomranger: '31-darkfighter', overlord: '49-orcmage' };
@@ -207,6 +229,24 @@ for (const [cls, c] of Object.entries(clsRaw)) {
     passives[cls].push({ id: sk.split('-')[0], n: s.name, ic: (s.icon || '').replace(/\.png$/, ''), learn: list, lv, wt });
   }
 }
+const RACIAL = new Set(['964', '295']);
+for (const [cls, pid] of Object.entries(NEW_PL)) {
+  const g = (allRaw[cls] || {}).groups || {};
+  const learn = plannerPassives(pid);
+  if (!Object.keys(learn).length) continue;
+  passives[cls] = [];
+  for (const [id, list] of Object.entries(learn)) {
+    const sk = keyById[id];
+    const s = skRaw[sk];
+    if (!s || !Object.keys(s.lv).length) continue;
+    // Расовые пассивки со статами: Children of Shilen (тёмные эльфы), Iron Body (гномы).
+    if (!(PASS.test(g[sk] || '') || RACIAL.has(id) || (!g[sk] && isPassiveType(s.type)))) continue;
+    list.sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+    const lv = {}; for (const [, l] of list) if (s.lv[l]) lv[l] = s.lv[l];
+    const wt = (WEAPON_OF.find(([re]) => re.test(s.name)) || [])[1];
+    passives[cls].push({ id, n: s.name, ic: (s.icon || '').replace(/\.png$/, ''), learn: list, lv, wt });
+  }
+}
 // Мастерство оружия магов на сервере даёт ещё P. Atk. +45% и M. Atk. +17% — в тексте вики этого нет,
 // сверено с расчётом Lu4 Planner на всех уровнях 7–75.
 const BOOK = { 758: "Spellbook: Fighter's Will", 759: "Spellbook: Archer's Will", 945: "Spellbook: Magician's Will" };
@@ -219,7 +259,9 @@ fs.writeFileSync(R('data/passives.json'), JSON.stringify(passives));
 // Служебные умения без влияния на статы не показываем.
 const SKIP_BUFF = new Set(['24314', '226', '1506', '1427', '1460', '1257', '24435']);
 const buffMap = new Map();
-for (const [cls, c] of Object.entries(clsRaw)) {
+const buffSrc = Object.assign({}, clsRaw);
+for (const cls of Object.keys(NEW_PL)) if (allRaw[cls]) buffSrc[cls] = { groups: allRaw[cls].groups };
+for (const [cls, c] of Object.entries(buffSrc)) {
   const learn = {};
   for (const table of [c.first || {}, c.sched || {}])
     for (const [L, rows] of Object.entries(table))
@@ -257,7 +299,7 @@ const buffs = [...buffMap.values()];
 const skMeta = rawOr('skillmeta.json', { meta: {}, classes: {} });
 const PLANNER_CLS = { paladin: 'paladin', bishop: 'bishop', elder: 'elder', swordsinger: 'swordsinger', overlord: 'overlord', hawkeye: 'hawkeye', silverranger: 'silver_ranger', phantomranger: 'phantom_ranger' };
 // Урон по MP и умения только против нежити в PvP не нужны.
-const NOT_PVP = new Set(['1102', '1210', '1398', '1399', '1031', '405', '1400', '49']);
+const NOT_PVP = new Set(['1102', '1210', '1398', '1399', '1031', '405', '1400', '49', '450']);
 // Какое оружие нужно умению.
 const SK_WEAPON = { 19: 'bow', 24: 'bow', 56: 'bow', 101: 'bow', 343: 'bow', 354: 'bow', 987: 'bow', 990: 'bow', 314: 'bow', 16: 'dagger', 223: 'dagger', 984: 'shield' };
 const powerOf = t => {
@@ -292,6 +334,71 @@ for (const [cls, c] of Object.entries(clsRaw)) {
     });
   }
   attacks[cls].sort((a, b) => a.learn[0][0] - b.learn[0][0]);
+}
+// Множитель умения из расчёта планнера («(сила + P. Atk.) × соска × k × 77 ÷ P. Def.»), например у звуковых атак.
+const factorOf = m => { const x = String(m.sub || '').match(/^[\d.]+ × ([\d.]+) × (?:70|77) ÷/); return x && +x[1] !== 1 ? +x[1] : undefined; };
+for (const a of Object.values(attacks).flat()) { const m = skMeta.meta[a.id]; if (m && factorOf(m)) a.k = factorOf(m); }
+for (const [cls, pid] of Object.entries(NEW_PL)) {
+  const list = (pj.skills || {})[pid];
+  if (!list) continue;
+  attacks[cls] = [];
+  for (const x of list) {
+    if (!x.dmg || NOT_PVP.has(x.id)) continue;
+    const m = skMeta.meta[x.id] || (pj.meta || {})[x.id];
+    const s = skRaw[keyById[x.id]];
+    if (!s || !m || m.err || m.hit == null) continue;
+    const learn = x.ml.map((L, i) => [L, i + 1]).filter(([L]) => L <= 75);
+    if (!learn.length) continue;
+    const pw = {};
+    for (const [l, t] of Object.entries(s.lv)) { const p = powerOf(t); if (p) pw[l] = p; }
+    if (!Object.keys(pw).length) continue;
+    const text = Object.values(s.lv).slice(-1)[0] || '';
+    const ign = (text.match(/Ignores (\d+)% of enemy's P\. Def/i) || [])[1];
+    attacks[cls].push({
+      id: x.id, n: s.name, ic: (s.icon || '').replace(/\.png$/, ''), learn, pw,
+      magic: !!m.magic, hit: m.hit, reuse: m.reuse, cc: m.cc, cm: m.cm, k: factorOf(m),
+      mp: +(String((s.st || {}).Consumes || '').match(/\d+/) || [0])[0],
+      noShield: /Ignores Shield Defen/i.test(text) || undefined, defIgn: ign ? +ign : undefined,
+      blow: /Blow|Backstab/.test(s.name) || undefined, weapon: SK_WEAPON[x.id] || (/ Shot$/.test(s.name) ? 'bow' : /Blow|Backstab|Stab/.test(s.name) ? 'dagger' : undefined),
+    });
+  }
+  attacks[cls].sort((a, b) => a.learn[0][0] - b.learn[0][0]);
+}
+
+// HP/MP/CP по уровням для новых классов: голый персонаж из планнера минус Boost HP / Boost Mana, делённый на модификатор CON/MEN.
+const hptab = rawOr('../hptab.json', {});
+{
+  const r2 = x => Math.round(x * 100) / 100;
+  const CON = v => r2(Math.pow(1.03, v - 27.632)), MEN = v => r2(Math.pow(1.01, v + 0.06));
+  // Безусловные проценты к Max HP/MP/CP из пассивок (например, Master of Combat: Max CP +5%) уже входят в расчёт планнера.
+  const pctAt = (cls, L, key) => { let t = 0; for (const x of passives[cls] || []) { const l = x.learn.reduce((m, [a, b]) => (a <= L && b > m ? b : m), 0); if (!l) continue; for (const line of String(x.lv[l] || '').split('\n')) { if (/:\s*$/.test(line)) break; const mm = line.match(new RegExp('^Max\\.? ?' + key + ' \\+(\\d+(?:\\.\\d+)?)%')); if (mm) t += +mm[1]; } } return 1 + t / 100; };
+  const flat = (cls, L, re) => { let t = 0; for (const x of passives[cls] || []) { if (!re.test(x.n)) continue; const l = x.learn.reduce((m, [a, b]) => (a <= L && b > m ? b : m), 0); if (!l) continue; const mm = (x.lv[l] || '').match(/by (\d+)/); if (mm) t += +mm[1]; } return t; };
+  const cases = [];
+  for (const [cls, pid] of Object.entries(NEW_PL)) {
+    const cv = (pj.curve || {})[pid]; if (!cv || !cv[75]) continue;
+    const tab = { hp: [], mp: [], cp: [] };
+    for (let L = 1; L <= 75; L++) {
+      const c = cv[L]; if (!c || !c.s) continue;
+      tab.hp[L - 1] = +((c.s.hp / pctAt(cls, L, 'HP') - flat(cls, L, /Boost HP/)) / CON(c.pr.con)).toFixed(2);
+      tab.mp[L - 1] = +((c.s.mp / pctAt(cls, L, 'MP') - flat(cls, L, /Boost Mana/)) / MEN(c.pr.men)).toFixed(2);
+      tab.cp[L - 1] = +(c.s.cp / pctAt(cls, L, 'CP') / CON(c.pr.con)).toFixed(2);
+      cases.push({ id: cls + '-naked-' + L, char: { cls, level: L, eq: {}, hen: [null, null, null], buffs: {} }, ref: c.s, primary: c.pr, passives: c.pas });
+    }
+    hptab[cls] = tab;
+  }
+  fs.writeFileSync(R('data/hptab.json'), JSON.stringify(hptab));
+  fs.writeFileSync(R('data/raw/ref2.json'), JSON.stringify({ cases }));
+}
+// Удары кинжалом в расчёте планнера: «(сила × m + P. Atk. × соска) × 77 ÷ P. Def.» — соска не усиливает силу умения.
+// Планнер считал с P. Atk. 2000 и соской ×2, отсюда m = (X − 4000) ÷ сила.
+for (const a of Object.values(attacks).flat()) {
+  const m = skMeta.meta[a.id] || (pj.meta || {})[a.id];
+  const x = m && String(m.sub || '').match(/^([\d.]+) × 7[07] ÷/);
+  if (!x) continue;
+  a.blow = true;
+  const p = a.pw[m.lv];
+  const pm = p ? Math.round((+x[1] - 4000) / p * 100) / 100 : 1;
+  a.pm = pm !== 1 ? pm : undefined;
 }
 fs.writeFileSync(R('data/attacks.json'), JSON.stringify(attacks));
 console.log('attacks', Object.entries(attacks).map(([k, v]) => k + ':' + v.length).join(' '));

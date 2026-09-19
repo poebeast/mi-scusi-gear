@@ -7,9 +7,15 @@ const { execFileSync } = require('child_process');
 const SP = require('path').join(require('os').tmpdir(), 'ms-check');
 const SITE = require('path').join(__dirname, '..', 'docs').replace(/\\/g, '/');
 const ref = JSON.parse(fs.readFileSync(require('path').join(__dirname, '..', 'data', 'raw', 'ref.json'), 'utf8'));
+// ref2.json — голые персонажи остальных классов по уровням (собирается в convert.js из данных планнера).
+const ref2p = require('path').join(__dirname, '..', 'data', 'raw', 'ref2.json');
+if (fs.existsSync(ref2p)) ref.cases.push(...JSON.parse(fs.readFileSync(ref2p, 'utf8')).cases);
 fs.mkdirSync(SP, { recursive: true });
 const filter = process.argv[2] || '';
-const NAT = { paladin: ['human', 'fighter'], bishop: ['human', 'mystic'], elder: ['elf', 'mystic'], swordsinger: ['elf', 'fighter'], overlord: ['orc', 'mystic'], hawkeye: ['human', 'fighter'], silverranger: ['elf', 'fighter'], phantomranger: ['darkelf', 'fighter'] };
+const NAT = { paladin: ['human', 'fighter'], bishop: ['human', 'mystic'], elder: ['elf', 'mystic'], swordsinger: ['elf', 'fighter'], overlord: ['orc', 'mystic'], hawkeye: ['human', 'fighter'], silverranger: ['elf', 'fighter'], phantomranger: ['darkelf', 'fighter'],
+  gladiator: ['human', 'fighter'], warlord: ['human', 'fighter'], darkavenger: ['human', 'fighter'], treasurehunter: ['human', 'fighter'], sorcerer: ['human', 'mystic'], necromancer: ['human', 'mystic'], warlock: ['human', 'mystic'], prophet: ['human', 'mystic'],
+  templeknight: ['elf', 'fighter'], plainwalker: ['elf', 'fighter'], spellsinger: ['elf', 'mystic'], elementalsummoner: ['elf', 'mystic'], shillienknight: ['darkelf', 'fighter'], bladedancer: ['darkelf', 'fighter'], abysswalker: ['darkelf', 'fighter'],
+  spellhowler: ['darkelf', 'mystic'], phantomsummoner: ['darkelf', 'mystic'], shillienelder: ['darkelf', 'mystic'], destroyer: ['orc', 'fighter'], tyrant: ['orc', 'fighter'], warcryer: ['orc', 'mystic'], bountyhunter: ['dwarf', 'fighter'], warsmith: ['dwarf', 'fighter'], terramancer: ['dwarf', 'fighter'] };
 const cases = ref.cases.filter(c => !filter || c.id.includes(filter));
 for (const c of cases) Object.assign(c.char, { race: NAT[c.char.cls][0], type: NAT[c.char.cls][1], gender: 'male', hen: c.char.hen || [null, null, null], buffs: c.char.buffs || {}, clan: false, clanLv: {} });
 

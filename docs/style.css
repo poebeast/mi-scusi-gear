@@ -269,3 +269,12 @@ button.pic{cursor:pointer}
 .pic.book.off::before{background:var(--bad)}
 .tip .k.bad{color:var(--bad);font-weight:600}
 @media (min-width:1061px){.figure{height:360px}}
+.duel{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;padding:10px 14px;margin-bottom:10px;border-radius:20px;background:var(--glass2);border:1px solid var(--edge)}
+.duelist{display:flex;align-items:center;gap:10px;min-width:0}
+.duelist small{display:block;font-size:11px;font-weight:600;color:var(--mute);text-transform:uppercase;letter-spacing:.06em}
+.duelist b{display:block;font:700 15px/1.2 var(--display)}
+.duelist span{font-size:12px;color:var(--ink2)}
+.duelist select{font:600 14px var(--body);padding:5px 10px;border-radius:12px;border:1px solid var(--edge);background:var(--glass3);max-width:260px}
+.clsicon.sm{width:38px;height:38px;padding:4px}
+.duel .vs{font-size:20px;color:var(--mute)}
+.dctl{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin-left:auto}

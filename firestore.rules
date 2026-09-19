@@ -9,6 +9,14 @@ service cloud.firestore {
         && request.resource.data.data is string
         && request.resource.data.data.size() < 20000;
     }
+    // Opponents for the damage calculator: one doc per class (gladiator, tyrant, ...), under 20 KB.
+    match /parties/{partyId}/foes/{foeId} {
+      allow read: if partyId == 'ms-00f529c6acff2d5c47';
+      allow write: if partyId == 'ms-00f529c6acff2d5c47'
+        && foeId.matches('[a-z]{4,20}')
+        && request.resource.data.data is string
+        && request.resource.data.data.size() < 20000;
+    }
     // Service doc: wiki scraping progress.
     match /parties/{partyId}/meta/scrape {
       allow read: if partyId == 'ms-00f529c6acff2d5c47';

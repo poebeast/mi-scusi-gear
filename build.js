@@ -27,7 +27,7 @@ for (const name of used) {
   else missing.push(name);
 }
 fs.cpSync(R('icons/art'), path.join(out, 'icons', 'art'), { recursive: true });
-for (const n of [5, 16, 30, 21, 51, 9, 24, 37]) fs.copyFileSync(R('icons/class_icon_' + n + '.png'), path.join(out, 'icons', 'class_icon_' + n + '.png'));
+for (const f of fs.readdirSync(R('icons')).filter(f => /^class_icon_\d+\.png$/.test(f))) fs.copyFileSync(R('icons/' + f), path.join(out, 'icons', f));
 if (missing.length) console.warn('нет иконок:', missing.length, missing.slice(0, 10).join(', '));
 
 fs.writeFileSync(path.join(out, 'data.js'), 'window.MISCUSI_DATA=' + JSON.stringify({ items, sets, buffs, passives, clan, hptab, attacks, state }) + ';\n');

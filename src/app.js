@@ -22,6 +22,7 @@
 
   // ---------------------------------------------------------------- справочники
   const RACES = [['human', 'Human'], ['elf', 'Elf'], ['darkelf', 'Dark Elf'], ['orc', 'Orc'], ['dwarf', 'Dwarf']];
+  const RACE_ORDER = RACES.map(r => r[0]);
   const GENDERS = [['male', 'Male'], ['female', 'Female']];
   const CLASSES = {
     paladin:       { n: 'Paladin',        arch: 'fighter', race: 'human',   hp: 2500, mp: 900,  cpr: 0.62, accent: 0xe8c35a },
@@ -34,6 +35,20 @@
     phantomranger: { n: 'Phantom Ranger', arch: 'fighter', race: 'darkelf', hp: 2000, mp: 850,  cpr: 0.7, archer: true, accent: 0xb37aff },
   };
   const CLASS_ICON = { paladin: 5, bishop: 16, elder: 30, swordsinger: 21, overlord: 51, hawkeye: 9, silverranger: 24, phantomranger: 37 };
+  // Остальные классы 2-й профессии — противники для калькулятора урона. HP/MP/CP берутся из таблицы hptab.
+  [['gladiator', 'Gladiator', 'fighter', 'human', 2], ['warlord', 'Warlord', 'fighter', 'human', 3], ['darkavenger', 'Dark Avenger', 'fighter', 'human', 6],
+   ['treasurehunter', 'Treasure Hunter', 'fighter', 'human', 8], ['sorcerer', 'Sorcerer', 'mystic', 'human', 12], ['necromancer', 'Necromancer', 'mystic', 'human', 13],
+   ['warlock', 'Warlock', 'mystic', 'human', 14], ['prophet', 'Prophet', 'mystic', 'human', 17], ['templeknight', 'Temple Knight', 'fighter', 'elf', 20],
+   ['plainwalker', 'Plains Walker', 'fighter', 'elf', 23], ['spellsinger', 'Spellsinger', 'mystic', 'elf', 27], ['elementalsummoner', 'Elemental Summoner', 'mystic', 'elf', 28],
+   ['shillienknight', 'Shillien Knight', 'fighter', 'darkelf', 33], ['bladedancer', 'Bladedancer', 'fighter', 'darkelf', 34], ['abysswalker', 'Abyss Walker', 'fighter', 'darkelf', 36],
+   ['spellhowler', 'Spellhowler', 'mystic', 'darkelf', 40], ['phantomsummoner', 'Phantom Summoner', 'mystic', 'darkelf', 41], ['shillienelder', 'Shillien Elder', 'mystic', 'darkelf', 43],
+   ['destroyer', 'Destroyer', 'fighter', 'orc', 46], ['tyrant', 'Tyrant', 'fighter', 'orc', 48], ['warcryer', 'Warcryer', 'mystic', 'orc', 52],
+   ['bountyhunter', 'Bounty Hunter', 'fighter', 'dwarf', 55], ['warsmith', 'Warsmith', 'fighter', 'dwarf', 57],
+   // Terramancer (кастомная ветка гномов Lu4) на сервере использует шаблон гнома-воина — так в данных Lu4 Planner.
+   ['terramancer', 'Terramancer', 'fighter', 'dwarf', 210]]
+    .forEach(([k, n, arch, race, id]) => { CLASSES[k] = { n, arch, race, hp: arch === 'fighter' ? 2300 : 1700, mp: arch === 'fighter' ? 900 : 1600, cpr: 0.6 }; CLASS_ICON[k] = id; });
+  // Противники: по одному персонажу каждого класса, порядок — по расам.
+  const FOE_ORDER = Object.keys(CLASSES).sort((a, b) => RACE_ORDER.indexOf(CLASSES[a].race) - RACE_ORDER.indexOf(CLASSES[b].race) || (CLASSES[a].arch > CLASSES[b].arch ? 1 : CLASSES[a].arch < CLASSES[b].arch ? -1 : 0) || CLASS_ICON[a] - CLASS_ICON[b]);
   const ROSTER = ['paladin', 'bishop', 'elder', 'swordsinger', 'overlord', 'hawkeye', 'hawkeye', 'silverranger', 'phantomranger'];
   // Пол по умолчанию — как на официальном рендере класса.
   const CLASS_GENDER = { paladin: 'female', bishop: 'female', elder: 'female', swordsinger: 'female', overlord: 'male', hawkeye: 'female', silverranger: 'female', phantomranger: 'male' };
@@ -200,7 +215,7 @@
       }
       line = line.replace(/^(?:For|Applies to) [^:]*members\s*:\s*/i, '');
       if (!line) continue;
-      if (/^When attacked|^When HP is below|^When taking|^When using|^During /i.test(line)) { cond = 'skip'; notes.push(line); continue; }
+      if (/^When attacked|^When HP is below|^When taking|^When using|^During |^With an? \d+% chance|^With \d+% chance|^When the (?:master|servitor)|servitor\b[^:]*:\s*$/i.test(line)) { cond = 'skip'; notes.push(line); continue; }
       const cm = line.match(/^(If a shield is equipped|Shield Equip Bonus|When HP\s*<\s*\d+%|For party members|Totally)\s*:\s*/i);
       if (cm) {
         const c = cm[1].toLowerCase();
@@ -263,6 +278,9 @@
   // ---------------------------------------------------------------- состояние
   // Оригинальные рендеры классов L2 с вики: свой класс, если совпадают раса, тип и пол, иначе типичный персонаж этой расы.
   const ART_OWN = { paladin: [5, 'human', 'fighter', 'female'], bishop: [16, 'human', 'mystic', 'female'], elder: [30, 'elf', 'mystic', 'female'], swordsinger: [21, 'elf', 'fighter', 'female'], overlord: [51, 'orc', 'mystic', 'male'], hawkeye: [9, 'human', 'fighter', 'female'], silverranger: [24, 'elf', 'fighter', 'female'], phantomranger: [37, 'darkelf', 'fighter', 'male'] };
+  // Рендеры остальных классов с вики (/images/wiki/classes/<classId>.png) и пол персонажа на них.
+  const ART_NEW = {"gladiator":[2,"male"],"warlord":[3,"female"],"darkavenger":[6,"male"],"treasurehunter":[8,"female"],"sorcerer":[12,"female"],"necromancer":[13,"female"],"warlock":[14,"male"],"prophet":[17,"male"],"templeknight":[20,"male"],"plainwalker":[23,"female"],"spellsinger":[27,"female"],"elementalsummoner":[28,"male"],"shillienknight":[33,"female"],"bladedancer":[34,"male"],"abysswalker":[36,"female"],"spellhowler":[40,"female"],"phantomsummoner":[41,"female"],"shillienelder":[43,"female"],"destroyer":[46,"female"],"tyrant":[48,"male"],"warcryer":[52,"female"],"bountyhunter":[55,"female"],"warsmith":[57,"female"],"terramancer":[210,"male"]};
+  for (const k in ART_NEW) { const c = CLASSES[k]; ART_OWN[k] = [ART_NEW[k][0], c.race, c.arch, ART_NEW[k][1]]; CLASS_GENDER[k] = ART_NEW[k][1]; }
   const ART_BY = { human: { fighter: { male: 1, female: 5 }, mystic: { male: 11, female: 16 } }, elf: { fighter: { male: 20, female: 21 }, mystic: { male: 26, female: 30 } }, darkelf: { fighter: { male: 37, female: 33 }, mystic: { male: 39, female: 42 } }, orc: { fighter: { male: 46, female: 47 }, mystic: { male: 51, female: 52 } }, dwarf: { fighter: { male: 56, female: 55 }, mystic: { male: 210, female: 209 } } };
   const artFor = c => { const o = ART_OWN[c.cls]; return o && o[1] === c.race && o[2] === c.type && o[3] === c.gender ? o[0] : ART_BY[c.race][c.type][c.gender]; };
   const raceLabel = c => RACES.find(r => r[0] === c.race)[1] + ' ' + (c.type === 'mystic' ? 'Mystic' : 'Fighter');
@@ -274,7 +292,10 @@
     if (!STATE || !Array.isArray(STATE.chars) || STATE.chars.length !== ROSTER.length) {
       STATE = { v: 1, chars: ROSTER.map(blankChar), savedAt: null };
     }
-    STATE.chars.forEach((c, i) => {
+    STATE.foes = STATE.foes && typeof STATE.foes === 'object' ? STATE.foes : {};
+    for (const k of FOE_ORDER) { const x = STATE.foes[k]; if (!x || x.cls !== k) STATE.foes[k] = blankChar(k); }
+    for (const k in STATE.foes) if (!CLASSES[k]) delete STATE.foes[k];
+    [...STATE.chars, ...Object.values(STATE.foes)].forEach((c, i) => {
       if (!CLASSES[c.cls]) Object.assign(c, blankChar(ROSTER[i]));
       c.level = Math.max(1, Math.min(75, +c.level || 75));
       // Тип расы (воин/маг) выбирается отдельно от класса.
@@ -294,9 +315,13 @@
   }
   normalizeState();
 
+  // cur — номер персонажа группы (0…8) или «f:<класс>» для противника.
   let cur = 0;
-  try { const v = +sessionStorage.getItem('miscusi.cur'); if (v >= 0 && v < ROSTER.length) cur = v; } catch (e) {}
-  const ch = () => STATE.chars[cur];
+  const byKey = k => (typeof k === 'string' && k.startsWith('f:') ? STATE.foes[k.slice(2)] : STATE.chars[+k]);
+  try { const v = sessionStorage.getItem('miscusi.cur'); if (v && v.startsWith('f:') && CLASSES[v.slice(2)]) cur = v; else if (+v >= 0 && +v < ROSTER.length) cur = +v; } catch (e) {}
+  const ch = () => byKey(cur);
+  const isFoe = c => c && STATE.foes[c.cls] === c;
+  const keyOf = c => (isFoe(c) ? 'f:' + c.cls : STATE.chars.indexOf(c));
 
   // ---------------------------------------------------------------- формулы
   const r2 = x => Math.round(x * 100) / 100;
@@ -374,13 +399,14 @@
   }
 
   function casterLevel(b, k, c) {
-    const caster = k === c.cls ? c : STATE.chars.find(x => x.cls === k);
+    // У противника заклинатель неизвестен — берём уровень умения на 75.
+    const caster = k === c.cls ? c : isFoe(c) ? null : STATE.chars.find(x => x.cls === k);
     const learn = (b.learn && b.learn[k]) || [];
     if (!learn.length) return b.lv.length;
     return Math.max(1, Math.min(b.lv.length, passiveLevel({ learn }, caster ? caster.level : 75)));
   }
   function availableBuffs(c) {
-    const party = new Set(STATE.chars.map(x => x.cls).filter(k => !CLASSES[k].archer));
+    const party = new Set((isFoe(c) ? Object.keys(CLASSES) : STATE.chars.map(x => x.cls)).filter(k => !CLASSES[k].archer));
     const groups = [];
     const seen = new Set();
     const own = DATA.buffs.filter(b => b.cls.includes(c.cls));
@@ -559,10 +585,20 @@
     } catch (e) {}
   }
 
+  let foesRef = null, foesShared = true;
   function markDirty() {
     STATE.savedAt = new Date().toISOString();
     saveLocal();
     if (mode !== 'firebase') { renderSave(); return; }
+    if (typeof cur === 'string') {
+      // Противники хранятся отдельно; если база их не принимает — остаются в этом браузере.
+      const k = cur;
+      if (!foesShared) { renderSave(); return; }
+      clearTimeout(pending.get(k));
+      pending.set(k, setTimeout(() => pushFoe(k.slice(2)), 1200));
+      syncState = 'saving'; renderSave();
+      return;
+    }
     const i = cur;
     clearTimeout(pending.get(i));
     pending.set(i, setTimeout(() => pushChar(i), 1200));
@@ -580,6 +616,17 @@
     renderSave();
   }
 
+  async function pushFoe(k) {
+    pending.delete('f:' + k);
+    try {
+      await foesRef.doc(k).set({ data: JSON.stringify(STATE.foes[k]), by: clientId, updatedAt: fs.FieldValue.serverTimestamp() });
+    } catch (e) {
+      foesShared = false;
+      toast('Opponents are not shared yet — they are kept in this browser.');
+    }
+    if (!pending.size) syncState = 'synced';
+    renderSave();
+  }
   function loadScript(src) {
     return new Promise((ok, bad) => { const el = document.createElement('script'); el.src = src; el.onload = ok; el.onerror = bad; document.head.append(el); });
   }
@@ -612,6 +659,18 @@
         if (!pending.size) syncState = 'synced';
         renderSave();
       }, () => { syncState = 'error'; renderSave(); });
+      foesRef = app.firestore().collection('parties').doc(CFG.partyId).collection('foes');
+      foesRef.onSnapshot(snap => {
+        let touchedCur = false, any = false;
+        snap.docChanges().forEach(chg => {
+          const k = chg.doc.id;
+          if (!CLASSES[k] || pending.has('f:' + k)) return;
+          const d = chg.doc.data();
+          if (!d || !d.data || d.data === JSON.stringify(STATE.foes[k])) return;
+          try { const v = JSON.parse(d.data); if (v.cls !== k) return; STATE.foes[k] = v; any = true; if (cur === 'f:' + k) touchedCur = true; } catch (e) {}
+        });
+        if (any) { normalizeState(); saveLocal(); if (touchedCur) renderAll(); else { renderCharOptions(); renderDamage(); } }
+      }, () => { foesShared = false; });
     } catch (e) {
       mode = 'local'; syncState = 'error';
       toast('Shared database is unavailable — working in this browser only.');
@@ -652,7 +711,7 @@
       h('div', { class: 'brand' }, h('h1', null, 'Mi scusi'), h('span', null, 'Lu4 Gamma')),
       els.save));
 
-    els.charSel = h('select', { id: 'char-select', onchange: e => { cur = +e.target.value; try { sessionStorage.setItem('miscusi.cur', String(cur)); } catch (_) {} renderAll(); } });
+    els.charSel = h('select', { id: 'char-select', onchange: e => { const v = e.target.value; cur = v.startsWith('f:') ? v : +v; try { sessionStorage.setItem('miscusi.cur', String(cur)); } catch (_) {} renderAll(); } });
     els.nick = h('input', { id: 'char-nick', type: 'text', maxlength: '24', placeholder: 'In-game name', oninput: e => { ch().nick = e.target.value; renderCharOptions(); renderWho(); markDirty(); } });
     els.race = h('select', { id: 'char-race', onchange: e => { const [race, type] = e.target.value.split(':'); ch().race = race; ch().type = type; update(true); } },
       RACES.map(([v, n]) => h('optgroup', { label: n }, h('option', { value: v + ':fighter' }, n + ' Fighter'), h('option', { value: v + ':mystic' }, n + ' Mystic'))));
@@ -714,14 +773,26 @@
 
   function charLabel(c, i) {
     const cls = CLASSES[c.cls].n;
+    if (isFoe(c)) return (c.nick ? c.nick + ' — ' : '') + cls;
     const twin = ROSTER.filter(k => k === c.cls).length > 1 ? ' ' + (ROSTER.slice(0, i + 1).filter(k => k === c.cls).length) : '';
     return (c.nick ? c.nick + ' — ' : '') + cls + twin;
   }
   function renderCharOptions() {
     const sel = els.charSel;
     sel.innerHTML = '';
-    STATE.chars.forEach((c, i) => sel.append(h('option', { value: i }, `${charLabel(c, i)} · ${c.level}`)));
-    sel.value = cur;
+    sel.append(charOptions(null, null));
+    sel.value = String(cur);
+  }
+  // Список для выбора: группа, затем противники по расам. skip — кого не показывать, sel — выбранный ключ.
+  function charOptions(skip, sel) {
+    const frag = document.createDocumentFragment();
+    const opt = (c, key) => h('option', { value: key, selected: String(key) === String(sel) ? true : null }, `${charLabel(c, key)} · ${c.level}`);
+    frag.append(h('optgroup', { label: 'Party' }, STATE.chars.map((c, i) => (c === skip ? null : opt(c, i)))));
+    for (const [race, rn] of RACES) {
+      const list = FOE_ORDER.filter(k => CLASSES[k].race === race).map(k => STATE.foes[k]).filter(c => c !== skip);
+      if (list.length) frag.append(h('optgroup', { label: 'Opponents · ' + rn }, list.map(c => opt(c, 'f:' + c.cls))));
+    }
+    return frag;
   }
   function renderWho() {
     const c = ch();
@@ -840,7 +911,7 @@
     const box = els.stats;
     box.innerHTML = '';
     const fmt = (v, d) => (d ? (Math.round(v * 10 ** d) / 10 ** d).toFixed(d) : Math.round(v).toLocaleString('en-GB'));
-    const cls = (k, v) => { if (!prevStats || prevStats.cls !== c.cls + cur) return ''; const p = prevStats.st[k]; if (p == null) return ''; const a = Math.round(v), b = Math.round(p); return a > b ? 'up' : a < b ? 'dn' : ''; };
+    const cls = (k, v) => { if (!prevStats || prevStats.cls !== c.cls + String(cur)) return ''; const p = prevStats.st[k]; if (p == null) return ''; const a = Math.round(v), b = Math.round(p); return a > b ? 'up' : a < b ? 'dn' : ''; };
 
     box.append(h('div', { class: 'lbl' }, 'Stats'));
     const maxBar = Math.max(S.hp, S.mp, S.cp);
@@ -864,7 +935,7 @@
     r.warn.forEach(w => box.append(h('div', { class: 'warn' }, w)));
     renderPassives(r);
     if (r.notes.length) box.append(h('details', { class: 'note' }, h('summary', null, `Effects not counted in stats (${r.notes.length})`), h('div', { class: 'misc' }, r.notes.map(n => h('div', null, n)))));
-    prevStats = { cls: c.cls + cur, st: S };
+    prevStats = { cls: c.cls + String(cur), st: S };
     renderCharOptions();
     renderWho();
   }
@@ -971,7 +1042,9 @@
         cc = Math.min(1, (5 * bonus.WIT(A.attrs.WIT) * (A.mul.mcrit || 1) + (A.add.mcrit || 0)) / 100);
       } else {
         const pdef = d.pdef * (1 - (sk.defIgn || 0) / 100);
-        norm = (power + a.patk) * ss * K / pdef * pvp * (1 + pctOf(A, 'pskill'));
+        // Удар кинжалом: соска усиливает только P. Atk. (так считает Lu4 Planner).
+        norm = sk.blow ? (power * (sk.pm || 1) + a.patk * ss) * K / pdef * pvp * (1 + pctOf(A, 'pskill'))
+          : (power + a.patk) * ss * (sk.k || 1) * K / pdef * pvp * (1 + pctOf(A, 'pskill'));
         crit = norm * sk.cm * (1 + pctOf(A, 'pskillcrit'));
         cc = Math.min(1, sk.cc / 100 * bonus.STR(A.attrs.STR));
       }
@@ -988,24 +1061,29 @@
     if (!box) return;
     if (!dmgPrefs) dmgPrefs = { target: null, pos: 'front', ss: true, mshot: 4 };
     box.innerHTML = '';
-    const others = STATE.chars.map((x, i) => [x, i]).filter(([x]) => x !== c);
-    if (dmgPrefs.target == null || STATE.chars[dmgPrefs.target] === c) dmgPrefs.target = others[0][1];
-    const t = STATE.chars[dmgPrefs.target];
+    if (dmgPrefs.target == null || !byKey(dmgPrefs.target) || byKey(dmgPrefs.target) === c) dmgPrefs.target = isFoe(c) ? 0 : 'f:' + FOE_ORDER[0];
+    const t = byKey(dmgPrefs.target);
     const nameOf = x => (x.nick ? x.nick + ' — ' : '') + CLASSES[x.cls].n + ' · ' + x.level;
     const set = (k, v) => { dmgPrefs[k] = v; renderDamage(); };
-    box.append(h('div', { class: 'secthead' },
-      h('h3', null, 'Damage'),
-      h('span', { class: 'note' }, `${CLASSES[c.cls].n} against a party member, with both characters' gear, passives and selected buffs.`),
-      h('label', { class: 'dsel' }, 'Target ', h('select', { onchange: e => set('target', +e.target.value) }, others.map(([x, i]) => h('option', { value: i, selected: i === dmgPrefs.target ? true : null }, nameOf(x))))),
-      h('label', { class: 'dsel' }, 'Position ', h('select', { onchange: e => set('pos', e.target.value) }, [['front', 'Front'], ['side', 'Side'], ['back', 'Back']].map(([v, n]) => h('option', { value: v, selected: v === dmgPrefs.pos ? true : null }, n)))),
-      h('label', { class: 'dsel' }, h('input', { type: 'checkbox', checked: dmgPrefs.ss ? true : null, onchange: e => set('ss', e.target.checked) }), ' Soulshot'),
-      h('label', { class: 'dsel' }, 'Spiritshot ', h('select', { onchange: e => set('mshot', +e.target.value) }, [[4, 'Blessed'], [2, 'Normal'], [1, 'None']].map(([v, n]) => h('option', { value: v, selected: v === dmgPrefs.mshot ? true : null }, n))))));
+    const who = (x, extra) => h('div', { class: 'duelist' }, h('img', { class: 'clsicon sm', src: 'icons/class_icon_' + CLASS_ICON[x.cls] + '.png', alt: '' }),
+      h('div', null, h('small', null, extra), h('b', null, x.nick || CLASSES[x.cls].n), h('span', null, `${CLASSES[x.cls].n} · Lv. ${x.level}`)));
+    const pick = h('select', { 'aria-label': 'Target', onchange: e => { const v = e.target.value; set('target', v.startsWith('f:') ? v : +v); } }, charOptions(c, dmgPrefs.target));
+    const swap = h('button', { class: 'btn sm', title: 'Make the target the attacker', onclick: () => { cur = dmgPrefs.target; dmgPrefs.target = keyOf(c); try { sessionStorage.setItem('miscusi.cur', String(cur)); } catch (_) {} renderAll(); } }, '⇄ Swap');
+    box.append(h('div', { class: 'secthead' }, h('h3', null, 'Damage'),
+      h('span', { class: 'note' }, 'PvP damage from the selected character to any party member or opponent, with both sides’ gear, passives and buffs. Opponents of every class are in the Character list — dress them there.')));
+    box.append(h('div', { class: 'duel' }, who(c, 'Attacker'), h('span', { class: 'vs' }, '→'),
+      h('div', { class: 'duelist' }, h('img', { class: 'clsicon sm', src: 'icons/class_icon_' + CLASS_ICON[t.cls] + '.png', alt: '' }), h('div', null, h('small', null, 'Target'), pick)), swap,
+      h('div', { class: 'dctl' },
+        h('label', { class: 'dsel' }, 'Position ', h('select', { onchange: e => set('pos', e.target.value) }, [['front', 'Front'], ['side', 'Side'], ['back', 'Back']].map(([v, n]) => h('option', { value: v, selected: v === dmgPrefs.pos ? true : null }, n)))),
+        h('label', { class: 'dsel' }, h('input', { type: 'checkbox', checked: dmgPrefs.ss ? true : null, onchange: e => set('ss', e.target.checked) }), ' Soulshot'),
+        h('label', { class: 'dsel' }, 'Spiritshot ', h('select', { onchange: e => set('mshot', +e.target.value) }, [[4, 'Blessed'], [2, 'Normal'], [1, 'None']].map(([v, n]) => h('option', { value: v, selected: v === dmgPrefs.mshot ? true : null }, n)))))));
     const { rows, D, shots } = damageRows(c, t);
     const f0 = x => Math.round(x).toLocaleString('en-US');
     const d = D.st;
     const fx = v => '×' + (Math.round(v * 100) / 100);
-    box.append(h('div', { class: 'dtarget' }, `Shots: soulshot ${dmgPrefs.ss ? fx(shots.ss) : 'off'} · spiritshot ${dmgPrefs.mshot > 1 ? fx(shots.ms) : 'off'}` + (shots.sb ? ` (weapon enchant adds +${Math.round(shots.sb * 1000) / 10}%)` : ' (no enchant bonus)')));
-    box.append(h('div', { class: 'dtarget' }, `Target: P. Def. ${f0(d.pdef)} · M. Def. ${f0(d.mdef)} · Evasion ${f0(d.eva)} · HP ${f0(d.hp)} · CP ${f0(d.cp)}` + (t.eq.shield && ITEMS.get(t.eq.shield.id) ? ` · shield ${f0(d.sdef || 0)}` : '')));
+    box.append(h('div', { class: 'dtarget' }, `Target: P. Def. ${f0(d.pdef)} · M. Def. ${f0(d.mdef)} · Evasion ${f0(d.eva)} · HP ${f0(d.hp)} · CP ${f0(d.cp)}` + (t.eq.shield && ITEMS.get(t.eq.shield.id) ? ` · shield ${f0(d.sdef || 0)}` : '')
+      + `  ·  Shots: soulshot ${dmgPrefs.ss ? fx(shots.ss) : 'off'}, spiritshot ${dmgPrefs.mshot > 1 ? fx(shots.ms) : 'off'}` + (shots.sb ? ` (weapon enchant +${Math.round(shots.sb * 1000) / 10}%)` : '')));
+    const pool = d.hp + d.cp;
     const sorted = rows.slice().sort((x, y) => (y.ok - x.ok) || y.dps - x.dps);
     const tb = h('tbody', null, sorted.map(r => h('tr', { class: r.ok ? '' : 'off' },
       h('td', { class: 'sk' }, r.ic ? h('img', { src: icon(r.ic), alt: '', loading: 'lazy' }) : h('span', { class: 'na' }, '⚔'), h('span', null, h('b', null, r.n), r.lv ? h('small', null, ' Lv. ' + r.lv) : null, r.why ? h('small', { class: 'why' }, ' — ' + r.why) : null)),
@@ -1014,10 +1092,11 @@
       h('td', null, (r.hit < 1 ? Math.round(r.hit * 100) + '% / ' : '') + Math.round(r.cc * 100) + '%' + (r.block ? ` · block ${Math.round(r.block * 100)}%` : '')),
       h('td', null, f0(r.exp * r.hit)),
       h('td', null, r.cycle.toFixed(2) + ' s'),
-      h('td', { class: 'dps' }, r.ok ? f0(r.dps) : '—'))));
+      h('td', { class: 'dps' }, r.ok ? f0(r.dps) : '—'),
+      h('td', null, r.ok && r.dps ? (pool / r.dps).toFixed(1) + ' s' : '—'))));
     box.append(h('div', { class: 'dwrap' }, h('table', { class: 'dtable' },
-      h('thead', null, h('tr', null, ['Skill', 'Hit', 'Crit', 'Hit / crit chance', 'Average', 'Cycle', 'DPS'].map(x => h('th', null, x)))), tb)));
-    box.append(h('p', { class: 'note' }, 'Average includes crit chance and, for normal attacks, miss and shield block. Cycle is the longer of reuse and cast time (cast time scales with Atk. Spd. / Casting Spd.). PvP, no attributes.'));
+      h('thead', null, h('tr', null, ['Skill', 'Hit', 'Crit', 'Hit / crit chance', 'Average', 'Cycle', 'DPS', 'CP+HP in'].map(x => h('th', null, x)))), tb)));
+    box.append(h('p', { class: 'note' }, 'Average includes crit chance and, for normal attacks, miss and shield block. Cycle is the longer of reuse and cast time (cast time scales with Atk. Spd. / Casting Spd.). «CP+HP in» — time to burn the target’s CP and HP using only that line. PvP, no attributes.'));
   }
 
   function renderBuffs() {
@@ -1028,7 +1107,7 @@
     const activeCount = Object.keys(c.buffs).length;
     box.append(h('div', { class: 'secthead' },
       h('h3', null, 'Buffs'),
-      h('span', { class: 'note' }, 'Own class skills plus buffs from party members (archers excluded). Click to apply at the level the caster has learned.'),
+      h('span', { class: 'note' }, isFoe(c) ? 'Own class skills plus buffs any class can give (archers excluded). Buff levels are the maximum learned by level 75.' : 'Own class skills plus buffs from party members (archers excluded). Click to apply at the level the caster has learned.'),
       h('button', { class: 'btn sm', disabled: !activeCount, onclick: () => { c.buffs = {}; update(false); } }, 'Remove all')));
     const wrap = h('div', { class: 'buffgroups' });
     for (const grp of groups) {
