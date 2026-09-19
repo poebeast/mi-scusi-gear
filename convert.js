@@ -271,6 +271,8 @@ for (const [cls, c] of Object.entries(buffSrc)) {
     const s = skRaw[sk];
     const id = sk.split('-')[0];
     if (!s || !Object.keys(s.lv).length || SKIP_BUFF.has(id)) continue;
+    // Баффы для саммонов и големов персонажу ничего не дают.
+    if (/Servitor|Golem/i.test(s.name) || /the servitor's|to a servitor|Golem's/i.test(Object.values(s.lv).join(' '))) continue;
     let b = buffMap.get(id);
     if (!b) {
       const top = Math.max(...Object.keys(s.lv).map(Number));
