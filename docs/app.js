@@ -672,15 +672,14 @@
     const wrap = h('div', { class: 'wrap' });
     els.save = h('div', { class: 'save' });
     // Выбор варианта дизайна (временно, пока выбираем).
-    const THEMES = [['frost', 'Frost (current)'], ['glacier', 'Glacier Dark'], ['obsidian', 'Obsidian Gold'], ['parchment', 'Aden Parchment'], ['grove', 'Elven Grove'], ['night', 'Dark Elf Night'], ['terminal', 'Terminal'], ['nordic', 'Nordic Minimal'], ['crimson', 'Crimson Siege'], ['sunset', 'Sunset Pastel'], ['royal', 'Royal Heraldry']];
-    const DARK = new Set(['obsidian', 'night', 'terminal', 'crimson', 'royal', 'glacier']);
-    const curTheme = document.documentElement.dataset.theme || 'frost';
+    const curTheme = THEME_LIST.some(x => x[0] === document.documentElement.dataset.theme) ? document.documentElement.dataset.theme : 'frost';
     const themeSel = h('select', { class: 'themesel', 'aria-label': 'Design', onchange: e => {
       const t = e.target.value, de = document.documentElement;
       if (t === 'frost') delete de.dataset.theme; else de.dataset.theme = t;
-      if (DARK.has(t)) de.dataset.dark = ''; else delete de.dataset.dark;
+      if (THEME_DARK.has(t)) de.dataset.dark = ''; else delete de.dataset.dark;
       try { localStorage.setItem('miscusi.theme', t); } catch (_) {}
-    } }, THEMES.map(([v, n]) => h('option', { value: v, selected: v === curTheme ? true : null }, n)));
+      applyLayout(t);
+    } }, THEME_LIST.map(([v, n]) => h('option', { value: v, selected: v === curTheme ? true : null }, n)));
     wrap.append(h('header', { class: 'top' },
       h('div', { class: 'brand' }, h('h1', null, 'Mi scusi'), h('span', null, 'Lu4 Gamma')),
       h('label', { class: 'themepick' }, 'Design ', themeSel),
@@ -709,10 +708,10 @@
     els.stats = h('aside', { class: 'stats', 'aria-label': 'Stats' });
     els.buffs = h('section', { class: 'sect', 'aria-label': 'Buffs' });
     els.dmg = h('section', { class: 'sect dmg', 'aria-label': 'Damage' });
-    // Слева статы, тату и клан; справа персонаж с гиром и сразу под ним — урон.
-    wrap.append(h('div', { class: 'main' }, h('div', { class: 'side' }, els.stats, els.tattoos, els.clan),
-      h('div', { class: 'right' }, h('section', { class: 'stage' }, els.viewer, els.gear, els.passives), els.dmg)));
-    wrap.append(els.buffs);
+    // Блоки раскладываются по рядам и колонкам в зависимости от варианта дизайна.
+    els.lay = h('div', { class: 'lay' });
+    wrap.append(els.lay);
+    applyLayout(curTheme);
     wrap.append(h('p', { class: 'note foot' }, 'Item and skill data: masterwork.wiki, Lu4: Gamma. Base HP/MP/CP and racial attributes use standard L2 formulas and may differ from the server by a few percent.'));
     root.append(wrap);
 
@@ -723,6 +722,37 @@
 
   }
 
+  // Варианты дизайна: [id, название, раскладка]. Раскладка — ряды [колонки, ячейки], ячейка — список блоков;
+  // {g: [...]} — блоки в общей стеклянной карточке.
+  const STAGE = { g: ['viewer', 'gear', 'passives'] };
+  var LAYOUTS = {
+    classic: [['340px minmax(0,1fr)', [['stats', 'tattoos', 'clan'], [STAGE, 'dmg']]], ['1fr', [['buffs']]]],
+    mirror: [['minmax(0,1fr) 340px', [[STAGE, 'dmg'], ['stats', 'tattoos', 'clan']]], ['1fr', [['buffs']]]],
+    three: [['300px minmax(0,1fr) 300px', [['stats', 'tattoos'], ['viewer', 'gear', 'dmg'], ['passives', 'clan']]], ['1fr', [['buffs']]]],
+    hero: [['1fr', [[{ g: ['viewer', 'gear'] }]]], ['300px minmax(0,1fr) 270px', [['stats'], ['dmg'], ['tattoos', 'passives', 'clan']]], ['1fr', [['buffs']]]],
+    wide: [['minmax(0,1.25fr) minmax(0,1fr)', [[STAGE], ['stats', 'tattoos']]], ['minmax(0,1fr) 320px', [['dmg'], ['clan']]], ['1fr', [['buffs']]]],
+    halves: [['minmax(0,1fr) minmax(0,1fr)', [['viewer', 'gear', 'passives'], ['stats', 'tattoos', 'clan']]], ['1fr', [['dmg']]], ['1fr', [['buffs']]]],
+    rail: [['250px minmax(0,1fr) 300px', [['tattoos', 'clan', 'passives'], ['viewer', 'gear', 'dmg'], ['stats']]], ['1fr', [['buffs']]]],
+    strip: [['minmax(0,1fr) minmax(0,1.1fr)', [[{ g: ['viewer', 'gear'] }, 'passives'], ['stats']]], ['minmax(0,1fr) minmax(0,1fr)', [['tattoos'], ['clan']]], ['1fr', [['dmg']]], ['1fr', [['buffs']]]],
+    command: [['360px minmax(0,1fr)', [[STAGE, 'stats'], ['dmg']]], ['minmax(0,1fr) minmax(0,1fr)', [['tattoos'], ['clan']]], ['1fr', [['buffs']]]],
+    dash: [['minmax(0,1fr) minmax(0,1fr)', [['viewer'], ['gear']]], ['320px minmax(0,1fr) minmax(0,1fr)', [['stats'], ['passives', 'tattoos'], ['clan']]], ['1fr', [['dmg']]], ['1fr', [['buffs']]]],
+  };
+  var THEME_LIST = [['frost', 'Frost (current)', 'classic'],
+    ['aurora', '1 · Aurora — dark', 'classic'], ['pearl', '2 · Pearl — light', 'three'], ['smoke', '3 · Smoke — dark', 'hero'], ['ice', '4 · Ice — light', 'mirror'],
+    ['nebula', '5 · Nebula — dark', 'command'], ['dusk', '6 · Dusk — light', 'wide'], ['emerald', '7 · Emerald — dark', 'rail'], ['frostglass', '8 · Frost Glass — light', 'strip'],
+    ['midnight', '9 · Midnight — dark', 'dash'], ['mist', '10 · Mist — light', 'halves']];
+  var THEME_DARK = new Set(['aurora', 'smoke', 'nebula', 'emerald', 'midnight']);
+  function applyLayout(theme) {
+    const t = THEME_LIST.find(x => x[0] === theme) || THEME_LIST[0];
+    const spec = LAYOUTS[t[2]];
+    els.lay.innerHTML = '';
+    els.lay.dataset.layout = t[2];
+    for (const [cols, cells] of spec) {
+      const row = h('div', { class: 'lrow', style: 'grid-template-columns:' + cols });
+      for (const cell of cells) row.append(h('div', { class: 'lcol' }, cell.map(it => (it.g ? h('section', { class: 'stage' }, it.g.map(k => els[k])) : els[it]))));
+      els.lay.append(row);
+    }
+  }
   function setLevel(v) {
     const l = Math.max(1, Math.min(75, Math.round(+v || 1)));
     ch().level = l;
@@ -1078,7 +1108,7 @@
       h('td', { class: 'dps' }, r.ok ? f0(r.dps) : '—'),
       h('td', null, r.ok && r.dps ? (pool / r.dps).toFixed(1) + ' s' : '—'))));
     box.append(h('div', { class: 'dwrap' }, h('table', { class: 'dtable' },
-      h('thead', null, h('tr', null, ['Skill', 'Hit', 'Crit', 'Hit / crit chance', 'Average', 'Cycle', 'DPS', 'CP+HP in'].map(x => h('th', null, x)))), tb)));
+      h('thead', null, h('tr', null, ['Skill', 'Hit', 'Crit', 'Hit · crit %', 'Average', 'Cycle', 'DPS', 'CP+HP in'].map(x => h('th', null, x)))), tb)));
     box.append(h('p', { class: 'note' }, 'Average includes crit chance and, for normal attacks, miss and shield block. Cycle is the longer of reuse and cast time (cast time scales with Atk. Spd. / Casting Spd.). «CP+HP in» — time to burn the target’s CP and HP using only that line. PvP, no attributes.'));
   }
 

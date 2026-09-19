@@ -48,10 +48,10 @@ fs.writeFileSync(path.join(out, 'index.html'), `<!doctype html>
 <meta name="description" content="Gear, enchants, SA, tattoos, buffs and stats for the Mi scusi party on Lu4 Gamma.">
 <link rel="icon" href="icons/cls_5.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Onest:wght@400;500;600;700&family=Unbounded:wght@600;700&family=Cinzel:wght@600;700&family=Inter:wght@400;500;600;700&family=Cormorant+Garamond:wght@600;700&family=EB+Garamond:wght@400;500;600&family=Nunito:wght@400;600;700;900&family=Exo+2:wght@400;500;600;700&family=Oswald:wght@500;600&family=Roboto:wght@400;500;700&family=Poppins:wght@400;500;600;800&family=Marcellus&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Onest:wght@400;500;600;700&family=Unbounded:wght@600;700&family=Inter:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&family=Sora:wght@400;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="style.css?v=${V}">
 <link rel="stylesheet" href="themes.css?v=${V}">
-<script>try{var t=new URLSearchParams(location.search).get('theme')||localStorage.getItem('miscusi.theme');if(t&&t!=='frost'){document.documentElement.dataset.theme=t;if(/^(obsidian|night|terminal|crimson|royal|glacier)$/.test(t))document.documentElement.dataset.dark='';}}catch(e){}</script>
+<script>try{var t=new URLSearchParams(location.search).get('theme')||localStorage.getItem('miscusi.theme');if(t&&t!=='frost'){document.documentElement.dataset.theme=t;if(/^(aurora|smoke|nebula|emerald|midnight)$/.test(t))document.documentElement.dataset.dark='';}}catch(e){}</script>
 </head>
 <body>
 <div id="root"></div>
