@@ -281,3 +281,32 @@ button.pic{cursor:pointer}
 
 .themepick{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--ink2)}
 .themesel{background:var(--glass2);border:1px solid var(--edge);border-radius:999px;padding:6px 12px;color:var(--ink)}
+
+/* Редактор цели в блоке урона */
+.tedit{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;padding:10px 14px;margin:-4px 0 10px;border-radius:20px;background:var(--glass2);border:1px solid var(--edge)}
+.tgear{display:flex;flex-wrap:wrap;gap:6px}
+.tgear .slot{width:46px;height:46px}
+.tgear .slot img{width:34px;height:34px;border-radius:6px}
+.tgear .slot .ph{font-size:8.5px;padding:2px}
+.tgear .slot .gr{font-size:9px;padding:2px 3px;min-width:14px}
+.tgear .slot .en{font-size:9.5px;right:1px;top:1px}
+.tctl{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;margin-left:auto}
+.tctl input[type=number]{width:56px;font:600 13px var(--mono);padding:4px 6px;border-radius:10px;border:1px solid var(--edge);background:var(--glass3);color:var(--ink)}
+.tmini{font:600 12px var(--mono);padding:5px 9px;border-radius:999px;border:1px solid var(--edge);background:var(--glass3);color:var(--ink);cursor:pointer}
+.tmini.empty{color:var(--mute);font-family:var(--body)}
+.dlgwho{font:500 14px var(--body);color:var(--ink2)}
+.dlgbody{overflow:auto;padding:12px 16px}
+.dlgbody .buffgroups{grid-template-columns:repeat(auto-fill,minmax(230px,1fr))}
+
+/* Компактная компоновка: персонаж в строку, урон в правой колонке */
+.main{align-items:start}
+.right{display:flex;flex-direction:column;gap:14px;min-width:0}
+.right .sect{margin-top:0}
+.stage .viewer{flex:0 0 auto;min-height:0;padding:18px 24px}
+.viewer .who{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:28px;row-gap:8px;align-items:center;justify-items:start;text-align:left;max-width:none;width:100%}
+.viewer .who .figure{grid-row:1 / span 6;height:300px;justify-self:center;margin-left:40px}
+.viewer .who .setchips{justify-content:flex-start}
+.viewer .who .namerow{align-self:end}
+.viewer .who .note{align-self:start}
+@media (max-width:640px){.viewer .who{grid-template-columns:1fr;justify-items:center;text-align:center}.viewer .who .figure{grid-row:auto;margin:0;height:260px}}
+@media (min-width:1061px){.side{position:sticky;top:12px}}

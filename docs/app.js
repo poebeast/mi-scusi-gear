@@ -586,20 +586,21 @@
   }
 
   let foesRef = null, foesShared = true;
-  function markDirty() {
+  function markDirty(who) {
     STATE.savedAt = new Date().toISOString();
     saveLocal();
     if (mode !== 'firebase') { renderSave(); return; }
-    if (typeof cur === 'string') {
+    const key = who ? keyOf(who) : cur;
+    if (typeof key === 'string') {
       // Противники хранятся отдельно; если база их не принимает — остаются в этом браузере.
-      const k = cur;
+      const k = key;
       if (!foesShared) { renderSave(); return; }
       clearTimeout(pending.get(k));
       pending.set(k, setTimeout(() => pushFoe(k.slice(2)), 1200));
       syncState = 'saving'; renderSave();
       return;
     }
-    const i = cur;
+    const i = key;
     clearTimeout(pending.get(i));
     pending.set(i, setTimeout(() => pushChar(i), 1200));
     syncState = 'saving'; renderSave();
@@ -743,12 +744,12 @@
     els.clan = h('div', { class: 'clan' });
     els.passives = h('div', { class: 'passives' });
     els.stats = h('aside', { class: 'stats', 'aria-label': 'Stats' });
-    wrap.append(h('div', { class: 'main' }, h('div', { class: 'side' }, els.stats, els.tattoos, els.clan),
-      h('section', { class: 'stage' }, els.viewer, els.gear, els.passives)));
     els.buffs = h('section', { class: 'sect', 'aria-label': 'Buffs' });
-    wrap.append(els.buffs);
     els.dmg = h('section', { class: 'sect dmg', 'aria-label': 'Damage' });
-    wrap.append(els.dmg);
+    // Слева статы, тату и клан; справа персонаж с гиром и сразу под ним — урон.
+    wrap.append(h('div', { class: 'main' }, h('div', { class: 'side' }, els.stats, els.tattoos, els.clan),
+      h('div', { class: 'right' }, h('section', { class: 'stage' }, els.viewer, els.gear, els.passives), els.dmg)));
+    wrap.append(els.buffs);
     wrap.append(h('p', { class: 'note foot' }, 'Item and skill data: masterwork.wiki, Lu4: Gamma. Base HP/MP/CP and racial attributes use standard L2 formulas and may differ from the server by a few percent.'));
     root.append(wrap);
 
@@ -821,8 +822,8 @@
       h('div', { class: 'setchips' }, sets.map(x => h('span', { class: 'chip' }, x.set.n + (x.minE >= 3 ? ' +' + Math.min(x.minE, 6) : '')))));
   }
 
-  function slotButton(slot) {
-    const c = ch();
+  function slotButton(slot, who) {
+    const c = who || ch();
     const e = c.eq[slot];
     const it = e && ITEMS.get(e.id);
     const w = c.eq.weapon && ITEMS.get(c.eq.weapon.id);
@@ -834,16 +835,16 @@
       if (e.e) b.append(h('span', { class: 'en' }, '+' + e.e));
       b.append(h('span', { class: 'gr ' + it.g }, it.g === 'Epic' ? 'E' : it.g));
       if (it.sa) b.append(h('span', { class: 'sa' }));
-      b.addEventListener('mouseenter', () => showTip(b, itemTip(it, e.e || 0)));
+      b.addEventListener('mouseenter', () => showTip(b, itemTip(it, e.e || 0, c)));
       b.addEventListener('mouseleave', hideTip);
     } else {
       b.append(h('span', { class: 'ph' }, locked ? '—' : SLOTS[slot].n));
       if (locked) b.style.opacity = '.4';
     }
-    b.addEventListener('click', () => { hideTip(); if (!locked || it) openPicker(slot); });
+    b.addEventListener('click', () => { hideTip(); if (!locked || it) openPicker(slot, c); });
     return b;
   }
-  function itemTip(it, e) {
+  function itemTip(it, e, who) {
     const lines = [];
     const k = [];
     if (it.c === 'weapon') k.push(`P. Atk. ${itemStat(it, 'patk', e)} · M. Atk. ${itemStat(it, 'matk', e)}`);
@@ -857,7 +858,7 @@
     const set = it.set && SETS.get(it.set);
     if (set && (it.s === 'chest' || it.s === 'full')) {
       // На верхе брони показываем, что даёт сет и какие части уже надеты.
-      const c = ch();
+      const c = who || ch();
       const worn = new Set(Object.values(c.eq).map(x => x.id));
       const parts = set.parts.map(p => `<span class="${p.ids.some(id => worn.has(id)) ? 'p' : 'm'}">${esc(SLOTS[p.slot === 'chest' ? 'chest' : p.slot] ? SLOTS[p.slot === 'chest' ? 'chest' : p.slot].n : p.slot)}${p.shield ? ' (optional)' : ''}</span>`).join(' · ');
       lines.push(`<div class="k">Set: ${esc(set.n)}</div><div class="ln">${esc(set.fx || '')}</div>${set.shieldFx ? `<div class="ln"><b>With shield:</b> ${esc(set.shieldFx)}</div>` : ''}<div class="ln setparts">${parts}</div>`);
@@ -1095,6 +1096,17 @@
     box.append(h('div', { class: 'dtarget' }, `Target: P. Def. ${f0(d.pdef)} · M. Def. ${f0(d.mdef)} · Evasion ${f0(d.eva)} · HP ${f0(d.hp)} · CP ${f0(d.cp)}` + (t.eq.shield && ITEMS.get(t.eq.shield.id) ? ` · shield ${f0(d.sdef || 0)}` : '')
       + `  ·  Shots: soulshot ${dmgPrefs.ss ? fx(shots.ss) : 'off'}, spiritshot ${dmgPrefs.mshot > 1 ? fx(shots.ms) : 'off'}` + (shots.sb ? ` (weapon enchant +${Math.round(shots.sb * 1000) / 10}%)` : '')));
     const pool = d.hp + d.cp;
+    // Цель можно переодеть прямо здесь: гир, заточка, тату, уровень, баффы, клан-скилы.
+    const tHen = t.hen.map((hn, i) => h('button', { class: 'tmini' + (hn ? '' : ' empty'), title: 'Tattoo ' + (i + 1), onclick: () => openTattoo(i, t) }, hn ? `${hn.up}+${hn.n}` : 'Tattoo'));
+    const tLvl = h('input', { type: 'number', min: '1', max: '75', value: t.level, 'aria-label': 'Target level', onchange: e => { t.level = Math.max(1, Math.min(75, Math.round(+e.target.value || 75))); update(false, t); } });
+    const nb = Object.keys(t.buffs).length;
+    box.append(h('div', { class: 'tedit' },
+      h('div', { class: 'tgear' }, ['head', 'chest', 'legs', 'gloves', 'feet', 'weapon', 'shield', 'neck', 'ear1', 'ear2', 'ring1', 'ring2'].map(sl => slotButton(sl, t))),
+      h('div', { class: 'tctl' },
+        h('label', { class: 'dsel' }, 'Lv. ', tLvl),
+        tHen,
+        h('button', { class: 'btn sm', onclick: () => openBuffs(t) }, nb ? `Buffs (${nb})` : 'Buffs'),
+        h('label', { class: 'dsel' }, h('input', { type: 'checkbox', checked: t.clan ? true : null, onchange: e => { t.clan = e.target.checked; update(false, t); } }), ' Clan skills'))));
     const sorted = rows.slice().sort((x, y) => (y.ok - x.ok) || y.dps - x.dps);
     const tb = h('tbody', null, sorted.map(r => h('tr', { class: r.ok ? '' : 'off' },
       h('td', { class: 'sk' }, r.ic ? h('img', { src: icon(r.ic), alt: '', loading: 'lazy' }) : h('span', { class: 'na' }, '⚔'), h('span', null, h('b', null, r.n), r.lv ? h('small', null, ' Lv. ' + r.lv) : null, r.why ? h('small', { class: 'why' }, ' — ' + r.why) : null)),
@@ -1114,12 +1126,15 @@
     const c = ch();
     const box = els.buffs;
     box.innerHTML = '';
+    buildBuffs(c, box);
+  }
+  function buildBuffs(c, box) {
     const groups = availableBuffs(c);
     const activeCount = Object.keys(c.buffs).length;
     box.append(h('div', { class: 'secthead' },
       h('h3', null, 'Buffs'),
       h('span', { class: 'note' }, isFoe(c) ? 'Own class skills plus buffs any class can give (archers excluded). Buff levels are the maximum learned by level 75.' : 'Own class skills plus buffs from party members (archers excluded). Click to apply at the level the caster has learned.'),
-      h('button', { class: 'btn sm', disabled: !activeCount, onclick: () => { c.buffs = {}; update(false); } }, 'Remove all')));
+      h('button', { class: 'btn sm', disabled: !activeCount, onclick: () => { c.buffs = {}; update(false, c); } }, 'Remove all')));
     const wrap = h('div', { class: 'buffgroups' });
     for (const grp of groups) {
       const list = h('div', { class: 'bufflist' });
@@ -1129,7 +1144,7 @@
         const btn = h('button', { class: 'buff' + (on ? ' on' : ''), 'aria-pressed': on ? 'true' : 'false', 'aria-label': b.n },
           h('img', { src: icon(b.ic), alt: '' }), h('span', { class: 'lv' }, lv),
           b.tgt === 'party' ? h('span', { class: 'tg' }, 'PT') : b.kind === 'toggle' ? h('span', { class: 'tg' }, 'TG') : null);
-        btn.addEventListener('click', () => toggleBuff(b, lv));
+        btn.addEventListener('click', () => toggleBuff(b, lv, c));
         btn.addEventListener('mouseenter', () => showTip(btn, `<b>${esc(b.n)} · Lv. ${lv}</b><div class="ln">${esc(b.lv[lv - 1])}</div><div class="k">${b.tgt === 'party' ? 'Party' : b.tgt === 'target' ? 'Target' : 'Self'}${b.kind === 'toggle' ? ' · toggle' : ''}</div>`));
         btn.addEventListener('mouseleave', hideTip);
         list.append(btn);
@@ -1143,9 +1158,9 @@
       const act = h('div', { class: 'active' });
       for (const id of Object.keys(c.buffs)) {
         const b = BUFFS.get(id);
-        const sel = h('select', { 'aria-label': 'Level ' + b.n, onchange: e => { c.buffs[id] = +e.target.value; update(false); } },
+        const sel = h('select', { 'aria-label': 'Level ' + b.n, onchange: e => { c.buffs[id] = +e.target.value; update(false, c); } },
           b.lv.map((_, i) => h('option', { value: i + 1, selected: c.buffs[id] === i + 1 ? true : null }, 'Lv. ' + (i + 1))));
-        act.append(h('span', { class: 'chip' }, h('img', { src: icon(b.ic), alt: '' }), b.n, sel, h('button', { 'aria-label': 'Remove ' + b.n, onclick: () => { delete c.buffs[id]; update(false); } }, '×')));
+        act.append(h('span', { class: 'chip' }, h('img', { src: icon(b.ic), alt: '' }), b.n, sel, h('button', { 'aria-label': 'Remove ' + b.n, onclick: () => { delete c.buffs[id]; update(false, c); } }, '×')));
       }
       box.append(h('div', { class: 'lbl', style: 'margin-top:12px' }, `Active: ${activeCount}`), act);
     }
@@ -1153,14 +1168,32 @@
 
   // Одинаковые баффы не складываются: «Mass X» заменяет «X» и наоборот.
   const stackKey = b => b.stack || b.n.replace(/^Mass\s+/i, '').trim().toLowerCase();
-  function toggleBuff(b, lv) {
-    const c = ch();
+  function toggleBuff(b, lv, who) {
+    const c = who || ch();
     if (c.buffs[b.id] != null) delete c.buffs[b.id];
     else {
       for (const id of Object.keys(c.buffs)) { const o = BUFFS.get(id); if (o && stackKey(o) === stackKey(b)) delete c.buffs[id]; }
       c.buffs[b.id] = lv || b.lv.length;
     }
-    update(false);
+    update(false, c);
+  }
+  // Баффы цели — в боковом окне, таблица урона пересчитывается сразу.
+  var buffDlgFor = null;
+  function drawBuffDialog() {
+    const dlg = els.dialog, c = buffDlgFor;
+    const sc = dlg.querySelector('.dlgbody') ? dlg.querySelector('.dlgbody').scrollTop : 0;
+    dlg.innerHTML = '';
+    const body = h('div', { class: 'dlgbody' });
+    buildBuffs(c, body);
+    dlg.append(h('div', { class: 'dlg' }, h('div', { class: 'dlghead' }, h('h2', null, 'Buffs', h('small', { class: 'dlgwho' }, ' · ' + (c.nick || CLASSES[c.cls].n))), h('button', { class: 'btn sm', onclick: () => dlg.close() }, 'Close')), body));
+    body.scrollTop = sc;
+  }
+  function openBuffs(c) {
+    const dlg = els.dialog;
+    if (dlg.open) dlg.close();
+    buffDlgFor = c; dlg.dataset.kind = 'buffs';
+    drawBuffDialog();
+    if (matchMedia('(min-width:1100px)').matches) { dlg.show(); document.body.classList.add('picking'); } else dlg.showModal();
   }
 
   function renderForm() {
@@ -1175,16 +1208,18 @@
     prevStats = null;
     renderForm(); renderSlots(); renderTattoos(); renderClan(); renderStats(); renderBuffs(); renderDamage(); renderModel(); renderSave();
   }
-  function update(model) {
+  // who — персонаж, которого правили (по умолчанию текущий); цель урона правится прямо из блока урона.
+  function update(model, who) {
     renderSlots(); renderTattoos(); renderClan(); renderStats(); renderBuffs(); renderDamage();
     if (model !== false) renderModel();
-    markDirty();
+    if (els.dialog.open && els.dialog.dataset.kind === 'buffs' && buffDlgFor) drawBuffDialog();
+    markDirty(who);
   }
 
   // ---------------------------------------------------------------- выбор предмета
   const pickerPrefs = { grade: 'all', q: '', type: 'all' };
-  function openPicker(slot) {
-    const c = ch();
+  function openPicker(slot, who) {
+    const c = who || ch();
     const dlg = els.dialog;
     const kinds = SLOTS[slot].kinds;
     const pool = DATA.items.filter(it => kinds.includes(it.s) && (!it.base || it.base === it.id || !ITEMS.has(it.base)));
@@ -1193,7 +1228,7 @@
       dlg.innerHTML = '';
       const e = c.eq[slot];
       const curIt = e && ITEMS.get(e.id);
-      const head = h('div', { class: 'dlghead' }, h('h2', null, SLOTS[slot].n), h('button', { class: 'btn sm', onclick: () => dlg.close() }, 'Close'));
+      const head = h('div', { class: 'dlghead' }, h('h2', null, SLOTS[slot].n, c !== ch() ? h('small', { class: 'dlgwho' }, ' · ' + (c.nick || CLASSES[c.cls].n)) : null), h('button', { class: 'btn sm', onclick: () => dlg.close() }, 'Close'));
       const box = h('div', { class: 'dlg' }, head);
 
       if (curIt) {
@@ -1252,7 +1287,8 @@
       }
       drawList();
     }
-    function changed() { update(true); if (dlg.open) { const st = dlg.querySelector('.list'); const sc = st ? st.scrollTop : 0; draw(); const nl = dlg.querySelector('.list'); if (nl) nl.scrollTop = sc; } }
+    function changed() { update(true, c); if (dlg.open) { const st = dlg.querySelector('.list'); const sc = st ? st.scrollTop : 0; draw(); const nl = dlg.querySelector('.list'); if (nl) nl.scrollTop = sc; } }
+    dlg.dataset.kind = 'item';
     draw();
     // На широком экране окно выбора не блокирует страницу: можно сразу нажать другой слот.
     if (!dlg.open) { if (matchMedia('(min-width:1100px)').matches) { dlg.show(); document.body.classList.add('picking'); } else dlg.showModal(); }
@@ -1268,8 +1304,8 @@
   }
 
   // ---------------------------------------------------------------- татуировки
-  function openTattoo(i) {
-    const c = ch();
+  function openTattoo(i, who) {
+    const c = who || ch();
     const dlg = els.dialog;
     if (dlg.open) dlg.close();
     const hn = c.hen[i] || { up: 'STR', down: 'CON', n: 4, kind: 'greater' };
@@ -1291,7 +1327,7 @@
         h('option', { value: 'greater', selected: draft.kind === 'greater' ? true : null }, 'Greater Dye (1:1)'),
         h('option', { value: 'normal', selected: draft.kind === 'normal' ? true : null }, 'Regular dye (+n −n−1)'));
       dlg.append(h('div', { class: 'dlg' },
-        h('div', { class: 'dlghead' }, h('h2', null, `Tattoo ${i + 1}`), h('button', { class: 'btn sm', onclick: () => dlg.close() }, 'Close')),
+        h('div', { class: 'dlghead' }, h('h2', null, `Tattoo ${i + 1}`, c !== ch() ? h('small', { class: 'dlgwho' }, ' · ' + (c.nick || CLASSES[c.cls].n)) : null), h('button', { class: 'btn sm', onclick: () => dlg.close() }, 'Close')),
         h('div', { class: 'tatform' },
           h('div', { class: 'field' }, h('label', { for: 'tat-up' }, 'Raises'), up),
           h('div', { class: 'field' }, h('label', { for: 'tat-n' }, 'By'), n),
@@ -1299,8 +1335,8 @@
           h('div', { class: 'field' }, h('label', { for: 'tat-kind' }, 'Dye'), kind)),
         h('p', { class: 'note', style: 'padding:0 14px' }, `Result: ${draft.up} +${draft.n}, ${draft.down} −${minus}. Tattoos can raise an attribute by +5 at most${room(draft.up) < 5 ? ` — ${draft.up} can still go up by ${maxN(draft.up)}` : ''}.`),
         h('div', { class: 'dlgfoot' },
-          c.hen[i] ? h('button', { class: 'btn', onclick: () => { c.hen[i] = null; dlg.close(); update(false); } }, 'Remove') : null,
-          h('button', { class: 'btn primary', disabled: can ? null : true, onclick: () => { if (!can) return; c.hen[i] = Object.assign({}, draft); dlg.close(); update(false); } }, 'Apply'))));
+          c.hen[i] ? h('button', { class: 'btn', onclick: () => { c.hen[i] = null; dlg.close(); update(false, c); } }, 'Remove') : null,
+          h('button', { class: 'btn primary', disabled: can ? null : true, onclick: () => { if (!can) return; c.hen[i] = Object.assign({}, draft); dlg.close(); update(false, c); } }, 'Apply'))));
     }
     draw();
     dlg.showModal();
