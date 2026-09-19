@@ -836,7 +836,7 @@
       const parts = set.parts.map(p => `<span class="${p.ids.some(id => worn.has(id)) ? 'p' : 'm'}">${esc(SLOTS[p.slot === 'chest' ? 'chest' : p.slot] ? SLOTS[p.slot === 'chest' ? 'chest' : p.slot].n : p.slot)}${p.shield ? ' (optional)' : ''}</span>`).join(' · ');
       lines.push(`<div class="k">Set: ${esc(set.n)}</div><div class="ln">${esc(set.fx || '')}</div>${set.shieldFx ? `<div class="ln"><b>With shield:</b> ${esc(set.shieldFx)}</div>` : ''}<div class="ln setparts">${parts}</div>`);
     } else if (set) lines.push(`<div class="k">Set: ${esc(set.n)}</div>`);
-    return `<b>${esc(it.n)}${e ? ' +' + e : ''} <span class="gtag ${it.g}">${it.g}</span></b><div class="ln">${esc(k.join('\n'))}</div>${lines.join('')}`;
+    return `<b>${esc(it.n)}${e ? ' +' + e : ''} <span class="gtag ${it.g}">${it.g}</span>${rareTag(it) ? ` <span class="ftag">${esc(rareTag(it))}</span>` : ""}</b><div class="ln">${esc(k.join('\n'))}</div>${lines.join('')}`;
   }
 
   function renderSlots() {
@@ -1205,7 +1205,10 @@
   }
 
   // ---------------------------------------------------------------- выбор предмета
-  const pickerPrefs = { grade: 'all', q: '', type: 'all' };
+  const pickerPrefs = { grade: 'all', q: '' };
+  // Редкие шлемы, перчатки и ботинки бывают в трёх вариантах (Heavy/Light/Robe) — показываем тип рядом с «Rare».
+  const rareTag = it => [it.fnd ? 'Rare' : '', it.at && ['head', 'gloves', 'feet'].includes(it.s) ? (TYPE_RU[it.at] || it.at) : ''].filter(Boolean).join(' · ');
+  const AT_ORDER = { heavy: 1, light: 2, robe: 3 };
   function openPicker(slot, who) {
     const c = who || ch();
     const dlg = els.dialog;
@@ -1223,7 +1226,7 @@
         const variants = VARIANTS.get(curIt.base || curIt.id) || [curIt];
         const curRow = h('div', { class: 'cur' },
           h('img', { src: icon(curIt.ic), alt: '' }),
-          h('div', { class: 'nm' }, curIt.n, h('span', { class: 'gtag ' + curIt.g }, curIt.g), curIt.fnd ? h('span', { class: 'ftag' }, 'Rare') : null),
+          h('div', { class: 'nm' }, curIt.n, h('span', { class: 'gtag ' + curIt.g }, curIt.g), rareTag(curIt) ? h('span', { class: 'ftag' }, rareTag(curIt)) : null),
           h('span', { class: 'lbl' }, 'Enchant'),
           h('span', { class: 'step' },
             h('button', { 'aria-label': 'Decrease enchant', onclick: () => { e.e = Math.max(0, (e.e || 0) - 1); changed(); } }, '−'),
@@ -1240,10 +1243,13 @@
       }
 
       const q = h('input', { id: 'picker-search', type: 'search', placeholder: 'Search by name', value: pickerPrefs.q, oninput: ev => { pickerPrefs.q = ev.target.value; drawList(); } });
+      // Фильтр типа — свой для каждого слота, чтобы выбор в броне не прятал шлемы.
+      const typeKey = 'type_' + slot.replace(/\d$/, '');
+      if (!pickerPrefs[typeKey]) pickerPrefs[typeKey] = 'all';
       const seg = (key, opts) => h('div', { class: 'seg', role: 'group' }, opts.map(([v, n]) => h('button', { class: pickerPrefs[key] === v ? 'on' : '', 'aria-pressed': pickerPrefs[key] === v ? 'true' : 'false', onclick: () => { pickerPrefs[key] = v; draw(); } }, n)));
       const tools = h('div', { class: 'dlgtools' }, q, seg('grade', [['all', 'All'], ['B', 'B'], ['A', 'A']].concat(pool.some(it => it.g === 'Epic') ? [['Epic', 'Epic']] : [])));
       const types = [...new Set(pool.map(it => it.at || it.wtn).filter(Boolean))];
-      if (types.length > 1) tools.append(seg('type', [['all', 'Any type']].concat(types.map(t => [t, TYPE_RU[t] || t]))));
+      if (types.length > 1) tools.append(seg(typeKey, [['all', 'Any type']].concat(types.map(t => [t, TYPE_RU[t] || t]))));
       box.append(tools);
       const list = h('div', { class: 'list', role: 'listbox', 'aria-label': 'Items' });
       box.append(list);
@@ -1253,15 +1259,16 @@
         list.innerHTML = '';
         const needle = pickerPrefs.q.trim().toLowerCase();
         const rows = pool.filter(it => (pickerPrefs.grade === 'all' || it.g === pickerPrefs.grade)
-          && (pickerPrefs.type === 'all' || (it.at || it.wtn) === pickerPrefs.type || !types.includes(pickerPrefs.type))
+          // Вещи без типа (обычные шлемы, перчатки, ботинки) подходят к любой броне.
+          && (pickerPrefs[typeKey] === 'all' || !(it.at || it.wtn) || (it.at || it.wtn) === pickerPrefs[typeKey] || !types.includes(pickerPrefs[typeKey]))
           && (!needle || it.n.toLowerCase().includes(needle)))
-          .sort((a, b) => (a.g === b.g ? 0 : a.g === 'A' ? -1 : 1) || mainVal(b) - mainVal(a) || a.n.localeCompare(b.n));
+          .sort((a, b) => (a.g === b.g ? 0 : a.g === 'A' ? -1 : 1) || mainVal(b) - mainVal(a) || a.n.localeCompare(b.n) || !!a.fnd - !!b.fnd || (AT_ORDER[a.at] || 0) - (AT_ORDER[b.at] || 0));
         if (!rows.length) { list.append(h('div', { class: 'empty' }, 'Nothing found. Clear a filter or change the search.')); return; }
         for (const it of rows) {
           const selected = curIt && (curIt.base || curIt.id) === (it.base || it.id);
           const row = h('button', { class: 'row' + (selected ? ' sel' : ''), role: 'option', 'aria-selected': selected ? 'true' : 'false' },
             h('img', { src: icon(it.ic), alt: '', loading: 'lazy' }),
-            h('span', { class: 't' }, h('b', null, it.n, h('span', { class: 'gtag ' + it.g }, it.g), it.fnd ? h('span', { class: 'ftag' }, 'Rare') : null, it.pvp ? h('span', { class: 'ftag' }, 'PvP') : null)),
+            h('span', { class: 't' }, h('b', null, it.n, h('span', { class: 'gtag ' + it.g }, it.g), rareTag(it) ? h('span', { class: 'ftag' }, rareTag(it)) : null, it.pvp ? h('span', { class: 'ftag' }, 'PvP') : null)),
             h('span', { class: 'v' }, mainText(it)));
           row.addEventListener('click', () => {
             const keepE = c.eq[slot] ? c.eq[slot].e || 0 : 0;
