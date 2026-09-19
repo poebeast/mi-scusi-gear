@@ -98,7 +98,7 @@
   const STAT_LABEL = {
     patk: 'P. Atk.', matk: 'M. Atk.', pdef: 'P. Def.', mdef: 'M. Def.', acc: 'Accuracy', eva: 'Evasion',
     crit: 'Critical', aspd: 'Atk. Spd.', cspd: 'Casting Spd.', speed: 'Speed', hp: 'HP', mp: 'MP', cp: 'CP',
-    critdmg: 'Crit. damage', mcrit: 'M. Critical', mcritdmg: 'M. crit. damage', hpreg: 'HP regen', mpreg: 'MP regen', sdef: 'Shield Def.',
+    critdmg: 'Crit. damage', mcrit: 'M. Critical', mcritdmg: 'M. crit. damage', hpreg: 'HP regen', mpreg: 'MP regen', sdef: 'Shield Def.', reuse: 'Skills reuse', preuse: 'P. skills reuse', mreuse: 'M. skills reuse', hittime: 'Skills hit time', phittime: 'P. skills hit time',
   };
 
   // ---------------------------------------------------------------- индексы данных
@@ -146,6 +146,12 @@
 
   // ---------------------------------------------------------------- разбор текстов эффектов
   const ALIASES = [
+    // Перезарядка и время применения умений (All — и физические, и магические).
+    [/^All Skills Reuse Time/i, 'reuse'],
+    [/^P\.\s?Skills? Reuse Time/i, 'preuse'],
+    [/^M\.\s?Skills? Reuse Time/i, 'mreuse'],
+    [/^(?:All )?Skills Hit Time/i, 'hittime'],
+    [/^P\.\s?Skills? Hit Time/i, 'phittime'],
     [/^P\.?\s?Atk\.? when using a bow/i, 'patk', 'bow'],
     [/^(?:P\.\s)?Atk\.?\s?Spd\.? with Bow/i, 'aspd', 'bow'],
     [/^(?:P\.\s)?Atk\.?\s?Spd\.?|^Attack Speed/i, 'aspd'],
@@ -166,6 +172,8 @@
     [/^P\.\s?Skills? Power/i, 'pskill'],
     [/^M\.\s?Skills? Power/i, 'mskill'],
     [/^Received P\.\s?Crit(?:ical)?\.? Damage/i, 'rcvcrit'],
+    [/^Received M\.\s?Crit(?:ical)?\.? Damage/i, 'rcvmcrit'],
+    [/^Received P\.\s?Crit(?:ical)?\.? Rate/i, 'rcvcc'],
   ];
   const WWORD = {
     sword: ['sword', 'bigsword'], 'two-handed sword': ['bigsword'], 'one-handed sword': ['sword'],
@@ -200,7 +208,10 @@
     const mods = [], notes = [];
     let cond = null;
     for (let line of String(text).split(/\n+/)) {
-      line = line.trim().replace(/^Clan members'\s*/i, '');
+      line = line.trim().replace(/^Clan members'\s*/i, '')
+        // Единые названия для перезарядки: «P. and M. Skills» → All, ритмы на урон не влияют.
+        .replace(/P\. and M\. Skills/gi, 'All Skills').replace(/Skills and Rhythms/gi, 'Skills')
+        .replace(/Reuse Delay for magic by/gi, 'M. Skills Reuse Time by').replace(/Physical Skill Cooldown/gi, 'P. Skills Reuse Time');
       if (!line || /^Affects all clan members/i.test(line)) continue;
       let lineCond = cond;
       // «With Heavy Armor:», «With Light Armor and Dagger/Dual Dagger:» — условия по броне и оружию.
@@ -213,7 +224,7 @@
       }
       line = line.replace(/^(?:For|Applies to) [^:]*members\s*:\s*/i, '');
       if (!line) continue;
-      if (/^When attacked|^When HP is below|^When taking|^When using|^During |^With an? \d+% chance|^With \d+% chance|^When the (?:master|servitor)|servitor\b[^:]*:\s*$/i.test(line)) { cond = 'skip'; notes.push(line); continue; }
+      if (/\bchance\b.*:\s*$/i.test(line) || /^When attacked|^When HP is below|^When taking|^When using|^During |^With an? \d+% chance|^With \d+% chance|^When the (?:master|servitor)|servitor\b[^:]*:\s*$/i.test(line)) { cond = 'skip'; notes.push(line); continue; }
       const cm = line.match(/^(If a shield is equipped|Shield Equip Bonus|When HP\s*<\s*\d+%|For party members|Totally)\s*:\s*/i);
       if (cm) {
         const c = cm[1].toLowerCase();
@@ -482,10 +493,11 @@
     for (const m of live) if (ATTRS.includes(m.k)) attrs[m.k] += m.v;
     ATTRS.forEach(a => { attrs[a] += hen[a]; attrs[a] = Math.max(1, attrs[a]); });
 
-    const add = {}, mul = {};
+    // prod — те же проценты, но перемноженные: так сервер считает шанс маг. крита (сверено с Lu4 Planner).
+    const add = {}, mul = {}, prod = {};
     for (const m of live) {
       if (ATTRS.includes(m.k)) continue;
-      if (m.pct) mul[m.k] = (mul[m.k] || 1) + m.v / 100;
+      if (m.pct) { mul[m.k] = (mul[m.k] || 1) + m.v / 100; prod[m.k] = (prod[m.k] || 1) * (1 + m.v / 100); }
       else add[m.k] = (add[m.k] || 0) + m.v;
     }
     const fin = (k, v) => v * (mul[k] || 1) + (add[k] || 0);
@@ -541,7 +553,8 @@
     st.aspd = fin('aspd', spdBase * bonus.DEX(attrs.DEX));
     st.cspd = fin('cspd', 333 * bonus.WIT(attrs.WIT));
     st.speed = fin('speed', RUN[c.race][arch === 'fighter' ? 0 : 1] * bonus.DEX(attrs.DEX));
-    st.mcrit = fin('mcrit', 5 * bonus.WIT(attrs.WIT)) / 10;
+    // Шанс маг. крита, %: 5 × WIT, проценты баффов перемножаются, «M. Crit. Rate +N» прибавляется в конце.
+    st.mcrit = 5 * bonus.WIT(attrs.WIT) * (prod.mcrit || 1) + (add.mcrit || 0);
     if (hasShield) {
       const e = c.eq.shield, it = ITEMS.get(e.id);
       st.sdef = fin('sdef', itemStat(it, 'pdef', e.e || 0));
@@ -549,7 +562,7 @@
     }
 
     const misc = [];
-    const miscKeys = ['critdmg', 'mcritdmg', 'hpreg', 'mpreg'];
+    const miscKeys = ['critdmg', 'mcritdmg', 'hpreg', 'mpreg', 'reuse', 'preuse', 'mreuse', 'hittime', 'phittime'];
     for (const k of miscKeys) {
       const a = add[k], mm = mul[k];
       const parts = [];
@@ -557,7 +570,7 @@
       if (mm && mm !== 1) parts.push((mm > 1 ? '+' : '') + Math.round((mm - 1) * 1000) / 10 + '%');
       if (parts.length) misc.push([STAT_LABEL[k], parts.join(', ')]);
     }
-    return { attrs, base: Object.fromEntries(ATTRS.map((a, i) => [a, base[i]])), st, misc, sets, warn, pass, add, mul, notes: [...new Set(notes)] };
+    return { attrs, base: Object.fromEntries(ATTRS.map((a, i) => [a, base[i]])), st, misc, sets, warn, pass, add, mul, prod, notes: [...new Set(notes)] };
   }
 
   // ---------------------------------------------------------------- общее сохранение
@@ -900,7 +913,7 @@
     box.append(h('div', { class: 'bars' },
       [['CP', S.cp, 'var(--cp)'], ['HP', S.hp, 'var(--hp)'], ['MP', S.mp, 'var(--mp)']].map(([n, v, col]) =>
         h('div', { class: 'bar' }, h('span', null, n), h('i', { style: `width:${Math.max(4, (v / maxBar) * 100)}%;background:${col}` }), h('b', null, fmt(v))))));
-    const pairs = [['patk', 'P. Atk.'], ['matk', 'M. Atk.'], ['pdef', 'P. Def.'], ['mdef', 'M. Def.'], ['acc', 'Accuracy'], ['eva', 'Evasion'], ['crit', 'Critical'], ['aspd', 'Atk. Spd.'], ['cspd', 'Casting Spd.'], ['speed', 'Speed'], ['sdef', 'Shield Def.'], ['srate', 'Shield rate %']];
+    const pairs = [['patk', 'P. Atk.'], ['matk', 'M. Atk.'], ['pdef', 'P. Def.'], ['mdef', 'M. Def.'], ['acc', 'Accuracy'], ['eva', 'Evasion'], ['crit', 'Critical'], ['mcrit', 'M. Crit. %'], ['aspd', 'Atk. Spd.'], ['cspd', 'Casting Spd.'], ['speed', 'Speed'], ['sdef', 'Shield Def.'], ['srate', 'Shield rate %']];
     const g = h('div', { class: 'grid2' });
     for (const [k, n] of pairs) {
       if (S[k] == null) continue;
@@ -990,7 +1003,8 @@
     // Обычная атака.
     {
       const hit = Math.min(98, hitChance(a.acc - d.eva) * pos) / 100;
-      const cc = Math.min(1, a.crit / 1000 * pos);
+      // Received P. Crit. Rate у цели (например, мастерство лёгкой брони) снижает шанс крита по ней.
+      const cc = Math.min(1, a.crit / 1000 * pos * Math.max(0, 1 + pctOf(D, 'rcvcc')));
       const norm = a.patk * ss * K / d.pdef * pvp;
       const crit = (a.patk * ss * 2 * (1 + pctOf(A, 'critdmg')) + (A.add.critdmg || 0)) * K / d.pdef * pvp * (1 + pctOf(D, 'rcvcrit'));
       let avg = (1 - cc) * norm + cc * crit;
@@ -1015,23 +1029,28 @@
       else if (sk.weapon === 'dagger' && !/dagger/.test(wt || '')) why = 'needs a dagger';
       else if (sk.weapon === 'shield' && !(c.eq.shield && ITEMS.get(c.eq.shield.id))) why = 'needs a shield';
       else if (!sk.magic && !sk.weapon && bow) why = 'not with a bow';
-      const cast = sk.hit * 333 / (sk.magic ? a.cspd : a.aspd);
-      const cycle = Math.max(sk.reuse || 0, cast);
+      // Перезарядка и время применения: баффы и пассивки вида «Skills Reuse Time −10%», «Skills Hit Time −8%».
+      const reuseK = Math.max(0.1, 1 + pctOf(A, 'reuse') + pctOf(A, sk.magic ? 'mreuse' : 'preuse'));
+      const hitK = Math.max(0.1, 1 + pctOf(A, 'hittime') + (sk.magic ? 0 : pctOf(A, 'phittime')));
+      const cast = sk.hit * 333 / (sk.magic ? a.cspd : a.aspd) * hitK;
+      const reuse = (sk.reuse || 0) * reuseK;
+      const cycle = Math.max(reuse, cast);
       let norm, crit, cc;
       if (sk.magic) {
         norm = Math.sqrt(a.matk * shots.ms) * power * 91 / d.mdef * pvp * (1 + pctOf(A, 'mskill'));
-        crit = norm * sk.cm * (1 + pctOf(A, 'mcritdmg'));
-        cc = Math.min(1, (5 * bonus.WIT(A.attrs.WIT) * (A.mul.mcrit || 1) + (A.add.mcrit || 0)) / 100);
+        // Урон маг. крита: множитель умения × M. Crit. Damage атакующего × Received M. Crit. Damage цели.
+        crit = norm * sk.cm * (A.prod.mcritdmg || 1) * Math.max(0, 1 + pctOf(D, 'rcvmcrit'));
+        cc = Math.min(1, A.st.mcrit / 100);
       } else {
         const pdef = d.pdef * (1 - (sk.defIgn || 0) / 100);
         // Удар кинжалом: соска усиливает только P. Atk. (так считает Lu4 Planner).
         norm = sk.blow ? (power * (sk.pm || 1) + a.patk * ss) * K / pdef * pvp * (1 + pctOf(A, 'pskill'))
           : (power + a.patk) * ss * (sk.k || 1) * K / pdef * pvp * (1 + pctOf(A, 'pskill'));
         crit = norm * sk.cm * (1 + pctOf(A, 'pskillcrit'));
-        cc = Math.min(1, sk.cc / 100 * bonus.STR(A.attrs.STR));
+        cc = Math.min(1, sk.cc / 100 * bonus.STR(A.attrs.STR) * Math.max(0, 1 + pctOf(D, 'rcvcc')));
       }
       const avg = (1 - cc) * norm + cc * crit;
-      rows.push({ n: sk.n, ic: sk.ic, lv: l, magic: sk.magic, norm, crit, hit: 1, cc, block: 0, cycle, cast, reuse: sk.reuse, exp: avg, ok: !why, why, mp: sk.mp });
+      rows.push({ n: sk.n, ic: sk.ic, lv: l, magic: sk.magic, norm, crit, hit: 1, cc, block: 0, cycle, cast, reuse, exp: avg, ok: !why, why, mp: sk.mp });
     }
     rows.forEach(r => (r.dps = r.ok ? r.exp / r.cycle : 0));
     return { rows, A, D, shots };
