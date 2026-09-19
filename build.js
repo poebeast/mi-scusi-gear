@@ -40,7 +40,7 @@ fs.writeFileSync(path.join(out, '.nojekyll'), '');
 // Метка версии: браузеры не держат в кеше старые данные после обновления.
 const V = Date.now().toString(36);
 fs.writeFileSync(path.join(out, 'index.html'), `<!doctype html>
-<html lang="en">
+<html lang="en" data-theme="smoke" data-dark>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -48,10 +48,9 @@ fs.writeFileSync(path.join(out, 'index.html'), `<!doctype html>
 <meta name="description" content="Gear, enchants, SA, tattoos, buffs and stats for the Mi scusi party on Lu4 Gamma.">
 <link rel="icon" href="icons/cls_5.png">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Onest:wght@400;500;600;700&family=Unbounded:wght@600;700&family=Inter:wght@400;500;600;700&family=Manrope:wght@400;500;600;700;800&family=Sora:wght@400;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="style.css?v=${V}">
 <link rel="stylesheet" href="themes.css?v=${V}">
-<script>try{var t=new URLSearchParams(location.search).get('theme')||localStorage.getItem('miscusi.theme');if(t&&t!=='frost'){document.documentElement.dataset.theme=t;if(/^(aurora|smoke|nebula|emerald|midnight)$/.test(t))document.documentElement.dataset.dark='';}}catch(e){}</script>
 </head>
 <body>
 <div id="root"></div>

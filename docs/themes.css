@@ -1,5 +1,4 @@
-/* Варианты дизайна: <html data-theme="…">. Без атрибута — исходный Frost.
-   Все варианты — матовое стекло поверх цветных пятен фона; пять полутёмных (data-dark) и пять полусветлых. */
+/* Дизайн «Smoke»: полутёмное матовое стекло с янтарём (<html data-theme="smoke" data-dark>). */
 
 /* ---------- раскладка (общая для всех) ---------- */
 .lay{display:flex;flex-direction:column;gap:14px;margin-top:14px}
@@ -38,76 +37,12 @@
 [data-dark] .buff.on img,[data-dark] .buff:hover img{filter:none}
 [data-dark] .tat.empty .sym{background:var(--glass2)}
 
-/* ---------- 1. Aurora — полутёмный, северное сияние: бирюза и фиолет ---------- */
-[data-theme=aurora]{--bg0:#0a0f1f;--r:26px;
-  --bgimg:radial-gradient(700px 480px at 12% 8%,rgba(34,211,238,.35),transparent 60%),radial-gradient(760px 520px at 88% 18%,rgba(124,58,237,.38),transparent 62%),radial-gradient(900px 600px at 55% 105%,rgba(16,185,129,.22),transparent 60%),linear-gradient(180deg,#0b1224,#080b16);
-  --glass:rgba(255,255,255,.065);--glass2:rgba(255,255,255,.07);--glass3:rgba(20,28,52,.9);--edge:rgba(255,255,255,.13);--edge2:rgba(255,255,255,.08);--hi:rgba(255,255,255,.08);
-  --shadow:0 18px 50px rgba(0,0,0,.45);--slotsh:rgba(0,0,0,.35);--ink:#e9f0ff;--ink2:#b4c2e3;--mute:#8594b8;--accent:#22d3ee;--accent2:#06b6d4;--accentink:#03141a;
-  --display:"Sora",system-ui,sans-serif;--body:"Inter",system-ui,sans-serif}
-
-/* ---------- 2. Pearl — полусветлый, перламутр: лаванда, персик, небо ---------- */
-[data-theme=pearl]{--r:28px;
-  --bgimg:radial-gradient(700px 500px at 10% 10%,rgba(167,139,250,.45),transparent 60%),radial-gradient(700px 500px at 90% 15%,rgba(253,186,116,.45),transparent 60%),radial-gradient(900px 600px at 50% 100%,rgba(125,211,252,.5),transparent 60%),linear-gradient(180deg,#eef0f8,#f7f5fb);
-  --glass:rgba(255,255,255,.42);--glass2:rgba(255,255,255,.5);--glass3:rgba(255,255,255,.88);--edge:rgba(255,255,255,.75);--edge2:rgba(40,40,90,.1);--hi:rgba(255,255,255,.9);
-  --shadow:0 18px 50px rgba(80,70,160,.16);--slotsh:rgba(80,70,160,.14);--ink:#1c1f3a;--ink2:#474c72;--mute:#7a7fa3;--accent:#5b5bf7;--accent2:#4338ca;--accentink:#fff;
-  --display:"Manrope",system-ui,sans-serif;--body:"Manrope",system-ui,sans-serif}
-
 /* ---------- 3. Smoke — полутёмный, дымчатое стекло и янтарь ---------- */
 [data-theme=smoke]{--bg0:#111315;--r:22px;
   --bgimg:radial-gradient(800px 520px at 85% 0%,rgba(245,158,11,.22),transparent 60%),radial-gradient(700px 500px at 5% 60%,rgba(148,163,184,.18),transparent 60%),radial-gradient(800px 500px at 60% 110%,rgba(234,88,12,.16),transparent 60%),linear-gradient(180deg,#17191c,#0e0f11);
   --glass:rgba(255,255,255,.05);--glass2:rgba(255,255,255,.06);--glass3:rgba(28,30,34,.92);--edge:rgba(255,255,255,.1);--edge2:rgba(255,255,255,.07);--hi:rgba(255,255,255,.06);
   --shadow:0 18px 48px rgba(0,0,0,.5);--slotsh:rgba(0,0,0,.4);--ink:#f2efe9;--ink2:#c3bcb0;--mute:#8d867b;--accent:#fbbf24;--accent2:#f59e0b;--accentink:#1a1204;
   --display:"Space Grotesk",system-ui,sans-serif;--body:"Inter",system-ui,sans-serif}
-
-/* ---------- 4. Ice — полусветлый, лёд: бирюза и белое стекло ---------- */
-[data-theme=ice]{--r:24px;
-  --bgimg:radial-gradient(700px 500px at 15% 5%,rgba(45,212,191,.4),transparent 60%),radial-gradient(760px 520px at 90% 30%,rgba(56,189,248,.38),transparent 60%),radial-gradient(900px 600px at 40% 110%,rgba(165,243,252,.6),transparent 60%),linear-gradient(180deg,#e3f3f6,#f3fbfc);
-  --glass:rgba(255,255,255,.4);--glass2:rgba(255,255,255,.5);--glass3:rgba(255,255,255,.9);--edge:rgba(255,255,255,.8);--edge2:rgba(10,80,90,.1);--hi:rgba(255,255,255,.95);
-  --shadow:0 18px 44px rgba(14,116,144,.16);--slotsh:rgba(14,116,144,.14);--ink:#0b2b33;--ink2:#2f5963;--mute:#62868e;--accent:#0d9488;--accent2:#0f766e;--accentink:#fff;
-  --display:"Sora",system-ui,sans-serif;--body:"Inter",system-ui,sans-serif}
-
-/* ---------- 5. Nebula — полутёмный, туманность: маджента и индиго ---------- */
-[data-theme=nebula]{--bg0:#120b24;--r:28px;
-  --bgimg:radial-gradient(700px 520px at 20% 0%,rgba(236,72,153,.34),transparent 60%),radial-gradient(800px 560px at 95% 40%,rgba(99,102,241,.38),transparent 62%),radial-gradient(800px 520px at 30% 110%,rgba(168,85,247,.28),transparent 60%),linear-gradient(180deg,#150d2b,#0c0719);
-  --glass:rgba(255,255,255,.06);--glass2:rgba(255,255,255,.07);--glass3:rgba(30,20,56,.92);--edge:rgba(255,255,255,.12);--edge2:rgba(255,255,255,.08);--hi:rgba(255,255,255,.08);
-  --shadow:0 20px 56px rgba(5,0,20,.5);--slotsh:rgba(0,0,0,.35);--ink:#f5edff;--ink2:#cbb9ea;--mute:#9b88c0;--accent:#f472b6;--accent2:#ec4899;--accentink:#2a0418;
-  --display:"Sora",system-ui,sans-serif;--body:"Manrope",system-ui,sans-serif}
-
-/* ---------- 6. Dusk — полусветлый, сумерки: лавандово-серый, роза, закат ---------- */
-[data-theme=dusk]{--r:26px;
-  --bgimg:radial-gradient(700px 500px at 85% 5%,rgba(251,113,133,.42),transparent 60%),radial-gradient(760px 520px at 5% 40%,rgba(129,140,248,.4),transparent 62%),radial-gradient(900px 600px at 60% 110%,rgba(251,191,36,.35),transparent 60%),linear-gradient(180deg,#d9d6e8,#ece7f1);
-  --glass:rgba(255,255,255,.36);--glass2:rgba(255,255,255,.44);--glass3:rgba(255,255,255,.88);--edge:rgba(255,255,255,.66);--edge2:rgba(60,30,80,.12);--hi:rgba(255,255,255,.85);
-  --shadow:0 18px 48px rgba(90,50,110,.18);--slotsh:rgba(90,50,110,.16);--ink:#241c35;--ink2:#51456a;--mute:#7f7396;--accent:#e2557a;--accent2:#c43d63;--accentink:#fff;
-  --display:"Manrope",system-ui,sans-serif;--body:"Manrope",system-ui,sans-serif}
-
-/* ---------- 7. Emerald — полутёмный, изумруд и бирюза ---------- */
-[data-theme=emerald]{--bg0:#06161a;--r:20px;
-  --bgimg:radial-gradient(700px 500px at 10% 10%,rgba(16,185,129,.3),transparent 60%),radial-gradient(760px 520px at 90% 20%,rgba(20,184,166,.26),transparent 60%),radial-gradient(900px 600px at 50% 110%,rgba(52,211,153,.18),transparent 60%),linear-gradient(180deg,#07191d,#040e10);
-  --glass:rgba(255,255,255,.055);--glass2:rgba(255,255,255,.065);--glass3:rgba(10,34,38,.92);--edge:rgba(167,243,208,.14);--edge2:rgba(167,243,208,.09);--hi:rgba(255,255,255,.07);
-  --shadow:0 18px 48px rgba(0,0,0,.45);--slotsh:rgba(0,0,0,.35);--ink:#e7fbf3;--ink2:#a9d8c6;--mute:#74a595;--accent:#34d399;--accent2:#10b981;--accentink:#03170f;
-  --display:"Space Grotesk",system-ui,sans-serif;--body:"Inter",system-ui,sans-serif}
-
-/* ---------- 8. Frost Glass — полусветлый, обновлённый Frost: голубой и розовый ---------- */
-[data-theme=frostglass]{--r:30px;
-  --bgimg:radial-gradient(760px 520px at 10% 5%,rgba(96,165,250,.45),transparent 60%),radial-gradient(700px 520px at 92% 25%,rgba(244,114,182,.3),transparent 60%),radial-gradient(900px 600px at 40% 110%,rgba(129,140,248,.35),transparent 60%),linear-gradient(180deg,#dde8f7,#f1f5fc);
-  --glass:rgba(255,255,255,.4);--glass2:rgba(255,255,255,.5);--glass3:rgba(255,255,255,.9);--edge:rgba(255,255,255,.78);--edge2:rgba(30,60,120,.1);--hi:rgba(255,255,255,.95);
-  --shadow:0 18px 48px rgba(40,80,170,.16);--slotsh:rgba(40,80,170,.14);--ink:#0f1f3d;--ink2:#3a5078;--mute:#6c80a6;--accent:#3b82f6;--accent2:#2563eb;--accentink:#fff;
-  --display:"Sora",system-ui,sans-serif;--body:"Manrope",system-ui,sans-serif}
-[data-theme=frostglass] .stats .grid2{grid-template-columns:repeat(3,1fr)}
-
-/* ---------- 9. Midnight — полутёмный, ночь: тёмно-синий и золото ---------- */
-[data-theme=midnight]{--bg0:#0a1226;--r:24px;
-  --bgimg:radial-gradient(760px 520px at 15% 0%,rgba(59,130,246,.3),transparent 60%),radial-gradient(700px 500px at 90% 30%,rgba(234,179,8,.18),transparent 60%),radial-gradient(900px 600px at 50% 110%,rgba(30,64,175,.3),transparent 60%),linear-gradient(180deg,#0c1530,#070c1c);
-  --glass:rgba(255,255,255,.06);--glass2:rgba(255,255,255,.07);--glass3:rgba(16,26,56,.92);--edge:rgba(191,219,254,.14);--edge2:rgba(191,219,254,.09);--hi:rgba(255,255,255,.08);
-  --shadow:0 18px 50px rgba(0,4,20,.5);--slotsh:rgba(0,0,0,.35);--ink:#eef3ff;--ink2:#b9c7e6;--mute:#8595bd;--accent:#eab308;--accent2:#ca8a04;--accentink:#1a1400;
-  --display:"Space Grotesk",system-ui,sans-serif;--body:"Inter",system-ui,sans-serif}
-
-/* ---------- 10. Mist — полусветлый, туман: серо-лиловый, мята ---------- */
-[data-theme=mist]{--r:22px;
-  --bgimg:radial-gradient(700px 500px at 90% 5%,rgba(196,181,253,.55),transparent 60%),radial-gradient(760px 520px at 5% 45%,rgba(153,246,228,.45),transparent 62%),radial-gradient(900px 600px at 60% 110%,rgba(221,214,254,.6),transparent 60%),linear-gradient(180deg,#ebeaf2,#f6f5fa);
-  --glass:rgba(255,255,255,.5);--glass2:rgba(255,255,255,.58);--glass3:rgba(255,255,255,.92);--edge:rgba(255,255,255,.8);--edge2:rgba(40,30,70,.09);--hi:rgba(255,255,255,.95);
-  --shadow:0 14px 40px rgba(70,60,120,.12);--slotsh:rgba(70,60,120,.1);--ink:#1f1d2e;--ink2:#4c4866;--mute:#7c789a;--accent:#8b5cf6;--accent2:#7c3aed;--accentink:#fff;
-  --display:"Manrope",system-ui,sans-serif;--body:"Manrope",system-ui,sans-serif}
 
 /* ---------- правки раскладок ---------- */
 .lcol>.viewer{min-height:0;display:block;padding:14px 18px}
@@ -117,3 +52,5 @@
 .lcol .dtable td.sk img,.lcol .dtable td.sk .na{width:22px;height:22px}
 .lcol .dtable td.sk{flex-wrap:wrap;white-space:normal;min-width:150px}
 .lcol .dtable td.sk .why{flex-basis:100%;padding-left:28px}
+[data-theme] .btn.primary{background:var(--accent);border-color:transparent;color:var(--accentink)}
+[data-theme] .btn.primary:hover{background:var(--accent2)}

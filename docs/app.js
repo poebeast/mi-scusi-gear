@@ -672,17 +672,8 @@
     const wrap = h('div', { class: 'wrap' });
     els.save = h('div', { class: 'save' });
     // Выбор варианта дизайна (временно, пока выбираем).
-    const curTheme = THEME_LIST.some(x => x[0] === document.documentElement.dataset.theme) ? document.documentElement.dataset.theme : 'frost';
-    const themeSel = h('select', { class: 'themesel', 'aria-label': 'Design', onchange: e => {
-      const t = e.target.value, de = document.documentElement;
-      if (t === 'frost') delete de.dataset.theme; else de.dataset.theme = t;
-      if (THEME_DARK.has(t)) de.dataset.dark = ''; else delete de.dataset.dark;
-      try { localStorage.setItem('miscusi.theme', t); } catch (_) {}
-      applyLayout(t);
-    } }, THEME_LIST.map(([v, n]) => h('option', { value: v, selected: v === curTheme ? true : null }, n)));
     wrap.append(h('header', { class: 'top' },
       h('div', { class: 'brand' }, h('h1', null, 'Mi scusi'), h('span', null, 'Lu4 Gamma')),
-      h('label', { class: 'themepick' }, 'Design ', themeSel),
       els.save));
 
     els.charSel = h('select', { id: 'char-select', onchange: e => { cur = e.target.value; try { sessionStorage.setItem('miscusi.cur', String(cur)); } catch (_) {} renderAll(); } });
@@ -711,7 +702,7 @@
     // Блоки раскладываются по рядам и колонкам в зависимости от варианта дизайна.
     els.lay = h('div', { class: 'lay' });
     wrap.append(els.lay);
-    applyLayout(curTheme);
+    applyLayout();
     wrap.append(h('p', { class: 'note foot' }, 'Item and skill data: masterwork.wiki, Lu4: Gamma. Base HP/MP/CP and racial attributes use standard L2 formulas and may differ from the server by a few percent.'));
     root.append(wrap);
 
@@ -722,32 +713,12 @@
 
   }
 
-  // Варианты дизайна: [id, название, раскладка]. Раскладка — ряды [колонки, ячейки], ячейка — список блоков;
-  // {g: [...]} — блоки в общей стеклянной карточке.
-  const STAGE = { g: ['viewer', 'gear', 'passives'] };
-  var LAYOUTS = {
-    classic: [['340px minmax(0,1fr)', [['stats', 'tattoos', 'clan'], [STAGE, 'dmg']]], ['1fr', [['buffs']]]],
-    mirror: [['minmax(0,1fr) 340px', [[STAGE, 'dmg'], ['stats', 'tattoos', 'clan']]], ['1fr', [['buffs']]]],
-    three: [['300px minmax(0,1fr) 300px', [['stats', 'tattoos'], ['viewer', 'gear', 'dmg'], ['passives', 'clan']]], ['1fr', [['buffs']]]],
-    hero: [['1fr', [[{ g: ['viewer', 'gear'] }]]], ['300px minmax(0,1fr) 270px', [['stats'], ['dmg'], ['tattoos', 'passives', 'clan']]], ['1fr', [['buffs']]]],
-    wide: [['minmax(0,1.25fr) minmax(0,1fr)', [[STAGE], ['stats', 'tattoos']]], ['minmax(0,1fr) 320px', [['dmg'], ['clan']]], ['1fr', [['buffs']]]],
-    halves: [['minmax(0,1fr) minmax(0,1fr)', [['viewer', 'gear', 'passives'], ['stats', 'tattoos', 'clan']]], ['1fr', [['dmg']]], ['1fr', [['buffs']]]],
-    rail: [['250px minmax(0,1fr) 300px', [['tattoos', 'clan', 'passives'], ['viewer', 'gear', 'dmg'], ['stats']]], ['1fr', [['buffs']]]],
-    strip: [['minmax(0,1fr) minmax(0,1.1fr)', [[{ g: ['viewer', 'gear'] }, 'passives'], ['stats']]], ['minmax(0,1fr) minmax(0,1fr)', [['tattoos'], ['clan']]], ['1fr', [['dmg']]], ['1fr', [['buffs']]]],
-    command: [['360px minmax(0,1fr)', [[STAGE, 'stats'], ['dmg']]], ['minmax(0,1fr) minmax(0,1fr)', [['tattoos'], ['clan']]], ['1fr', [['buffs']]]],
-    dash: [['minmax(0,1fr) minmax(0,1fr)', [['viewer'], ['gear']]], ['320px minmax(0,1fr) minmax(0,1fr)', [['stats'], ['passives', 'tattoos'], ['clan']]], ['1fr', [['dmg']]], ['1fr', [['buffs']]]],
-  };
-  var THEME_LIST = [['frost', 'Frost (current)', 'classic'],
-    ['aurora', '1 · Aurora — dark', 'classic'], ['pearl', '2 · Pearl — light', 'three'], ['smoke', '3 · Smoke — dark', 'hero'], ['ice', '4 · Ice — light', 'mirror'],
-    ['nebula', '5 · Nebula — dark', 'command'], ['dusk', '6 · Dusk — light', 'wide'], ['emerald', '7 · Emerald — dark', 'rail'], ['frostglass', '8 · Frost Glass — light', 'strip'],
-    ['midnight', '9 · Midnight — dark', 'dash'], ['mist', '10 · Mist — light', 'halves']];
-  var THEME_DARK = new Set(['aurora', 'smoke', 'nebula', 'emerald', 'midnight']);
-  function applyLayout(theme) {
-    const t = THEME_LIST.find(x => x[0] === theme) || THEME_LIST[0];
-    const spec = LAYOUTS[t[2]];
+  // Раскладка (дизайн «Smoke»): сверху персонаж и гир на всю ширину, ниже статы · урон · тату, пассивки, клан, внизу баффы.
+  // Ряды: [колонки, ячейки]; ячейка — список блоков, {g: [...]} — блоки в общей карточке.
+  const LAYOUT = [['1fr', [[{ g: ['viewer', 'gear'] }]]], ['300px minmax(0,1fr) 270px', [['stats'], ['dmg'], ['tattoos', 'passives', 'clan']]], ['1fr', [['buffs']]]];
+  function applyLayout() {
     els.lay.innerHTML = '';
-    els.lay.dataset.layout = t[2];
-    for (const [cols, cells] of spec) {
+    for (const [cols, cells] of LAYOUT) {
       const row = h('div', { class: 'lrow', style: 'grid-template-columns:' + cols });
       for (const cell of cells) row.append(h('div', { class: 'lcol' }, cell.map(it => (it.g ? h('section', { class: 'stage' }, it.g.map(k => els[k])) : els[it]))));
       els.lay.append(row);
@@ -886,24 +857,34 @@
       })));
   }
 
+  // Символ тату в игровом стиле: тёмный слот, светящаяся эмблема цвета атрибута.
+  const SYM_COLOR = { STR: '#ff4b3e', DEX: '#45d16e', CON: '#f2b233', INT: '#4b9bff', WIT: '#b76bff', MEN: '#35d3de' };
+  function henSymbol(hn) {
+    if (!hn) return h('span', { class: 'hsym none' });
+    const col = SYM_COLOR[hn.up] || '#ccc';
+    return h('span', { class: 'hsym', style: '--sc:' + col, html: '<svg viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="11" fill="none" stroke="currentColor" stroke-width="2.2"/><circle cx="16" cy="16" r="6.5" fill="none" stroke="currentColor" stroke-width="1.6"/><path d="M16 3v6M16 23v6M3 16h6M23 16h6M7 7l4.2 4.2M20.8 20.8L25 25M25 7l-4.2 4.2M11.2 20.8L7 25" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/><circle cx="16" cy="16" r="2.4" fill="currentColor"/></svg>' });
+  }
+  const henText = hn => (hn ? `${hn.up} +${hn.n} · ${hn.down} −${hn.kind === 'greater' ? hn.n : hn.n + 1}` : 'Empty slot');
+  // Ряд из трёх символов с подсказками и кнопкой, открывающей окно тату.
+  function henRow(c, cls) {
+    return h('div', { class: 'hrow ' + (cls || '') }, c.hen.map((hn, i) => {
+      const el = henSymbol(hn);
+      el.setAttribute('tabindex', '0');
+      el.setAttribute('aria-label', 'Tattoo ' + (i + 1) + ': ' + henText(hn));
+      const tipHtml = `<b>Tattoo ${i + 1}</b><div class="ln">${esc(henText(hn))}</div>`;
+      el.addEventListener('mouseenter', () => showTip(el, tipHtml)); el.addEventListener('mouseleave', hideTip);
+      el.addEventListener('focus', () => showTip(el, tipHtml)); el.addEventListener('blur', hideTip);
+      return el;
+    }), h('button', { class: 'btn sm', onclick: () => { hideTip(); openTattoos(c); } }, 'Tattoos'));
+  }
   function renderTattoos() {
     const c = ch();
     els.tattoos.innerHTML = '';
-    els.tattoos.append(h('h3', null, 'Tattoos'));
-    c.hen.forEach((hn, i) => {
-      const b = h('button', { class: 'tat' + (hn ? '' : ' empty'), onclick: () => openTattoo(i) });
-      if (hn) {
-        const minus = hn.kind === 'greater' ? hn.n : hn.n + 1;
-        b.append(h('span', { class: 'sym' }, hn.up), h('span', { class: 'txt', html: `<span class="p">${hn.up} +${hn.n}</span> <span class="m">${hn.down} −${minus}</span>` }));
-      } else b.append(h('span', { class: 'sym' }, i + 1), h('span', { class: 'txt' }, 'Empty'));
-      els.tattoos.append(b);
-    });
     const hm = hennaMods(c);
-    const over = c.hen.filter(Boolean).reduce((o, hn) => { o[hn.up] = (o[hn.up] || 0) + hn.n; return o; }, {});
-    const capped = Object.keys(over).filter(k => over[k] > 5);
-    if (capped.length) els.tattoos.append(h('span', { class: 'note' }, `${capped.join(', ')} bonus capped at +5.`));
-    void hm;
+    const sum = ATTRS.filter(a => hm[a]).map(a => h('span', { class: hm[a] > 0 ? 'p' : 'm' }, `${a} ${hm[a] > 0 ? '+' : '−'}${Math.abs(hm[a])}`));
+    els.tattoos.append(h('h3', null, 'Tattoos'), henRow(c), sum.length ? h('div', { class: 'hsum' }, sum) : null);
   }
+
 
   let prevStats = null;
   function renderStats() {
@@ -1087,7 +1068,7 @@
       + `  ·  Shots: soulshot ${dmgPrefs.ss ? fx(shots.ss) : 'off'}, spiritshot ${dmgPrefs.mshot > 1 ? fx(shots.ms) : 'off'}` + (shots.sb ? ` (weapon enchant +${Math.round(shots.sb * 1000) / 10}%)` : '')));
     const pool = d.hp + d.cp;
     // Цель можно переодеть прямо здесь: гир, заточка, тату, уровень, баффы, клан-скилы.
-    const tHen = t.hen.map((hn, i) => h('button', { class: 'tmini' + (hn ? '' : ' empty'), title: 'Tattoo ' + (i + 1), onclick: () => openTattoo(i, t) }, hn ? `${hn.up}+${hn.n}` : 'Tattoo'));
+    const tHen = henRow(t, 'sm');
     const tLvl = h('input', { type: 'number', min: '1', max: '75', value: t.level, 'aria-label': 'Target level', onchange: e => { t.level = Math.max(1, Math.min(75, Math.round(+e.target.value || 75))); update(false, t); } });
     const nb = Object.keys(t.buffs).length;
     box.append(h('div', { class: 'tedit' },
@@ -1294,39 +1275,36 @@
   }
 
   // ---------------------------------------------------------------- татуировки
-  function openTattoo(i, who) {
+  function openTattoos(who) {
     const c = who || ch();
     const dlg = els.dialog;
     if (dlg.open) dlg.close();
-    const hn = c.hen[i] || { up: 'STR', down: 'CON', n: 4, kind: 'greater' };
+    dlg.dataset.kind = 'tattoo';
     const pairs = { STR: ['CON', 'DEX'], CON: ['STR', 'DEX'], DEX: ['STR', 'CON'], INT: ['MEN', 'WIT'], MEN: ['INT', 'WIT'], WIT: ['INT', 'MEN'] };
-    const draft = Object.assign({}, hn);
-    // Сколько атрибут ещё можно поднять: сумма плюсов всех тату к одному атрибуту — не больше +5.
-    const room = a => 5 - c.hen.reduce((s, x, j) => s + (x && j !== i && x.up === a ? x.n : 0), 0);
-    const maxN = a => Math.max(0, Math.min(4, room(a)));
-    if (!c.hen[i] && !maxN(draft.up)) { const free = ATTRS.find(x => maxN(x)); if (free) { draft.up = free; draft.down = pairs[free][0]; } }
+    const draft = c.hen.map(x => (x ? Object.assign({}, x) : null));
+    // Плюс к одному атрибуту от всех тату — не больше +5.
+    const room = (a, i) => 5 - draft.reduce((s2, x, j) => s2 + (x && j !== i && x.up === a ? x.n : 0), 0);
     function draw() {
       dlg.innerHTML = '';
-      draft.n = Math.max(1, Math.min(draft.n, maxN(draft.up) || 1));
-      const can = maxN(draft.up) > 0;
-      const minus = draft.kind === 'greater' ? draft.n : draft.n + 1;
-      const up = h('select', { id: 'tat-up', onchange: e => { draft.up = e.target.value; if (!pairs[draft.up].includes(draft.down)) draft.down = pairs[draft.up][0]; draw(); } }, ATTRS.map(a => h('option', { value: a, selected: a === draft.up ? true : null, disabled: maxN(a) ? null : true }, a + (maxN(a) ? '' : ' (max)'))));
-      const down = h('select', { id: 'tat-down', onchange: e => { draft.down = e.target.value; draw(); } }, pairs[draft.up].map(a => h('option', { value: a, selected: a === draft.down ? true : null }, a)));
-      const n = h('select', { id: 'tat-n', onchange: e => { draft.n = +e.target.value; draw(); } }, [1, 2, 3, 4].filter(v => v <= Math.max(1, maxN(draft.up))).map(v => h('option', { value: v, selected: v === draft.n ? true : null }, '+' + v)));
-      const kind = h('select', { id: 'tat-kind', onchange: e => { draft.kind = e.target.value; draw(); } },
-        h('option', { value: 'greater', selected: draft.kind === 'greater' ? true : null }, 'Greater Dye (1:1)'),
-        h('option', { value: 'normal', selected: draft.kind === 'normal' ? true : null }, 'Regular dye (+n −n−1)'));
+      const rows = draft.map((d, i) => {
+        if (!d) return h('div', { class: 'hedit' }, henSymbol(null), h('span', { class: 'note' }, `Slot ${i + 1} is empty`),
+          h('button', { class: 'btn sm', onclick: () => { const up = ATTRS.find(a => room(a, i) > 0) || 'STR'; draft[i] = { up, down: pairs[up][0], n: Math.max(1, Math.min(4, room(up, i))), kind: 'greater' }; draw(); } }, 'Add'));
+        d.n = Math.max(1, Math.min(d.n, 4, Math.max(1, room(d.up, i))));
+        const up = h('select', { 'aria-label': 'Raises', onchange: e => { d.up = e.target.value; if (!pairs[d.up].includes(d.down)) d.down = pairs[d.up][0]; draw(); } }, ATTRS.map(a => h('option', { value: a, selected: a === d.up ? true : null, disabled: room(a, i) > 0 || a === d.up ? null : true }, a)));
+        const n = h('select', { 'aria-label': 'By', onchange: e => { d.n = +e.target.value; draw(); } }, [1, 2, 3, 4].filter(v => v <= Math.max(1, Math.min(4, room(d.up, i)))).map(v => h('option', { value: v, selected: v === d.n ? true : null }, '+' + v)));
+        const down = h('select', { 'aria-label': 'Lowers', onchange: e => { d.down = e.target.value; draw(); } }, pairs[d.up].map(a => h('option', { value: a, selected: a === d.down ? true : null }, a)));
+        const kind = h('select', { 'aria-label': 'Dye', onchange: e => { d.kind = e.target.value; draw(); } },
+          h('option', { value: 'greater', selected: d.kind === 'greater' ? true : null }, 'Greater (1:1)'),
+          h('option', { value: 'normal', selected: d.kind === 'normal' ? true : null }, 'Regular (−n−1)'));
+        return h('div', { class: 'hedit' }, henSymbol(d), up, n, h('span', { class: 'note' }, 'lowers'), down, kind,
+          h('span', { class: 'hres' }, henText(d)),
+          h('button', { class: 'btn sm', 'aria-label': 'Clear slot ' + (i + 1), onclick: () => { draft[i] = null; draw(); } }, '×'));
+      });
       dlg.append(h('div', { class: 'dlg' },
-        h('div', { class: 'dlghead' }, h('h2', null, `Tattoo ${i + 1}`, c !== ch() ? h('small', { class: 'dlgwho' }, ' · ' + (c.nick || CLASSES[c.cls].n)) : null), h('button', { class: 'btn sm', onclick: () => dlg.close() }, 'Close')),
-        h('div', { class: 'tatform' },
-          h('div', { class: 'field' }, h('label', { for: 'tat-up' }, 'Raises'), up),
-          h('div', { class: 'field' }, h('label', { for: 'tat-n' }, 'By'), n),
-          h('div', { class: 'field' }, h('label', { for: 'tat-down' }, 'Lowers'), down),
-          h('div', { class: 'field' }, h('label', { for: 'tat-kind' }, 'Dye'), kind)),
-        h('p', { class: 'note', style: 'padding:0 14px' }, `Result: ${draft.up} +${draft.n}, ${draft.down} −${minus}. Tattoos can raise an attribute by +5 at most${room(draft.up) < 5 ? ` — ${draft.up} can still go up by ${maxN(draft.up)}` : ''}.`),
-        h('div', { class: 'dlgfoot' },
-          c.hen[i] ? h('button', { class: 'btn', onclick: () => { c.hen[i] = null; dlg.close(); update(false, c); } }, 'Remove') : null,
-          h('button', { class: 'btn primary', disabled: can ? null : true, onclick: () => { if (!can) return; c.hen[i] = Object.assign({}, draft); dlg.close(); update(false, c); } }, 'Apply'))));
+        h('div', { class: 'dlghead' }, h('h2', null, 'Tattoos', c !== ch() ? h('small', { class: 'dlgwho' }, ' · ' + (c.nick || CLASSES[c.cls].n)) : null), h('button', { class: 'btn sm', onclick: () => dlg.close() }, 'Close')),
+        h('div', { class: 'hedits' }, rows),
+        h('p', { class: 'note', style: 'padding:0 16px' }, 'Up to three tattoos; all of them together can raise one attribute by +5 at most.'),
+        h('div', { class: 'dlgfoot' }, h('button', { class: 'btn primary', onclick: () => { c.hen = draft.map(x => (x ? Object.assign({}, x) : null)); dlg.close(); update(false, c); } }, 'Apply'))));
     }
     draw();
     dlg.showModal();

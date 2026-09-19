@@ -310,3 +310,23 @@ button.pic{cursor:pointer}
 .wornbox{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
 .wornbox .wornbar{margin:0;width:180px}
 @media (max-width:640px){.viewer .who .setchips{margin-left:0}.wornbox{align-items:flex-start}}
+
+/* Тату как в игре: тёмные квадратные слоты с символом */
+.hrow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.hrow .btn{margin-left:auto}
+.hsym{position:relative;display:inline-grid;place-items:center;width:40px;height:40px;flex:none;border-radius:4px;color:var(--sc,#888);
+  background:radial-gradient(circle at 50% 45%,color-mix(in srgb,var(--sc,#000) 26%,#15120f),#0b0a09 72%);
+  border:1px solid #5b544a;box-shadow:inset 0 0 0 1px #000,inset 0 2px 6px rgba(0,0,0,.8),0 1px 0 rgba(255,255,255,.06)}
+.hsym svg{width:30px;height:30px;filter:drop-shadow(0 0 3px var(--sc)) drop-shadow(0 0 6px color-mix(in srgb,var(--sc) 60%,transparent))}
+.hsym.none{background:linear-gradient(180deg,#1b1a18,#0e0d0c);border-color:#3a3631}
+.hsym.none::after{content:"";width:22px;height:22px;border-radius:3px;border:1px solid #2c2925;box-shadow:inset 0 1px 3px rgba(0,0,0,.9)}
+.hrow.sm .hsym{width:32px;height:32px}
+.hrow.sm .hsym svg{width:24px;height:24px}
+.hrow.sm .btn{margin-left:0}
+.hsum{display:flex;flex-wrap:wrap;gap:4px 10px;font:600 12.5px var(--mono)}
+.hsum .p{color:var(--good)}.hsum .m{color:var(--bad)}
+.tattoos{flex-direction:column;flex-wrap:nowrap;gap:10px}
+.hedits{display:flex;flex-direction:column;gap:10px;padding:14px 16px}
+.hedit{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;padding:10px 12px;border-radius:14px;background:var(--glass2);border:1px solid var(--edge)}
+.hedit select{background:var(--glass2);border:1px solid var(--edge);border-radius:10px;padding:6px 8px;color:var(--ink)}
+.hres{font:600 12.5px var(--mono);color:var(--ink2);margin-left:auto}
