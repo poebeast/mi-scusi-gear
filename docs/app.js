@@ -451,7 +451,9 @@
 
     // Собираем все модификаторы: эффекты вещей, SA, сеты, заточка сетов, баффы.
     const mods = [];
-    const addMods = (list, src) => list.forEach(m => mods.push(Object.assign({ src }, m)));
+    // sid — номер источника (пассивка, вещь, сет, клан-скил, бафф): проценты разных источников перемножаются.
+    let srcN = 0;
+    const addMods = (list, src) => { const sid = ++srcN; list.forEach(m => mods.push(Object.assign({ src, sid }, m))); };
     const w = c.eq.weapon && ITEMS.get(c.eq.weapon.id);
     const wtype = w ? w.wt : null;
     const hasShield = !!(c.eq.shield && ITEMS.get(c.eq.shield.id));
@@ -480,9 +482,10 @@
     }
     // Клан-скилы максимального уровня, если включены у персонажа.
     if (c.clan) for (const k of CLAN) addMods(parseFx(clanText(k, c.clanLv[k.id])).mods, k.n);
+    const over = buffOverrides(c);
     for (const id in c.buffs) {
       const b = BUFFS.get(id);
-      if (!b) continue;
+      if (!b || over[id]) continue;
       const lv = Math.min(c.buffs[id], b.lv.length);
       const p = parseFx(b.lv[lv - 1]);
       addMods(p.mods, b.n);
@@ -493,13 +496,18 @@
     for (const m of live) if (ATTRS.includes(m.k)) attrs[m.k] += m.v;
     ATTRS.forEach(a => { attrs[a] += hen[a]; attrs[a] = Math.max(1, attrs[a]); });
 
-    // prod — те же проценты, но перемноженные: так сервер считает шанс маг. крита (сверено с Lu4 Planner).
-    const add = {}, mul = {}, prod = {};
+    // Проценты внутри одного источника складываются, а разные источники (каждая пассивка, вещь, сет,
+    // клан-скил и бафф) перемножаются — так считает сервер. Сверено с Lu4 Planner: Casting Spd. Spellsinger
+    // без баффов ×1.10 × 1.05 × 1.15 × 1.05 = 1.3947, с Rhythm of Rage и Victory ещё ×1.3 × 1.08.
+    const add = {}, mul = {}, bySrc = {};
     for (const m of live) {
       if (ATTRS.includes(m.k)) continue;
-      if (m.pct) { mul[m.k] = (mul[m.k] || 1) + m.v / 100; prod[m.k] = (prod[m.k] || 1) * (1 + m.v / 100); }
-      else add[m.k] = (add[m.k] || 0) + m.v;
+      if (!m.pct) { add[m.k] = (add[m.k] || 0) + m.v; continue; }
+      const g = bySrc[m.k] = bySrc[m.k] || {};
+      g[m.sid] = (g[m.sid] || 0) + m.v / 100;
     }
+    for (const k in bySrc) for (const id in bySrc[k]) mul[k] = (mul[k] || 1) * (1 + bySrc[k][id]);
+    const prod = mul;
     const fin = (k, v) => v * (mul[k] || 1) + (add[k] || 0);
 
     const lm = lvlMod(lvl);
@@ -937,6 +945,7 @@
 
   // Для сверки со сторонним калькулятором в тестах.
   window.__msCompute = compute;
+  window.__msDamage = (c, t) => damageRows(c, t);
 
   // Пассивки — иконками, описание в подсказке. Книжную пассивку нажатием отмечают изученной или нет.
   function renderPassives(r) {
@@ -1125,16 +1134,17 @@
       h('span', { class: 'note' }, 'Own class skills plus buffs any class can give (archers excluded). Buff level follows the level of that class’s character.'),
       h('button', { class: 'btn sm', disabled: !activeCount, onclick: () => { c.buffs = {}; update(false, c); } }, 'Remove all')));
     const wrap = h('div', { class: 'buffgroups' });
+    const overGrid = buffOverrides(c);
     for (const grp of groups) {
       const list = h('div', { class: 'bufflist' });
       for (const b of grp.list) {
         const on = c.buffs[b.id] != null;
         const lv = on ? c.buffs[b.id] : casterLevel(b, grp.key === 'self' ? c.cls : grp.key, c);
-        const btn = h('button', { class: 'buff' + (on ? ' on' : ''), 'aria-pressed': on ? 'true' : 'false', 'aria-label': b.n },
+        const btn = h('button', { class: 'buff' + (on ? ' on' : '') + (overGrid[b.id] ? ' over' : ''), 'aria-pressed': on ? 'true' : 'false', 'aria-label': b.n },
           h('img', { src: icon(b.ic), alt: '' }), h('span', { class: 'lv' }, lv),
           b.tgt === 'party' ? h('span', { class: 'tg' }, 'PT') : b.kind === 'toggle' ? h('span', { class: 'tg' }, 'TG') : null);
         btn.addEventListener('click', () => toggleBuff(b, lv, c));
-        btn.addEventListener('mouseenter', () => showTip(btn, `<b>${esc(b.n)} · Lv. ${lv}</b><div class="ln">${esc(b.lv[lv - 1])}</div><div class="k">${b.tgt === 'party' ? 'Party' : b.tgt === 'target' ? 'Target' : 'Self'}${b.kind === 'toggle' ? ' · toggle' : ''}</div>`));
+        btn.addEventListener('mouseenter', () => showTip(btn, `<b>${esc(b.n)} · Lv. ${lv}</b><div class="ln">${esc(b.lv[lv - 1])}</div><div class="k">${b.tgt === 'party' ? 'Party' : b.tgt === 'target' ? 'Target' : 'Self'}${b.kind === 'toggle' ? ' · toggle' : ''}</div>${overGrid[b.id] ? `<div class="k">Does not stack with ${esc(overGrid[b.id].n)}: no effect</div>` : ''}`));
         btn.addEventListener('mouseleave', hideTip);
         list.append(btn);
       }
@@ -1145,16 +1155,33 @@
 
     if (activeCount) {
       const act = h('div', { class: 'active' });
+      const over = buffOverrides(c);
       for (const id of Object.keys(c.buffs)) {
         const b = BUFFS.get(id);
         const sel = h('select', { 'aria-label': 'Level ' + b.n, onchange: e => { c.buffs[id] = +e.target.value; update(false, c); } },
           b.lv.map((_, i) => h('option', { value: i + 1, selected: c.buffs[id] === i + 1 ? true : null }, 'Lv. ' + (i + 1))));
-        act.append(h('span', { class: 'chip' }, h('img', { src: icon(b.ic), alt: '' }), b.n, sel, h('button', { 'aria-label': 'Remove ' + b.n, onclick: () => { delete c.buffs[id]; update(false, c); } }, '×')));
+        act.append(h('span', { class: 'chip' + (over[id] ? ' off' : ''), title: over[id] ? 'Does not stack with ' + over[id].n + ': no effect' : null }, h('img', { src: icon(b.ic), alt: '' }), b.n, sel, h('button', { 'aria-label': 'Remove ' + b.n, onclick: () => { delete c.buffs[id]; update(false, c); } }, '×')));
       }
       box.append(h('div', { class: 'lbl', style: 'margin-top:12px' }, `Active: ${activeCount}`), act);
     }
   }
 
+  // Баффы одной группы (abnormalType) не складываются: действует тот, у кого выше уровень эффекта.
+  // Возвращает { id перекрытого баффа: баффа, который его перекрывает }.
+  function buffOverrides(c) {
+    const best = {}, over = {};
+    for (const id in c.buffs) {
+      const b = BUFFS.get(id);
+      if (!b || !b.ab) continue;
+      const i = Math.min(c.buffs[id], b.lv.length) - 1, t = b.ab[i];
+      if (!t) continue;
+      if (!best[t]) { best[t] = id; continue; }
+      const o = BUFFS.get(best[t]), oi = Math.min(c.buffs[best[t]], o.lv.length) - 1;
+      if ((b.al[i] || 0) > (o.al[oi] || 0)) { over[best[t]] = b; best[t] = id; } else over[id] = o;
+    }
+    for (const id in over) { let w = over[id]; while (over[w.id]) w = over[w.id]; over[id] = w; }
+    return over;
+  }
   // Одинаковые баффы не складываются: «Mass X» заменяет «X» и наоборот.
   const stackKey = b => b.stack || b.n.replace(/^Mass\s+/i, '').trim().toLowerCase();
   function toggleBuff(b, lv, who) {

@@ -111,7 +111,11 @@ for (const r of Object.values(rawItems)) {
   // У щитов таблица заточки даёт прибавку (от 0) — накладываем её на защиту щитом.
   if (sk.s === 'shield' && en && en.pdef && st.pdef != null) en.pdef = en.pdef.map(v => st.pdef + v - en.pdef[0]);
   if (sk.wt === 'bigblunt' && st.matk && st.patk && st.matk >= st.patk * 0.75) sk.wt = 'staff';
-  items.push(Object.assign({ id, n: r.name, g: r.g, ic: (r.icon || '').replace(/\.png$/, ''), st, en, fx: cleanFx(r.fx) || undefined, sa, fnd: fnd || undefined, pvp: pvp || undefined, set: r.set ? idOf(r.set) : undefined, key: [r.name, fnd, pvp, sk.at || ''].join('|') }, sk));
+  // Умение предмета «Magic Essence» у топовых магических оружий — M. Crit. Damage +10%
+  // (на вики только название умения; эффект сверен с Lu4 Planner).
+  const essence = String(r.st && r.st['Предметные умения'] || '').split('\n').some(l => !/Special Ability/.test(l) && /Magic Essence/.test(l));
+  const fxAll = essence ? (r.fx ? r.fx + '\n' : '') + 'M. Crit. Damage +10%.' : r.fx;
+  items.push(Object.assign({ id, n: r.name, g: r.g, ic: (r.icon || '').replace(/\.png$/, ''), st, en, fx: cleanFx(fxAll) || undefined, sa, fnd: fnd || undefined, pvp: pvp || undefined, set: r.set ? idOf(r.set) : undefined, key: [r.name, fnd, pvp, sk.at || ''].join('|') }, sk));
 }
 // Если на странице первой шла таблица дропа, берём таблицу заточки у одноимённого предмета.
 const enByName = {};
@@ -294,6 +298,17 @@ for (const [cls, c] of Object.entries(buffSrc)) {
   }
 }
 const buffs = [...buffMap.values()];
+// Группы баффов из Lu4 Planner (abnormalType): баффы одной группы не складываются, действует тот,
+// у кого выше уровень эффекта (например, Legacy of Pa'agrio перекрывает Victory of Pa'agrio).
+const ABN = fs.existsSync(R('data/raw/abnormal.json')) ? JSON.parse(fs.readFileSync(R('data/raw/abnormal.json'), 'utf8')) : {};
+for (const b of buffs) {
+  const a = ABN[b.id];
+  if (!a || !a.length) continue;
+  const at = i => a[Math.min(i, a.length - 1)];
+  b.ab = b.lv.map((_, i) => at(i)[0] && at(i)[0] !== 'none' ? at(i)[0] : '');
+  b.al = b.lv.map((_, i) => at(i)[1] || 0);
+  if (b.ab.some(Boolean)) b.stack = b.ab.filter(Boolean).pop();
+}
 
 // ---------------------------------------------------------------- атакующие умения для калькулятора урона
 // Список умений с уроном и их механика (время применения, перезарядка, база крита) — из расчёта Lu4 Planner,
