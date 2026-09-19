@@ -4,7 +4,6 @@
 [data-dark] body{color:var(--ink)}
 [data-dark] .note,[data-dark] .field label,[data-dark] .who small,[data-dark] .bar span,[data-dark] .st span,[data-dark] .save,[data-dark] .brand span,[data-dark] .tat .txt,[data-dark] .attr span,[data-dark] .lbl,[data-dark] .slot .ph{text-shadow:none}
 [data-dark] .clanlv,[data-dark] .slot .gr,[data-dark] .pic.book::before{box-shadow:0 0 0 2px var(--bg0)}
-[data-dark] .figure{filter:drop-shadow(0 16px 22px rgba(0,0,0,.6))}
 [data-dark] select option,[data-dark] select optgroup{background:var(--bg0);color:var(--ink)}
 [data-dark] .buff img{filter:grayscale(1) opacity(.45)}
 [data-dark] .buff.on img,[data-dark] .buff:hover img{filter:none}

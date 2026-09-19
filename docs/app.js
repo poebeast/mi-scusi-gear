@@ -276,13 +276,8 @@
   }
 
   // ---------------------------------------------------------------- состояние
-  // Оригинальные рендеры классов L2 с вики: свой класс, если совпадают раса, тип и пол, иначе типичный персонаж этой расы.
-  const ART_OWN = { paladin: [5, 'human', 'fighter', 'female'], bishop: [16, 'human', 'mystic', 'female'], elder: [30, 'elf', 'mystic', 'female'], swordsinger: [21, 'elf', 'fighter', 'female'], overlord: [51, 'orc', 'mystic', 'male'], hawkeye: [9, 'human', 'fighter', 'female'], silverranger: [24, 'elf', 'fighter', 'female'], phantomranger: [37, 'darkelf', 'fighter', 'male'] };
-  // Рендеры остальных классов с вики (/images/wiki/classes/<classId>.png) и пол персонажа на них.
-  const ART_NEW = {"gladiator":[2,"male"],"warlord":[3,"female"],"darkavenger":[6,"male"],"treasurehunter":[8,"female"],"sorcerer":[12,"female"],"necromancer":[13,"female"],"warlock":[14,"male"],"prophet":[17,"male"],"templeknight":[20,"male"],"plainwalker":[23,"female"],"spellsinger":[27,"female"],"elementalsummoner":[28,"male"],"shillienknight":[33,"female"],"bladedancer":[34,"male"],"abysswalker":[36,"female"],"spellhowler":[40,"female"],"phantomsummoner":[41,"female"],"shillienelder":[43,"female"],"destroyer":[46,"female"],"tyrant":[48,"male"],"warcryer":[52,"female"],"bountyhunter":[55,"female"],"warsmith":[57,"female"],"terramancer":[210,"male"]};
-  for (const k in ART_NEW) { const c = CLASSES[k]; ART_OWN[k] = [ART_NEW[k][0], c.race, c.arch, ART_NEW[k][1]]; CLASS_GENDER[k] = ART_NEW[k][1]; }
-  const ART_BY = { human: { fighter: { male: 1, female: 5 }, mystic: { male: 11, female: 16 } }, elf: { fighter: { male: 20, female: 21 }, mystic: { male: 26, female: 30 } }, darkelf: { fighter: { male: 37, female: 33 }, mystic: { male: 39, female: 42 } }, orc: { fighter: { male: 46, female: 47 }, mystic: { male: 51, female: 52 } }, dwarf: { fighter: { male: 56, female: 55 }, mystic: { male: 210, female: 209 } } };
-  const artFor = c => { const o = ART_OWN[c.cls]; return o && o[1] === c.race && o[2] === c.type && o[3] === c.gender ? o[0] : ART_BY[c.race][c.type][c.gender]; };
+  // Пол по умолчанию для остальных классов (как на их официальных рендерах).
+  Object.assign(CLASS_GENDER, { gladiator: 'male', warlord: 'female', darkavenger: 'male', treasurehunter: 'female', sorcerer: 'female', necromancer: 'female', warlock: 'male', prophet: 'male', templeknight: 'male', plainwalker: 'female', spellsinger: 'female', elementalsummoner: 'male', shillienknight: 'female', bladedancer: 'male', abysswalker: 'female', spellhowler: 'female', phantomsummoner: 'female', shillienelder: 'female', destroyer: 'female', tyrant: 'male', warcryer: 'female', bountyhunter: 'female', warsmith: 'female', terramancer: 'male' });
   const raceLabel = c => RACES.find(r => r[0] === c.race)[1] + ' ' + (c.type === 'mystic' ? 'Mystic' : 'Fighter');
   function blankChar(cls, i) {
     const c = CLASSES[cls];
@@ -811,15 +806,15 @@
     els.who.innerHTML = '';
     const worn = Object.keys(c.eq).length;
     const sets = activeSets(c);
+    // Компактная строка вместо рендера: иконка класса, имя, сеты, заполненность слотов.
     els.who.append(
-      h('img', { class: 'figure', src: 'icons/art/' + artFor(c) + '.png', alt: '' }),
-      h('div', { class: 'namerow' },
-        h('img', { class: 'clsicon', src: 'icons/class_icon_' + CLASS_ICON[c.cls] + '.png', alt: CLASSES[c.cls].n }),
-        h('b', null, c.nick || CLASSES[c.cls].n)),
-      h('small', null, `${CLASSES[c.cls].n} · ${raceLabel(c)} · ${c.gender === 'female' ? 'Female' : 'Male'} · Lv. ${c.level}`),
-      h('div', { class: 'wornbar', role: 'img', 'aria-label': `${worn} of 12 slots equipped` }, Object.keys(SLOTS).map(s => h('i', { class: c.eq[s] ? 'on' : '' }))),
-      h('span', { class: 'note' }, worn ? `${worn} of 12 slots equipped` : 'Nothing equipped yet — click a slot to pick an item'),
-      h('div', { class: 'setchips' }, sets.map(x => h('span', { class: 'chip' }, x.set.n + (x.minE >= 3 ? ' +' + Math.min(x.minE, 6) : '')))));
+      h('img', { class: 'clsicon', src: 'icons/class_icon_' + CLASS_ICON[c.cls] + '.png', alt: CLASSES[c.cls].n }),
+      h('div', { class: 'idtext' }, h('b', null, c.nick || CLASSES[c.cls].n),
+        h('small', null, `${CLASSES[c.cls].n} · ${raceLabel(c)} · ${c.gender === 'female' ? 'Female' : 'Male'} · Lv. ${c.level}`)),
+      h('div', { class: 'setchips' }, sets.map(x => h('span', { class: 'chip' }, x.set.n + (x.minE >= 3 ? ' +' + Math.min(x.minE, 6) : '')))),
+      h('div', { class: 'wornbox' },
+        h('div', { class: 'wornbar', role: 'img', 'aria-label': `${worn} of 12 slots equipped` }, Object.keys(SLOTS).map(s => h('i', { class: c.eq[s] ? 'on' : '' }))),
+        h('span', { class: 'note' }, worn ? `${worn} of 12 slots equipped` : 'Nothing equipped — click a slot below')));
   }
 
   function slotButton(slot, who) {

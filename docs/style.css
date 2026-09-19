@@ -58,8 +58,6 @@ button,select,input{font:inherit;color:inherit}
 .stage{display:flex;flex-direction:column;gap:12px;border-radius:28px;padding:14px;background:var(--stage)}
 .gearrow{display:flex;flex-wrap:wrap;justify-content:center;gap:10px;padding:14px;border-radius:24px;background:var(--glass2);border:1px solid var(--edge)}
 .viewer{position:relative;min-height:420px;border-radius:24px;background:var(--viewer);overflow:hidden;border:1px solid var(--edge);display:grid;place-items:center;padding:24px}
-.viewer .who{display:flex;flex-direction:column;align-items:center;gap:8px;text-align:center;max-width:360px}
-.figure{height:300px;width:auto;max-width:100%;object-fit:contain;filter:drop-shadow(0 14px 18px rgba(10,30,80,.35))}
 .namerow{display:flex;align-items:center;gap:10px}
 .clsicon{width:46px;height:46px;object-fit:contain;padding:5px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#2b3a66,#0d1633);box-shadow:0 4px 12px rgba(10,30,80,.35),0 0 0 2px rgba(255,255,255,.85)}
 .setchips:empty{display:none}
@@ -268,7 +266,6 @@ button.pic{cursor:pointer}
 .pic.book::before{content:"";position:absolute;left:-3px;top:-3px;width:9px;height:9px;border-radius:50%;background:#14b8a6;box-shadow:0 0 0 2px #fff;z-index:1}
 .pic.book.off::before{background:var(--bad)}
 .tip .k.bad{color:var(--bad);font-weight:600}
-@media (min-width:1061px){.figure{height:360px}}
 .duel{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;padding:10px 14px;margin-bottom:10px;border-radius:20px;background:var(--glass2);border:1px solid var(--edge)}
 .duelist{display:flex;align-items:center;gap:10px;min-width:0}
 .duelist small{display:block;font-size:11px;font-weight:600;color:var(--mute);text-transform:uppercase;letter-spacing:.06em}
@@ -303,10 +300,13 @@ button.pic{cursor:pointer}
 .right{display:flex;flex-direction:column;gap:14px;min-width:0}
 .right .sect{margin-top:0}
 .stage .viewer{flex:0 0 auto;min-height:0;padding:18px 24px}
-.viewer .who{display:grid;grid-template-columns:auto minmax(0,1fr);column-gap:28px;row-gap:8px;align-items:center;justify-items:start;text-align:left;max-width:none;width:100%}
-.viewer .who .figure{grid-row:1 / span 6;height:300px;justify-self:center;margin-left:40px}
-.viewer .who .setchips{justify-content:flex-start}
-.viewer .who .namerow{align-self:end}
-.viewer .who .note{align-self:start}
-@media (max-width:640px){.viewer .who{grid-template-columns:1fr;justify-items:center;text-align:center}.viewer .who .figure{grid-row:auto;margin:0;height:260px}}
 @media (min-width:1061px){.side{position:sticky;top:12px}}
+
+/* Строка персонажа вместо рендера */
+.stage .viewer{display:block;min-height:0;padding:14px 18px;place-items:initial}
+.viewer .who{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;max-width:none;width:100%;text-align:left}
+.viewer .who .idtext{display:flex;flex-direction:column;gap:2px;min-width:0}
+.viewer .who .setchips{margin-left:auto;justify-content:flex-end}
+.wornbox{display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.wornbox .wornbar{margin:0;width:180px}
+@media (max-width:640px){.viewer .who .setchips{margin-left:0}.wornbox{align-items:flex-start}}
