@@ -23,7 +23,6 @@
   // ---------------------------------------------------------------- справочники
   const RACES = [['human', 'Human'], ['elf', 'Elf'], ['darkelf', 'Dark Elf'], ['orc', 'Orc'], ['dwarf', 'Dwarf']];
   const RACE_ORDER = RACES.map(r => r[0]);
-  const GENDERS = [['male', 'Male'], ['female', 'Female']];
   const CLASSES = {
     paladin:       { n: 'Paladin',        arch: 'fighter', race: 'human',   hp: 2500, mp: 900,  cpr: 0.62, accent: 0xe8c35a },
     bishop:        { n: 'Bishop',         arch: 'mystic',  race: 'human',   hp: 1700, mp: 1600, cpr: 0.5, accent: 0xcfe4ff },
@@ -292,7 +291,8 @@
     Object.values(STATE.foes).forEach(c => {
       c.level = Math.max(1, Math.min(75, +c.level || 75));
       // Тип расы (воин/маг) выбирается отдельно от класса.
-      if (c.type !== 'fighter' && c.type !== 'mystic') c.type = CLASSES[c.cls].arch;
+      // Раса и тип (воин/маг) однозначно заданы классом.
+      c.race = CLASSES[c.cls].race; c.type = CLASSES[c.cls].arch;
       c.eq = c.eq || {}; c.hen = c.hen || [null, null, null]; c.buffs = c.buffs || {}; c.clan = !!c.clan;
       // Уровень каждого клан-скила (1…макс), по умолчанию максимальный.
       c.clanLv = c.clanLv || {};
@@ -678,16 +678,11 @@
 
     els.charSel = h('select', { id: 'char-select', onchange: e => { cur = e.target.value; try { sessionStorage.setItem('miscusi.cur', String(cur)); } catch (_) {} renderAll(); } });
     els.nick = h('input', { id: 'char-nick', type: 'text', maxlength: '24', placeholder: 'In-game name', oninput: e => { ch().nick = e.target.value; renderCharOptions(); renderWho(); markDirty(); } });
-    els.race = h('select', { id: 'char-race', onchange: e => { const [race, type] = e.target.value.split(':'); ch().race = race; ch().type = type; update(true); } },
-      RACES.map(([v, n]) => h('optgroup', { label: n }, h('option', { value: v + ':fighter' }, n + ' Fighter'), h('option', { value: v + ':mystic' }, n + ' Mystic'))));
-    els.gender = h('select', { id: 'char-gender', onchange: e => { ch().gender = e.target.value; update(true); } }, GENDERS.map(([v, n]) => h('option', { value: v }, n)));
     els.lvlR = h('input', { id: 'char-level-range', type: 'range', min: '1', max: '75', oninput: e => setLevel(e.target.value) });
     els.lvlN = h('input', { id: 'char-level', type: 'number', min: '1', max: '75', onchange: e => setLevel(e.target.value) });
     wrap.append(h('section', { class: 'charbar' },
       h('div', { class: 'field' }, h('label', { for: 'char-select' }, 'Character'), els.charSel),
       h('div', { class: 'field' }, h('label', { for: 'char-nick' }, 'Name'), els.nick),
-      h('div', { class: 'field' }, h('label', { for: 'char-race' }, 'Race'), els.race),
-      h('div', { class: 'field' }, h('label', { for: 'char-gender' }, 'Gender'), els.gender),
       h('div', { class: 'field' }, h('label', { for: 'char-level' }, 'Level'), h('div', { class: 'lvl' }, els.lvlR, els.lvlN))));
 
     els.gear = h('div', { class: 'gearrow', 'aria-label': 'Equipment' });
@@ -779,7 +774,7 @@
     els.who.append(
       h('img', { class: 'clsicon', src: 'icons/class_icon_' + CLASS_ICON[c.cls] + '.png', alt: CLASSES[c.cls].n }),
       h('div', { class: 'idtext' }, h('b', null, c.nick || CLASSES[c.cls].n),
-        h('small', null, `${CLASSES[c.cls].n} · ${raceLabel(c)} · ${c.gender === 'female' ? 'Female' : 'Male'} · Lv. ${c.level}`)),
+        h('small', null, `${CLASSES[c.cls].n} · ${raceLabel(c)} · Lv. ${c.level}`)),
       h('div', { class: 'setchips' }, sets.map(x => h('span', { class: 'chip' }, x.set.n + (x.minE >= 3 ? ' +' + Math.min(x.minE, 6) : '')))),
       h('span', { class: 'note wornnote' }, !empty.length ? 'Full gear' : empty.length === Object.keys(SLOTS).length ? 'Nothing equipped — click a slot below' : 'Empty: ' + [...new Set(empty)].join(', ')));
   }
@@ -1171,7 +1166,6 @@
   function renderForm() {
     const c = ch();
     els.nick.value = c.nick || '';
-    els.race.value = c.race + ':' + c.type; els.gender.value = c.gender;
     els.lvlR.value = c.level; els.lvlN.value = c.level;
   }
   function renderModel() { renderWho(); }

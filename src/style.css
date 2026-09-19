@@ -43,7 +43,7 @@ button,select,input{font:inherit;color:inherit}
 .btn.sm{padding:4px 12px;font-size:13px;border-radius:999px}
 
 /* Панель персонажа */
-.charbar{display:grid;grid-template-columns:minmax(220px,1.4fr) repeat(4,minmax(120px,1fr));gap:12px;padding:14px 18px;margin-top:14px;border-radius:28px}
+.charbar{display:grid;grid-template-columns:minmax(260px,1.4fr) minmax(200px,1fr) minmax(260px,1.2fr);gap:12px;padding:14px 18px;margin-top:14px;border-radius:28px}
 .field{display:flex;flex-direction:column;gap:5px;min-width:0}
 .field label{font-size:12px;font-weight:600;color:var(--ink2)}
 .field select,.field input[type=text],.field input[type=number]{background:var(--glass2);border:1px solid var(--edge);border-radius:999px;padding-inline:14px;padding:9px 11px;min-width:0;width:100%}
@@ -203,7 +203,6 @@ dialog::backdrop{background:rgba(10,25,60,.28);-webkit-backdrop-filter:blur(4px)
   dialog#picker:not(:modal){position:fixed;inset:0 0 0 auto;margin:16px;z-index:50}
   /* Пока окно выбора открыто, страница сдвигается влево и слоты остаются доступны. */
   body.picking .wrap{max-width:none;margin:0 calc(min(560px,40vw) + 32px) 0 0}
-  body.picking .charbar{grid-template-columns:repeat(3,minmax(0,1fr))}
   dialog#picker .dlg{height:100%;max-height:none}
   dialog#picker::backdrop{background:rgba(10,25,60,.08);-webkit-backdrop-filter:none;backdrop-filter:none}
 }
