@@ -49,7 +49,6 @@
     .forEach(([k, n, arch, race, id]) => { CLASSES[k] = { n, arch, race, hp: arch === 'fighter' ? 2300 : 1700, mp: arch === 'fighter' ? 900 : 1600, cpr: 0.6 }; CLASS_ICON[k] = id; });
   // Противники: по одному персонажу каждого класса, порядок — по расам.
   const FOE_ORDER = Object.keys(CLASSES).sort((a, b) => RACE_ORDER.indexOf(CLASSES[a].race) - RACE_ORDER.indexOf(CLASSES[b].race) || (CLASSES[a].arch > CLASSES[b].arch ? 1 : CLASSES[a].arch < CLASSES[b].arch ? -1 : 0) || CLASS_ICON[a] - CLASS_ICON[b]);
-  const ROSTER = ['paladin', 'bishop', 'elder', 'swordsinger', 'overlord', 'hawkeye', 'hawkeye', 'silverranger', 'phantomranger'];
   // Пол по умолчанию — как на официальном рендере класса.
   const CLASS_GENDER = { paladin: 'female', bishop: 'female', elder: 'female', swordsinger: 'female', overlord: 'male', hawkeye: 'female', silverranger: 'female', phantomranger: 'male' };
 
@@ -284,14 +283,13 @@
     return { nick: '', cls, race: c.race, type: c.arch, gender: CLASS_GENDER[cls] || 'male', level: 75, eq: {}, hen: [null, null, null], buffs: {} };
   }
   function normalizeState() {
-    if (!STATE || !Array.isArray(STATE.chars) || STATE.chars.length !== ROSTER.length) {
-      STATE = { v: 1, chars: ROSTER.map(blankChar), savedAt: null };
-    }
+    // Планнер: по одному персонажу на каждый класс 2-й профессии (STATE.foes[класс]).
+    if (!STATE || typeof STATE !== 'object') STATE = {};
+    STATE.v = 2; delete STATE.chars;
     STATE.foes = STATE.foes && typeof STATE.foes === 'object' ? STATE.foes : {};
     for (const k of FOE_ORDER) { const x = STATE.foes[k]; if (!x || x.cls !== k) STATE.foes[k] = blankChar(k); }
     for (const k in STATE.foes) if (!CLASSES[k]) delete STATE.foes[k];
-    [...STATE.chars, ...Object.values(STATE.foes)].forEach((c, i) => {
-      if (!CLASSES[c.cls]) Object.assign(c, blankChar(ROSTER[i]));
+    Object.values(STATE.foes).forEach(c => {
       c.level = Math.max(1, Math.min(75, +c.level || 75));
       // Тип расы (воин/маг) выбирается отдельно от класса.
       if (c.type !== 'fighter' && c.type !== 'mystic') c.type = CLASSES[c.cls].arch;
@@ -310,13 +308,13 @@
   }
   normalizeState();
 
-  // cur — номер персонажа группы (0…8) или «f:<класс>» для противника.
-  let cur = 0;
-  const byKey = k => (typeof k === 'string' && k.startsWith('f:') ? STATE.foes[k.slice(2)] : STATE.chars[+k]);
-  try { const v = sessionStorage.getItem('miscusi.cur'); if (v && v.startsWith('f:') && CLASSES[v.slice(2)]) cur = v; else if (+v >= 0 && +v < ROSTER.length) cur = +v; } catch (e) {}
+  // cur — «f:<класс>»: персонаж этого класса.
+  let cur = 'f:' + FOE_ORDER[0];
+  const byKey = k => (typeof k === 'string' && k.startsWith('f:') ? STATE.foes[k.slice(2)] : undefined);
+  try { const v = sessionStorage.getItem('miscusi.cur'); if (v && v.startsWith('f:') && CLASSES[v.slice(2)]) cur = v; } catch (e) {}
   const ch = () => byKey(cur);
-  const isFoe = c => c && STATE.foes[c.cls] === c;
-  const keyOf = c => (isFoe(c) ? 'f:' + c.cls : STATE.chars.indexOf(c));
+  const isFoe = c => !!c;
+  const keyOf = c => 'f:' + c.cls;
 
   // ---------------------------------------------------------------- формулы
   const r2 = x => Math.round(x * 100) / 100;
@@ -395,13 +393,14 @@
 
   function casterLevel(b, k, c) {
     // У противника заклинатель неизвестен — берём уровень умения на 75.
-    const caster = k === c.cls ? c : isFoe(c) ? null : STATE.chars.find(x => x.cls === k);
+    // Уровень баффа — по уровню персонажа этого класса.
+    const caster = k === c.cls ? c : STATE.foes[k];
     const learn = (b.learn && b.learn[k]) || [];
     if (!learn.length) return b.lv.length;
     return Math.max(1, Math.min(b.lv.length, passiveLevel({ learn }, caster ? caster.level : 75)));
   }
   function availableBuffs(c) {
-    const party = new Set((isFoe(c) ? Object.keys(CLASSES) : STATE.chars.map(x => x.cls)).filter(k => !CLASSES[k].archer));
+    const party = new Set(Object.keys(CLASSES).filter(k => !CLASSES[k].archer));
     const groups = [];
     const seen = new Set();
     const own = DATA.buffs.filter(b => b.cls.includes(c.cls));
@@ -566,9 +565,9 @@
   // правки разных персонажей не перетирают друг друга, изменения приходят всем сразу.
   // Без Firebase правки живут в браузере, а наборы переносятся экспортом/импортом.
   const CFG = window.MISCUSI_CONFIG || {};
-  const LS_KEY = 'miscusi.state.v1';
+  const LS_KEY = 'miscusi.state.v2';
   const clientId = Math.random().toString(36).slice(2, 10);
-  let mode = 'local', syncState = 'idle', fs = null, charsRef = null;
+  let mode = 'local', syncState = 'idle', fs = null;
   const pending = new Map();
   const fmtTime = iso => { try { return new Date(iso).toLocaleString('en-GB', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); } catch (e) { return ''; } };
 
@@ -576,7 +575,7 @@
   function loadLocal() {
     try {
       const raw = localStorage.getItem(LS_KEY);
-      if (raw) { const st = JSON.parse(raw); if (st && Array.isArray(st.chars) && st.chars.length === ROSTER.length) { STATE = st; normalizeState(); } }
+      if (raw) { const st = JSON.parse(raw); if (st && st.foes) { STATE = st; normalizeState(); } }
     } catch (e) {}
   }
 
@@ -595,23 +594,7 @@
       syncState = 'saving'; renderSave();
       return;
     }
-    const i = key;
-    clearTimeout(pending.get(i));
-    pending.set(i, setTimeout(() => pushChar(i), 1200));
-    syncState = 'saving'; renderSave();
   }
-  async function pushChar(i) {
-    pending.delete(i);
-    try {
-      await charsRef.doc('c' + i).set({ data: JSON.stringify(STATE.chars[i]), by: clientId, updatedAt: fs.FieldValue.serverTimestamp() });
-      if (!pending.size) syncState = 'synced';
-    } catch (e) {
-      syncState = 'error';
-      toast('Could not save to the shared database. Your changes are kept in this browser.');
-    }
-    renderSave();
-  }
-
   async function pushFoe(k) {
     pending.delete('f:' + k);
     try {
@@ -634,30 +617,12 @@
       await loadScript('https://www.gstatic.com/firebasejs/' + v + '/firebase-firestore-compat.js');
       const app = window.firebase.initializeApp(CFG.firebase);
       fs = window.firebase.firestore;
-      charsRef = app.firestore().collection('parties').doc(CFG.partyId).collection('chars');
-      mode = 'firebase'; syncState = 'connecting'; renderSave();
-      let first = true;
-      charsRef.onSnapshot(snap => {
-        let touchedCur = false, any = false;
-        snap.docChanges().forEach(ch => {
-          const m = /^c(\d+)$/.exec(ch.doc.id); if (!m) return;
-          const i = +m[1]; if (i >= STATE.chars.length || pending.has(i)) return;
-          const d = ch.doc.data();
-          if (!d || !d.data || d.data === JSON.stringify(STATE.chars[i])) return;
-          try { STATE.chars[i] = JSON.parse(d.data); any = true; if (i === cur) touchedCur = true; } catch (e) {}
-        });
-        if (first) {
-          first = false;
-          // Пустая база: заливаем то, что есть в браузере.
-          if (snap.empty) STATE.chars.forEach((_, i) => pushChar(i));
-        }
-        if (any) { normalizeState(); saveLocal(); if (touchedCur) renderAll(); else renderCharOptions(); }
-        if (!pending.size) syncState = 'synced';
-        renderSave();
-      }, () => { syncState = 'error'; renderSave(); });
       foesRef = app.firestore().collection('parties').doc(CFG.partyId).collection('foes');
+      let first = true;
       foesRef.onSnapshot(snap => {
         let touchedCur = false, any = false;
+        // Пустая база: заливаем персонажей, у которых что-то уже настроено.
+        if (first) { first = false; if (snap.empty) for (const k in STATE.foes) { const c = STATE.foes[k]; if (c.nick || Object.keys(c.eq).length || Object.keys(c.buffs).length) pushFoe(k); } }
         snap.docChanges().forEach(chg => {
           const k = chg.doc.id;
           if (!CLASSES[k] || pending.has('f:' + k)) return;
@@ -666,7 +631,10 @@
           try { const v = JSON.parse(d.data); if (v.cls !== k) return; STATE.foes[k] = v; any = true; if (cur === 'f:' + k) touchedCur = true; } catch (e) {}
         });
         if (any) { normalizeState(); saveLocal(); if (touchedCur) renderAll(); else { renderCharOptions(); renderDamage(); } }
-      }, () => { foesShared = false; });
+        if (!pending.size) syncState = 'synced';
+        renderSave();
+      }, () => { foesShared = false; syncState = 'error'; renderSave(); });
+      mode = 'firebase'; syncState = 'connecting'; renderSave();
     } catch (e) {
       mode = 'local'; syncState = 'error';
       toast('Shared database is unavailable — working in this browser only.');
@@ -718,7 +686,7 @@
       h('label', { class: 'themepick' }, 'Design ', themeSel),
       els.save));
 
-    els.charSel = h('select', { id: 'char-select', onchange: e => { const v = e.target.value; cur = v.startsWith('f:') ? v : +v; try { sessionStorage.setItem('miscusi.cur', String(cur)); } catch (_) {} renderAll(); } });
+    els.charSel = h('select', { id: 'char-select', onchange: e => { cur = e.target.value; try { sessionStorage.setItem('miscusi.cur', String(cur)); } catch (_) {} renderAll(); } });
     els.nick = h('input', { id: 'char-nick', type: 'text', maxlength: '24', placeholder: 'In-game name', oninput: e => { ch().nick = e.target.value; renderCharOptions(); renderWho(); markDirty(); } });
     els.race = h('select', { id: 'char-race', onchange: e => { const [race, type] = e.target.value.split(':'); ch().race = race; ch().type = type; update(true); } },
       RACES.map(([v, n]) => h('optgroup', { label: n }, h('option', { value: v + ':fighter' }, n + ' Fighter'), h('option', { value: v + ':mystic' }, n + ' Mystic'))));
@@ -770,7 +738,7 @@
       if (syncState === 'saving') { cls = ' dirty'; text = 'Saving…'; }
       else if (syncState === 'connecting') { cls = ' dirty'; text = 'Connecting…'; }
       else if (syncState === 'error') { cls = ' ro'; text = 'Sync problem — kept in this browser'; }
-      else text = 'Live · shared with the party';
+      else text = 'Live · shared';
     } else {
       cls = ' ro';
       text = STATE.savedAt ? 'Saved in this browser ' + fmtTime(STATE.savedAt) : 'Saved in this browser';
@@ -780,9 +748,7 @@
 
   function charLabel(c, i) {
     const cls = CLASSES[c.cls].n;
-    if (isFoe(c)) return (c.nick ? c.nick + ' — ' : '') + cls;
-    const twin = ROSTER.filter(k => k === c.cls).length > 1 ? ' ' + (ROSTER.slice(0, i + 1).filter(k => k === c.cls).length) : '';
-    return (c.nick ? c.nick + ' — ' : '') + cls + twin;
+    return (c.nick ? c.nick + ' — ' : '') + cls;
   }
   function renderCharOptions() {
     const sel = els.charSel;
@@ -794,10 +760,9 @@
   function charOptions(skip, sel) {
     const frag = document.createDocumentFragment();
     const opt = (c, key) => h('option', { value: key, selected: String(key) === String(sel) ? true : null }, `${charLabel(c, key)} · ${c.level}`);
-    frag.append(h('optgroup', { label: 'Party' }, STATE.chars.map((c, i) => (c === skip ? null : opt(c, i)))));
     for (const [race, rn] of RACES) {
       const list = FOE_ORDER.filter(k => CLASSES[k].race === race).map(k => STATE.foes[k]).filter(c => c !== skip);
-      if (list.length) frag.append(h('optgroup', { label: 'Opponents · ' + rn }, list.map(c => opt(c, 'f:' + c.cls))));
+      if (list.length) frag.append(h('optgroup', { label: rn }, list.map(c => opt(c, 'f:' + c.cls))));
     }
     return frag;
   }
@@ -1068,16 +1033,16 @@
     if (!box) return;
     if (!dmgPrefs) dmgPrefs = { target: null, pos: 'front', ss: true, mshot: 4 };
     box.innerHTML = '';
-    if (dmgPrefs.target == null || !byKey(dmgPrefs.target) || byKey(dmgPrefs.target) === c) dmgPrefs.target = isFoe(c) ? 0 : 'f:' + FOE_ORDER[0];
+    if (dmgPrefs.target == null || !byKey(dmgPrefs.target) || byKey(dmgPrefs.target) === c) dmgPrefs.target = 'f:' + FOE_ORDER.find(k => k !== c.cls);
     const t = byKey(dmgPrefs.target);
     const nameOf = x => (x.nick ? x.nick + ' — ' : '') + CLASSES[x.cls].n + ' · ' + x.level;
     const set = (k, v) => { dmgPrefs[k] = v; renderDamage(); };
     const who = (x, extra) => h('div', { class: 'duelist' }, h('img', { class: 'clsicon sm', src: 'icons/class_icon_' + CLASS_ICON[x.cls] + '.png', alt: '' }),
       h('div', null, h('small', null, extra), h('b', null, x.nick || CLASSES[x.cls].n), h('span', null, `${CLASSES[x.cls].n} · Lv. ${x.level}`)));
-    const pick = h('select', { 'aria-label': 'Target', onchange: e => { const v = e.target.value; set('target', v.startsWith('f:') ? v : +v); } }, charOptions(c, dmgPrefs.target));
+    const pick = h('select', { 'aria-label': 'Target', onchange: e => set('target', e.target.value) }, charOptions(c, dmgPrefs.target));
     const swap = h('button', { class: 'btn sm', title: 'Make the target the attacker', onclick: () => { cur = dmgPrefs.target; dmgPrefs.target = keyOf(c); try { sessionStorage.setItem('miscusi.cur', String(cur)); } catch (_) {} renderAll(); } }, '⇄ Swap');
     box.append(h('div', { class: 'secthead' }, h('h3', null, 'Damage'),
-      h('span', { class: 'note' }, 'PvP damage from the selected character to any party member or opponent, with both sides’ gear, passives and buffs. Opponents of every class are in the Character list — dress them there.')));
+      h('span', { class: 'note' }, 'PvP damage from the selected character to any other class, with both sides’ gear, passives and buffs. Dress the target right here.')));
     box.append(h('div', { class: 'duel' }, who(c, 'Attacker'), h('span', { class: 'vs' }, '→'),
       h('div', { class: 'duelist' }, h('img', { class: 'clsicon sm', src: 'icons/class_icon_' + CLASS_ICON[t.cls] + '.png', alt: '' }), h('div', null, h('small', null, 'Target'), pick)), swap,
       h('div', { class: 'dctl' },
@@ -1128,7 +1093,7 @@
     const activeCount = Object.keys(c.buffs).length;
     box.append(h('div', { class: 'secthead' },
       h('h3', null, 'Buffs'),
-      h('span', { class: 'note' }, isFoe(c) ? 'Own class skills plus buffs any class can give (archers excluded). Buff levels are the maximum learned by level 75.' : 'Own class skills plus buffs from party members (archers excluded). Click to apply at the level the caster has learned.'),
+      h('span', { class: 'note' }, 'Own class skills plus buffs any class can give (archers excluded). Buff level follows the level of that class’s character.'),
       h('button', { class: 'btn sm', disabled: !activeCount, onclick: () => { c.buffs = {}; update(false, c); } }, 'Remove all')));
     const wrap = h('div', { class: 'buffgroups' });
     for (const grp of groups) {
