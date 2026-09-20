@@ -356,6 +356,12 @@ for (const [cls, c] of Object.entries(clsRaw)) {
 // Множитель умения из расчёта планнера («(сила + P. Atk.) × соска × k × 77 ÷ P. Def.»), например у звуковых атак.
 const factorOf = m => { const x = String(m.sub || '').match(/^[\d.]+ × ([\d.]+) × (?:70|77) ÷/); return x && +x[1] !== 1 ? +x[1] : undefined; };
 for (const a of Object.values(attacks).flat()) { const m = skMeta.meta[a.id]; if (m && factorOf(m)) a.k = factorOf(m); }
+// Базовый шанс прохождения blow/stab умений, %. На вики его нет (лежит в серверном Skilldata.txt),
+// замерен в симуляторе Lu4 Planner на персонаже 75 ур. с кинжалом и множителем ЛВК = 1.00.
+// Дальше шанс умножается на модификатор ЛВК и позицию, потолок 80% (у Backstab — 3% спереди и 100% иначе).
+// 100 у Lucky Blow и Razor Rain — их база выше потолка, точное значение из симулятора не видно.
+const BLOW_CHANCE = { 16: 55.44, 263: 55.44, 344: 55.44, 321: 55.44, 30: 69.3, 409: 72.072, 1560: 100, 32362: 100 };
+
 for (const [cls, pid] of Object.entries(NEW_PL)) {
   const list = (pj.skills || {})[pid];
   if (!list) continue;
@@ -418,6 +424,7 @@ for (const a of Object.values(attacks).flat()) {
   const pm = p ? Math.round((+x[1] - 4000) / p * 100) / 100 : 1;
   a.pm = pm !== 1 ? pm : undefined;
 }
+for (const a of Object.values(attacks).flat()) if (a.blow && BLOW_CHANCE[a.id]) a.bc = BLOW_CHANCE[a.id];
 fs.writeFileSync(R('data/attacks.json'), JSON.stringify(attacks));
 console.log('attacks', Object.entries(attacks).map(([k, v]) => k + ':' + v.length).join(' '));
 console.log('buffs', buffs.length, buffs.filter(b => b.tgt === 'party').length, 'party', buffs.filter(b => b.tgt === 'target').length, 'target');

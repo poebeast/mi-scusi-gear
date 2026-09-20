@@ -1110,6 +1110,13 @@
       // Сопротивление магии: полное 0.5% + level_diff (урон 0), частичное 5% + level_diff (урон пополам),
       // где level_diff = 3 x (уровень цели − уровень атакующего), но не меньше нуля.
       let hit = 1;
+      // Шанс прохождения blow/stab: база умения x модификатор ЛВК x позиция, потолок 80%.
+      // У Backstab потолок спереди 3%, сбоку и сзади — 100%.
+      if (sk.blow && sk.bc) {
+        const posBlow = ({ front: 1, side: 1.1, back: 1.3 })[dmgPrefs.pos];
+        const cap = sk.id === '30' ? (dmgPrefs.pos === 'front' ? 3 : 100) : 80;
+        hit = Math.min(cap, sk.bc * bonus.DEX(A.attrs.DEX) * posBlow) / 100;
+      }
       if (sk.magic) {
         hit = 1 - Math.min(1, (0.5 + resDiff) / 100);
         avg *= 1 - Math.min(1, (5 + resDiff) / 100) / 2;
