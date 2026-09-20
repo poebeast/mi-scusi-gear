@@ -1078,8 +1078,11 @@
       else if (sk.weapon === 'shield' && !(c.eq.shield && ITEMS.get(c.eq.shield.id))) why = 'needs a shield';
       else if (!sk.magic && !sk.weapon && bow) why = 'not with a bow';
       // Перезарядка и время применения: баффы и пассивки вида «Skills Reuse Time −10%», «Skills Hit Time −8%».
-      const reuseK = Math.max(0.1, 1 + pctOf(A, 'reuse') + pctOf(A, sk.magic ? 'mreuse' : 'preuse'));
-      const hitK = Math.max(0.1, 1 + pctOf(A, 'hittime') + (sk.magic ? 0 : pctOf(A, 'phittime')));
+      // Reuse = reuse_delay x mod_refresh, где mod_refresh — ПЕРЕМНОЖЕННЫЕ эффекты на откат этого типа
+      // умений (пример из темы: 4.5 x 0.65 x 0.8 = 2.34). «All Skills» и «P./M. Skills» — разные эффекты,
+      // поэтому их множители тоже перемножаются, а не складываются.
+      const reuseK = Math.max(0.1, (A.mul.reuse || 1) * (A.mul[sk.magic ? 'mreuse' : 'preuse'] || 1));
+      const hitK = Math.max(0.1, (A.mul.hittime || 1) * (sk.magic ? 1 : A.mul.phittime || 1));
       // Благословенные спиритшоты ускоряют чтение заклинания в 1.5 раза (CastTime = hit_time / (mSpd/333) / SS).
       const bsps = sk.magic && dmgPrefs.mshot === 4 ? 1.5 : 1;
       const cast = sk.hit * 333 / (sk.magic ? a.cspd : a.aspd) * hitK / bsps;
