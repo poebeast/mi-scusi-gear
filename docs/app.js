@@ -588,7 +588,8 @@
     // Шанс маг. крита, %: 5 × бонус WIT (+5% за каждую единицу WIT), проценты разных
     // источников перемножаются, «M. Crit. Rate +N» прибавляется после них, итог ограничен 25%
     // (сверено с симулятором Lu4 Planner 20.09: WIT 11–35, Enlightenment ×1.5 × Rhythm of Dominance ×2).
-    st.mcrit = Math.min(MCRIT_CAP, 5 * bonus.WIT(attrs.WIT) * (prod.mcrit || 1) + (add.mcrit || 0));
+    // mCritical = mod_wit x 5 x mod_per + mod_diff, минимум 0, максимум 25% — официальная формула сервера.
+    st.mcrit = Math.max(0, Math.min(MCRIT_CAP, 5 * bonus.WIT(attrs.WIT) * (prod.mcrit || 1) + (add.mcrit || 0)));
     if (hasShield) {
       const e = c.eq.shield, it = ITEMS.get(e.id);
       st.sdef = fin('sdef', itemStat(it, 'pdef', e.e || 0));
