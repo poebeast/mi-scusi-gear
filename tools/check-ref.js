@@ -1,8 +1,6 @@
 // Сверка наших статов с расчётом Lu4 Planner (data/raw/ref.json): node tools/check-ref.js [фильтр] [строк]
-// Не сверяем (SKIP): с 19.09 Lu4 Planner прибавляет базу персонажа к оружию и умножает плоские P. Atk./M. Atk.
-// пассивок на STR/INT и уровень, а без оружия даёт «кулак» (Atk. Spd. 379, крит 8). С окном персонажа в игре
-// это не сходится (Swordsinger 75: P. Atk. 405 и M. Atk. 172 в игре = наш расчёт, у планера 460 и 182),
-// поэтому P. Atk./M. Atk. не сверяем нигде, а Atk. Spd. и крит — у персонажей без оружия.
+// Сверяются все 15 статов: 20.09 планер вернул замену базы слота и убрал «кулак» у голых,
+// так что P. Atk./M. Atk./Atk. Spd./крит снова сходятся с нами и с окном персонажа в игре.
 const fs = require('fs');
 const { execFileSync } = require('child_process');
 const SP = require('path').join(require('os').tmpdir(), 'ms-check');
@@ -45,9 +43,7 @@ cases.forEach((c, i) => {
   const o = ours[i];
   if (!o || o.err) { rows.push(c.id + ' ERR ' + (o && o.err)); return; }
   const diffs = [];
-  const SKIP = /-naked-/.test(c.id) || !c.char.eq.weapon ? ['patk', 'matk', 'aspd', 'crit'] : ['patk', 'matk'];
   for (const [k, rk, mult] of KEYS) {
-    if (SKIP.includes(k)) continue;
     const rv = c.ref[rk] * (mult || 1), ov = o.st[k];
     if (rv == null || ov == null) continue;
     const d = rv ? (ov - rv) / rv * 100 : 0;

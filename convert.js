@@ -251,11 +251,11 @@ for (const [cls, pid] of Object.entries(NEW_PL)) {
     passives[cls].push({ id, n: s.name, ic: (s.icon || '').replace(/\.png$/, ''), learn: list, lv, wt });
   }
 }
-// Мастерство оружия магов на сервере даёт ещё P. Atk. +45% и M. Atk. +17% — в тексте вики этого нет,
-// сверено с расчётом Lu4 Planner на всех уровнях 7–75.
+// Мастерство оружия магов даёт ещё P. Atk. +45% и M. Atk. +17% — в тексте вики этого нет.
+// Проценты работают только с оружием в руках: у голого персонажа Lu4 Planner даёт только плоскую прибавку.
 const BOOK = { 758: "Spellbook: Fighter's Will", 759: "Spellbook: Archer's Will", 945: "Spellbook: Magician's Will" };
 for (const list of Object.values(passives)) for (const p of list) if (BOOK[p.id]) p.book = BOOK[p.id];
-const HIDDEN = { 249: ['P. Atk. +45%', 'M. Atk. +17%'], 250: ['P. Atk. +45%', 'M. Atk. +17%'] };
+const HIDDEN = { 249: ['With an equipped weapon:', 'P. Atk. +45%', 'M. Atk. +17%'], 250: ['With an equipped weapon:', 'P. Atk. +45%', 'M. Atk. +17%'] };
 for (const list of Object.values(passives)) for (const p of list) if (HIDDEN[p.id]) for (const l in p.lv) p.lv[l] = [p.lv[l], ...HIDDEN[p.id]].join('\n');
 fs.writeFileSync(R('data/passives.json'), JSON.stringify(passives));
 
@@ -285,7 +285,8 @@ for (const [cls, c] of Object.entries(buffSrc)) {
       const toggle = g === 'icon_type-6';
       // Кому действует: группа/клан, цель (есть дальность применения) или только на себя.
       let tgt = 'self';
-      if (/party|clan members/i.test(text) || /^Rhythm/i.test(s.type || '')) tgt = 'party';
+      // Тип приходит и по-английски («Rhythm / Buff»), и по-русски («Ритм / Усиливающее»).
+      if (/party|clan members/i.test(text) || /^(Rhythm|Ритм)/i.test(s.type || '')) tgt = 'party';
       else if (!toggle && s.st && s.st['Cast Range']) tgt = 'target';
       // Одинаковые эффекты не складываются: «Combines 'Might' and 'Shield'» у Improved Combat и Combat of Pa'agrio.
       const comb = text.match(/Combines '([^']+)' and '([^']+)'/);

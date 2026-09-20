@@ -81,6 +81,10 @@
   const EMPTY_PDEF = { fighter: { head: 12, chest: 31, legs: 18, gloves: 8, feet: 7 }, mystic: { head: 12, chest: 15, legs: 8, gloves: 8, feet: 7 } };
   const EMPTY_MDEF = { neck: 13, ear1: 9, ear2: 9, ring1: 5, ring2: 5 };
   const ATK_SPD = { sword: 379, blunt: 379, dagger: 433, bow: 293, pole: 325, fist: 325, dualfist: 325, bigsword: 325, bigblunt: 325, staff: 379, bigstaff: 325, dual: 325, dualdagger: 400, dualblunt: 305, rapier: 406, ancientsword: 350 };
+  // Потолок шанса магического крита, %.
+  const MCRIT_CAP = 25;
+  // Потолок шанса физического крита, единиц (1000 = 100%).
+  const CRIT_CAP = 500;
   const BASE_CRIT = { sword: 8, bigsword: 8, blunt: 4, bigblunt: 4, staff: 4, bigstaff: 4, dagger: 12, dualdagger: 12, bow: 12, pole: 8, fist: 4, dualfist: 4, dual: 8, dualblunt: 6, rapier: 10, ancientsword: 8 };
   const HIT_MOD = { sword: 0, bigsword: 0, dual: 0, blunt: 4.75, bigblunt: 4.75, dualblunt: 4.75, staff: 4.75, bigstaff: 4.75, fist: 4.75, dualfist: 4.75, dagger: -3.75, dualdagger: -3.75, bow: -3.75, pole: -3.75 };
   const RANDOM_DMG = { sword: 10, bigsword: 10, dual: 10, blunt: 20, bigblunt: 20, dualblunt: 20, staff: 20, bigstaff: 20, fist: 5, dualfist: 5, dagger: 5, dualdagger: 10, bow: 5, pole: 10 };
@@ -193,6 +197,7 @@
       if (!part) continue;
       const am = part.match(/^(Heavy|Light|Robe)(?:\s+Armor)?$/i);
       if (am) { armor.push(am[1].toLowerCase()); continue; }
+      if (/^an? equipped weapon$/i.test(part)) { armor.push('%weapon'); continue; }
       const w = [];
       for (const word of part.split('/')) { const k = WWORD[word.trim().toLowerCase().replace(/s$/, '')] || WWORD[word.trim().toLowerCase()]; if (k) w.push(...k); }
       if (!w.length) return null;
@@ -342,7 +347,7 @@
   // Базовые значения шаблона персонажа. Надетая вещь заменяет базу своего слота — так в игре
   // (сверено с окном персонажа). Калькулятор Lu4 Planner прибавляет базу всегда, в этом он ошибается.
   // P. Def.: 4 — бельё и плащ, их слотов у нас нет; остальное — EMPTY_PDEF по слотам.
-  const TEMPLATE = { fighter: { patk: 4, matk: 6, pdef: 4 }, mystic: { patk: 3, matk: 6, pdef: 4 } };
+  const TEMPLATE = { fighter: { patk: 4, matk: 6, pdef: 4 }, mystic: { patk: 4, matk: 6, pdef: 4 } };
   // HP/MP/CP по уровням до модификаторов CON/MEN (сверено с расчётом Lu4 Planner).
   const HPTAB = DATA.hptab || {};
   const lvlMod = l => (l + 89) / 100;
@@ -434,8 +439,10 @@
   function condOk(cond, s) {
     return String(cond).split('+').every(x => {
       if (x === 'shield') return s.hasShield;
+      if (x === 'armor:%weapon') return !!s.wtype;
       if (x === 'bow') return s.wtype === 'bow';
-      if (x.startsWith('not:armor:')) return !!s.at && !x.slice(10).split('|').includes(s.at);
+      // «Without Robe Armor» действует и без брони вовсе (сверено с Lu4 Planner).
+      if (x.startsWith('not:armor:')) return !x.slice(10).split('|').includes(s.at);
       if (x.startsWith('armor:')) return !!s.at && x.slice(6).split('|').includes(s.at);
       if (x.startsWith('w:')) return !!s.wtype && x.slice(2).split('|').includes(s.wtype);
       return false;
@@ -508,7 +515,9 @@
       const g = bySrc[m.k] = bySrc[m.k] || {};
       g[m.sid] = (g[m.sid] || 0) + m.v / 100;
     }
-    for (const k in bySrc) for (const id in bySrc[k]) mul[k] = (mul[k] || 1) * (1 + bySrc[k][id]);
+    // sum — простая сумма процентов: так считается шанс физ. крита, pCritical = weaponCrit x mod_dex x (1 + mod_per).
+    const sum = {};
+    for (const k in bySrc) for (const id in bySrc[k]) { mul[k] = (mul[k] || 1) * (1 + bySrc[k][id]); sum[k] = (sum[k] || 0) + bySrc[k][id]; }
     const prod = mul;
     const fin = (k, v) => v * (mul[k] || 1) + (add[k] || 0);
 
@@ -559,13 +568,17 @@
     st.eva = fin('eva', sq + armEva);
     const critBase = w ? (w.st && w.st.crit) || BASE_CRIT[wtype] || 8 : 4;
     // Потолка 500 нет: Lu4 Planner и в статах, и в симуляторе считает шанс крита выше 500.
-    st.crit = fin('crit', critBase * 10 * bonus.DEX(attrs.DEX));
+    // Шанс физ. крита: проценты здесь складываются, а не перемножаются (официальная формула сервера
+    // pCritical = weaponCrit x mod_dex x (1 + mod_per) + mod_diff). Потолок 500 срезается в самом конце, в таблице урона.
+    st.crit = critBase * 10 * bonus.DEX(attrs.DEX) * (1 + (sum.crit || 0)) + (add.crit || 0);
     const spdBase = w ? (w.st && w.st.aspd) || ATK_SPD[wtype] || 325 : 300;
     st.aspd = fin('aspd', spdBase * bonus.DEX(attrs.DEX));
     st.cspd = fin('cspd', 333 * bonus.WIT(attrs.WIT));
     st.speed = fin('speed', RUN[c.race][arch === 'fighter' ? 0 : 1] * bonus.DEX(attrs.DEX));
-    // Шанс маг. крита, %: 5 × WIT, проценты баффов перемножаются, «M. Crit. Rate +N» прибавляется в конце.
-    st.mcrit = 5 * bonus.WIT(attrs.WIT) * (prod.mcrit || 1) + (add.mcrit || 0);
+    // Шанс маг. крита, %: 5 × бонус WIT (+5% за каждую единицу WIT), проценты разных
+    // источников перемножаются, «M. Crit. Rate +N» прибавляется после них, итог ограничен 25%
+    // (сверено с симулятором Lu4 Planner 20.09: WIT 11–35, Enlightenment ×1.5 × Rhythm of Dominance ×2).
+    st.mcrit = Math.min(MCRIT_CAP, 5 * bonus.WIT(attrs.WIT) * (prod.mcrit || 1) + (add.mcrit || 0));
     if (hasShield) {
       const e = c.eq.shield, it = ITEMS.get(e.id);
       st.sdef = fin('sdef', itemStat(it, 'pdef', e.e || 0));
@@ -984,13 +997,9 @@
   //   обычная атака: P. Atk. × соска × 70/77 ÷ P. Def., раз в 500 / Atk. Spd. секунд.
   // var и функции: первый рендер идёт раньше этих строк.
   var dmgPrefs;
-  // Шанс попадания обычной атакой от разницы Accuracy − Evasion (точки из расчёта Lu4 Planner).
-  function hitChance(d) {
-    const HIT_PTS = [[-30, 30], [-20, 32.6], [-15, 60.3], [-10, 73.55], [-5, 83.13], [0, 90.84], [5, 97.41], [6, 98]];
-    if (d <= HIT_PTS[0][0]) return HIT_PTS[0][1];
-    for (let i = 1; i < HIT_PTS.length; i++) if (d <= HIT_PTS[i][0]) { const [x0, y0] = HIT_PTS[i - 1], [x1, y1] = HIT_PTS[i]; return y0 + (y1 - y0) * (d - x0) / (x1 - x0); }
-    return 98;
-  }
+  // Шанс попадания обычной атакой: 88 + 2 x (точность − уклонение цели), не выше 98% и не ниже 28%.
+  function hitChance(d) { return 88 + 2 * d; }
+  const HIT_MAX = 98, HIT_MIN = 28;
   function pctOf(r, k) { return (r.mul[k] || 1) - 1; }
   // Бонус зарядов от заточки оружия (+0.7% за уровень у B/A): прибавляется к множителю заряда —
   // соска ×2.07 на +10, благословенный спиритшот ×4.07 (так считает Lu4 Planner).
@@ -1012,23 +1021,28 @@
     const shots = shotMul(c);
     const ss = shots.ss;
     const pvp = 1 + pctOf(A, 'pvpdmg') + (A.add.pvpdmg || 0) / 100;
+    // Позиция: точность x1 / x1.2 / x1.3, физический урон x1 / x1.1 / x1.2, шанс крита x1 / x1.2 / x1.3.
     const pos = ({ front: 1, side: 1.2, back: 1.3 })[dmgPrefs.pos];
+    const posDmg = ({ front: 1, side: 1.1, back: 1.2 })[dmgPrefs.pos];
     const rows = [];
     // Обычная атака.
     {
-      const hit = Math.min(98, hitChance(a.acc - d.eva) * pos) / 100;
-      // Received P. Crit. Rate у цели (например, мастерство лёгкой брони) снижает шанс крита по ней.
-      // Шанс крита обычной атакой в Lu4 Planner: P. Crit. Rate × 1.1, сбоку ещё ×1.1, сзади ×1.3.
-      const critPos = ({ front: 1, side: 1.1, back: 1.3 })[dmgPrefs.pos];
-      const cc = Math.min(1, a.crit / 1000 * 1.1 * critPos * Math.max(0, 1 + pctOf(D, 'rcvcc')));
-      const norm = a.patk * ss * K / d.pdef * pvp;
-      const crit = (a.patk * ss * 2 * (1 + pctOf(A, 'critdmg')) + (A.add.critdmg || 0)) * K / d.pdef * pvp * (1 + pctOf(D, 'rcvcrit'));
+      const hit = Math.max(HIT_MIN, Math.min(HIT_MAX, hitChance(a.acc - d.eva) * pos)) / 100;
+      // Шанс крита обычной атакой: P. Crit. Rate x позиция, обрезка по капу 500 единиц (50%) в самом конце.
+      // Received P. Crit. Rate у цели (например, мастерство лёгкой брони) снижает его.
+      const critPos = ({ front: 1, side: 1.2, back: 1.3 })[dmgPrefs.pos];
+      const cc = Math.min(CRIT_CAP, a.crit * critPos * Math.max(0, 1 + pctOf(D, 'rcvcc'))) / 1000;
+      const norm = a.patk * ss * K / d.pdef * pvp * posDmg;
+      // Сила крита: 77 x (P. Atk. + статический бонус СА) x соски x 2 x проценты / P. Def.
+      const crit = (a.patk + (A.add.critdmg || 0)) * ss * 2 * (1 + pctOf(A, 'critdmg')) * K / d.pdef * pvp * posDmg * (1 + pctOf(D, 'rcvcrit'));
       let avg = (1 - cc) * norm + cc * crit;
       // Щит блокирует только спереди; по лучникам шанс ×3 (как в Lu4 Planner).
       const sh = t.eq.shield && ITEMS.get(t.eq.shield.id);
       let block = 0;
       if (sh && dmgPrefs.pos === 'front') {
-        block = Math.min(0.9, (sh.st.srate || 0) * bonus.DEX(D.attrs.DEX) * (bow ? 3 : 1) / 100);
+        // Шанс блока = шанс щита x DEX x проценты + бонус от типа урона: +30 от стрел, +12 от ножей.
+        const wBlock = bow ? 30 : /dagger/.test(wt || '') ? 12 : 0;
+        block = Math.min(1, ((d.srate || 0) * (1 + pctOf(D, 'srate')) + wBlock) / 100);
         const bn = a.patk * ss * K / (d.pdef + (d.sdef || 0)) * pvp;
         avg = (1 - block) * avg + block * ((1 - cc) * bn + cc * bn * 2);
       }
@@ -1048,7 +1062,9 @@
       // Перезарядка и время применения: баффы и пассивки вида «Skills Reuse Time −10%», «Skills Hit Time −8%».
       const reuseK = Math.max(0.1, 1 + pctOf(A, 'reuse') + pctOf(A, sk.magic ? 'mreuse' : 'preuse'));
       const hitK = Math.max(0.1, 1 + pctOf(A, 'hittime') + (sk.magic ? 0 : pctOf(A, 'phittime')));
-      const cast = sk.hit * 333 / (sk.magic ? a.cspd : a.aspd) * hitK;
+      // Благословенные спиритшоты ускоряют чтение заклинания в 1.5 раза (CastTime = hit_time / (mSpd/333) / SS).
+      const bsps = sk.magic && dmgPrefs.mshot === 4 ? 1.5 : 1;
+      const cast = sk.hit * 333 / (sk.magic ? a.cspd : a.aspd) * hitK / bsps;
       const reuse = (sk.reuse || 0) * reuseK;
       const cycle = Math.max(reuse, cast);
       let norm, crit, cc;
@@ -1060,10 +1076,12 @@
       } else {
         const pdef = d.pdef * (1 - (sk.defIgn || 0) / 100);
         // Удар кинжалом: соска усиливает только P. Atk. (так считает Lu4 Planner).
-        norm = sk.blow ? (power * (sk.pm || 1) + a.patk * ss) * K / pdef * pvp * (1 + pctOf(A, 'pskill'))
-          : (power + a.patk) * ss * (sk.k || 1) * K / pdef * pvp * (1 + pctOf(A, 'pskill'));
+        norm = (sk.blow ? (power * (sk.pm || 1) + a.patk * ss) * K / pdef * pvp * (1 + pctOf(A, 'pskill'))
+          : (power + a.patk) * ss * (sk.k || 1) * K / pdef * pvp * (1 + pctOf(A, 'pskill'))) * posDmg;
         crit = norm * sk.cm * (1 + pctOf(A, 'pskillcrit'));
-        cc = Math.min(1, sk.cc / 100 * bonus.STR(A.attrs.STR) * Math.max(0, 1 + pctOf(D, 'rcvcc')));
+        // Шанс крита умением: обычные — от STR, blow/stab — от DEX.
+        const cmod = sk.blow ? bonus.DEX(A.attrs.DEX) : bonus.STR(A.attrs.STR);
+        cc = Math.min(1, sk.cc / 100 * cmod * Math.max(0, 1 + pctOf(D, 'rcvcc')));
       }
       const avg = (1 - cc) * norm + cc * crit;
       rows.push({ n: sk.n, ic: sk.ic, lv: l, magic: sk.magic, norm, crit, hit: 1, cc, block: 0, cycle, cast, reuse, exp: avg, ok: !why, why, mp: sk.mp });
