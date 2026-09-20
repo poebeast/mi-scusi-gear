@@ -85,6 +85,9 @@
   const MCRIT_CAP = 25;
   // Потолок шанса физического крита, единиц (1000 = 100%).
   const CRIT_CAP = 500;
+  // Влияние дальности выстрела на урон, %, по DistRatio = дистанция / дальность x 100 (0…100).
+  // Снято с графика в статье вики «Игровые механики: Урон от дальности выстрела».
+  const DIST_DMG = [-30.6,-29,-27.3,-25.8,-24.3,-22.7,-21.2,-19.9,-18.6,-17.4,-16.4,-15.2,-14.2,-13.3,-12.3,-11.6,-10.7,-9.9,-9.2,-8.4,-7.9,-7.3,-6.7,-6.4,-6.1,-5.8,-5.6,-5.4,-5.2,-5.1,-5.1,-4.9,-4.9,-4.7,-4.7,-4.5,-4.5,-4.3,-4.2,-4.1,-3.9,-3.9,-3.7,-3.6,-3.4,-3.3,-3.2,-3,-2.8,-2.5,-2.4,-2.2,-2.1,-1.8,-1.5,-1.3,-1,-0.8,-0.7,-0.4,0,2.5,4.2,5.7,7.2,8.5,9.9,11.1,12.3,13.4,14.2,15.1,15.7,16.3,16.8,17.2,17.6,17.8,18,18.1,18.1,18.1,18,17.8,17.4,17,16.5,15.9,15.2,14.4,13.5,12.4,11.3,10.1,8.7,7.4,5.9,4.4,2.9,1.4,0.2];
   const BASE_CRIT = { sword: 8, bigsword: 8, blunt: 4, bigblunt: 4, staff: 4, bigstaff: 4, dagger: 12, dualdagger: 12, bow: 12, pole: 8, fist: 4, dualfist: 4, dual: 8, dualblunt: 6, rapier: 10, ancientsword: 8 };
   const HIT_MOD = { sword: 0, bigsword: 0, dual: 0, blunt: 4.75, bigblunt: 4.75, dualblunt: 4.75, staff: 4.75, bigstaff: 4.75, fist: 4.75, dualfist: 4.75, dagger: -3.75, dualdagger: -3.75, bow: -3.75, pole: -3.75 };
   const RANDOM_DMG = { sword: 10, bigsword: 10, dual: 10, blunt: 20, bigblunt: 20, dualblunt: 20, staff: 20, bigstaff: 20, fist: 5, dualfist: 5, dagger: 5, dualdagger: 10, bow: 5, pole: 10 };
@@ -181,6 +184,7 @@
     [/^Received M\.\s?Crit(?:ical)?\.? Damage/i, 'rcvmcrit'],
     [/^Received P\.\s?Crit(?:ical)?\.? Rate/i, 'rcvcc'],
     // Уклонение от умений — отдельный шанс, с «Уклонением» никак не связан; эффекты складываются, потолок 80%.
+    [/^(?:Bow's )?Attack Range/i, 'range'],
     [/^Chance to evade P\.\/M\.\s?Skills?/i, 'evaskill'],
     [/^Chance to evade P\.\s?Skills?/i, 'evapskill'],
     [/^Chance to evade M\.\s?Skills?/i, 'evamskill'],
@@ -1005,13 +1009,13 @@
   function hitChance(d) { return 88 + 2 * d; }
   const HIT_MAX = 98, HIT_MIN = 28;
   function pctOf(r, k) { return (r.mul[k] || 1) - 1; }
-  // Бонус зарядов от заточки оружия (+0.7% за уровень у B/A): прибавляется к множителю заряда —
-  // соска ×2.07 на +10, благословенный спиритшот ×4.07 (так считает Lu4 Planner).
+  // Бонус к урону от заточки оружия (+0.7% за уровень): отдельный множитель в конце формулы,
+  // независимый от зарядов духа: на +6 это ×1.042 (таблица в статье об уроне физических умений).
   function shotBonus(w, e) { return w && w.en && w.en.shot ? Math.round((enchVal(w.en.shot, e || 0) || 0) * 10) / 10 : 0; }
   function shotMul(c) {
     const w = c.eq.weapon && ITEMS.get(c.eq.weapon.id);
     const sb = shotBonus(w, c.eq.weapon && c.eq.weapon.e) / 100;
-    return { ss: dmgPrefs.ss ? 2 + sb : 1, ms: dmgPrefs.mshot > 1 ? dmgPrefs.mshot + sb : 1, sb };
+    return { ss: dmgPrefs.ss ? 2 : 1, ms: dmgPrefs.mshot > 1 ? dmgPrefs.mshot : 1, sb, ench: 1 + sb };
   }
   function skillLevel(sk, lvl) { return sk.learn.reduce((m, [L, l]) => (L <= lvl && l > m ? l : m), 0); }
   function powerAt(sk, l) { let p = 0; for (const k in sk.pw) if (+k <= l && sk.pw[k]) p = sk.pw[k]; return p; }
@@ -1024,7 +1028,10 @@
     const K = bow ? 70 : 77;
     const shots = shotMul(c);
     const ss = shots.ss;
-    const pvp = 1 + pctOf(A, 'pvpdmg') + (A.add.pvpdmg || 0) / 100;
+    const pvp = (1 + pctOf(A, 'pvpdmg') + (A.add.pvpdmg || 0) / 100) * shots.ench;
+    // Урон из лука зависит от доли пройденной дистанции: базовая дальность 500 плюс «Attack Range +N».
+    const atkRange = bow ? 500 + (A.add.range || 0) : 0;
+    const distMul = bow ? 1 + DIST_DMG[Math.max(0, Math.min(100, Math.round((dmgPrefs.dist || 0) / atkRange * 100)))] / 100 : 1;
     // Позиция: точность x1 / x1.2 / x1.3, физический урон x1 / x1.1 / x1.2, шанс крита x1 / x1.2 / x1.3.
     const pos = ({ front: 1, side: 1.2, back: 1.3 })[dmgPrefs.pos];
     const posDmg = ({ front: 1, side: 1.1, back: 1.2 })[dmgPrefs.pos];
@@ -1037,9 +1044,9 @@
       // Received P. Crit. Rate у цели (например, мастерство лёгкой брони) снижает его.
       const critPos = ({ front: 1, side: 1.2, back: 1.3 })[dmgPrefs.pos];
       const cc = Math.min(CRIT_CAP, a.crit * critPos * Math.max(0, 1 + pctOf(D, 'rcvcc'))) / 1000;
-      const norm = a.patk * ss * K / d.pdef * pvp * posDmg;
+      const norm = a.patk * ss * K / d.pdef * pvp * posDmg * distMul;
       // Сила крита: 77 x (P. Atk. + статический бонус СА) x соски x 2 x проценты / P. Def.
-      const crit = (a.patk + (A.add.critdmg || 0)) * ss * 2 * (1 + pctOf(A, 'critdmg')) * K / d.pdef * pvp * posDmg * (1 + pctOf(D, 'rcvcrit'));
+      const crit = (a.patk + (A.add.critdmg || 0)) * ss * 2 * (1 + pctOf(A, 'critdmg')) * K / d.pdef * pvp * posDmg * distMul * (1 + pctOf(D, 'rcvcrit'));
       let avg = (1 - cc) * norm + cc * crit;
       // Щит блокирует только спереди (сектор 90° без Aegis).
       const sh = t.eq.shield && ITEMS.get(t.eq.shield.id);
@@ -1048,7 +1055,7 @@
         // Шанс блока = шанс щита x DEX x проценты + бонус от типа урона: +30 от стрел, +12 от ножей.
         const wBlock = bow ? 30 : /dagger/.test(wt || '') ? 12 : 0;
         block = Math.min(1, ((d.srate || 0) * (1 + pctOf(D, 'srate')) + wBlock) / 100);
-        const bn = a.patk * ss * K / (d.pdef + (d.sdef || 0)) * pvp;
+        const bn = a.patk * ss * K / (d.pdef + (d.sdef || 0)) * pvp * posDmg * distMul;
         avg = (1 - block) * avg + block * ((1 - cc) * bn + cc * bn * 2);
         // Идеальная блокировка: 2 x модификатор DEX цели, урон ровно 1.
         pblock = Math.min(1, 2 * bonus.DEX(D.attrs.DEX) / 100);
@@ -1090,9 +1097,10 @@
         // Удар кинжалом: 77 x (power + P. Atk. + статический бонус СА) x соски (1.5 у кинжалов) / P. Def.
         // Умения на зарядах: chrgBonus = 0.8 + 0.2 x уровень заряда.
         const ssBlow = dmgPrefs.ss ? 1.5 + shots.sb : 1;
-        const chrg = sk.k ? 0.8 + 0.2 * (dmgPrefs.charges || 0) : 1;
-        norm = (sk.blow ? (power * (sk.pm || 1) + a.patk + (A.add.critdmg || 0)) * ssBlow * K / pdef * pvp * (1 + pctOf(A, 'pskill'))
-          : (power + a.patk) * ss * chrg * K / pdef * pvp * (1 + pctOf(A, 'pskill'))) * posDmg;
+        const chrg = sk.k ? 1 + 0.2 * ((dmgPrefs.charges || 1) - 1) : 1;
+        // Урон blow сам по себе критический, поэтому его усиливают эффекты на Силу Физ. Крит. Атк.
+        norm = (sk.blow ? (power * (sk.pm || 1) + a.patk + (A.add.critdmg || 0)) * ssBlow * K / pdef * pvp * (1 + pctOf(A, 'critdmg'))
+          : (power + a.patk) * ss * chrg * K / pdef * pvp * (1 + pctOf(A, 'pskill'))) * posDmg * distMul;
         crit = norm * sk.cm * (1 + pctOf(A, 'pskillcrit'));
         // Шанс крита умением: обычные — от STR, blow/stab — от DEX.
         const cmod = sk.blow ? bonus.DEX(A.attrs.DEX) : bonus.STR(A.attrs.STR);
@@ -1111,14 +1119,14 @@
       rows.push({ n: sk.n, ic: sk.ic, lv: l, magic: sk.magic, norm, crit, hit, cc, block: 0, cycle, cast, reuse, exp: hit * avg, ok: !why, why, mp: sk.mp });
     }
     rows.forEach(r => (r.dps = r.ok ? r.exp / r.cycle : 0));
-    return { rows, A, D, shots };
+    return { rows, A, D, shots, atkRange, distMul };
   }
 
   function renderDamage() {
     const c = ch();
     const box = els.dmg;
     if (!box) return;
-    if (!dmgPrefs) dmgPrefs = { target: null, pos: 'front', ss: true, mshot: 4, charges: 7 };
+    if (!dmgPrefs) dmgPrefs = { target: null, pos: 'front', ss: true, mshot: 4, charges: 8, dist: 500 };
     box.innerHTML = '';
     if (dmgPrefs.target == null || !byKey(dmgPrefs.target) || byKey(dmgPrefs.target) === c) dmgPrefs.target = 'f:' + FOE_ORDER.find(k => k !== c.cls);
     const t = byKey(dmgPrefs.target);
@@ -1138,14 +1146,19 @@
         h('label', { class: 'dsel' }, 'Spiritshot ', h('select', { onchange: e => set('mshot', +e.target.value) }, [[4, 'Blessed'], [2, 'Normal'], [1, 'None']].map(([v, n]) => h('option', { value: v, selected: v === dmgPrefs.mshot ? true : null }, n)))),
         // Заряды нужны только тем, у кого есть умения на них (Sonic / Force).
         ((DATA.attacks || {})[c.cls] || []).some(x => x.k)
-          ? h('label', { class: 'dsel' }, 'Charges ', h('select', { onchange: e => set('charges', +e.target.value) }, [0, 1, 2, 3, 4, 5, 6, 7].map(v => h('option', { value: v, selected: v === dmgPrefs.charges ? true : null }, String(v)))))
+          ? h('label', { class: 'dsel' }, 'Charges ', h('select', { onchange: e => set('charges', +e.target.value) }, [1, 2, 3, 4, 5, 6, 7, 8].map(v => h('option', { value: v, selected: v === dmgPrefs.charges ? true : null }, String(v)))))
+          : null,
+        // Дистанция нужна только стрелкам: из лука урон зависит от доли пройденной дальности.
+        c.eq.weapon && ITEMS.get(c.eq.weapon.id) && ITEMS.get(c.eq.weapon.id).wt === 'bow'
+          ? h('label', { class: 'dsel' }, 'Distance ', h('input', { type: 'number', min: '0', step: '50', value: dmgPrefs.dist, 'aria-label': 'Shot distance', onchange: e => set('dist', Math.max(0, Math.round(+e.target.value || 0))) }))
           : null)));
-    const { rows, D, shots } = damageRows(c, t);
+    const { rows, D, shots, atkRange, distMul } = damageRows(c, t);
     const f0 = x => Math.round(x).toLocaleString('en-US');
     const d = D.st;
     const fx = v => '×' + (Math.round(v * 100) / 100);
     box.append(h('div', { class: 'dtarget' }, `Target: P. Def. ${f0(d.pdef)} · M. Def. ${f0(d.mdef)} · Evasion ${f0(d.eva)} · HP ${f0(d.hp)} · CP ${f0(d.cp)}` + (t.eq.shield && ITEMS.get(t.eq.shield.id) ? ` · shield ${f0(d.sdef || 0)}` : '')
-      + `  ·  Shots: soulshot ${dmgPrefs.ss ? fx(shots.ss) : 'off'}, spiritshot ${dmgPrefs.mshot > 1 ? fx(shots.ms) : 'off'}` + (shots.sb ? ` (weapon enchant +${Math.round(shots.sb * 1000) / 10}%)` : '')));
+      + `  ·  Shots: soulshot ${dmgPrefs.ss ? fx(shots.ss) : 'off'}, spiritshot ${dmgPrefs.mshot > 1 ? fx(shots.ms) : 'off'}` + (shots.sb ? ` · weapon enchant ${fx(1 + shots.sb)}` : '')
+      + (atkRange ? `  ·  Shot range ${f0(atkRange)}, at ${f0(dmgPrefs.dist || 0)} that is ${distMul >= 1 ? '+' : ''}${Math.round((distMul - 1) * 1000) / 10}% damage` : '')));
     const pool = d.hp + d.cp;
     // Цель можно переодеть прямо здесь: гир, заточка, тату, уровень, баффы, клан-скилы.
     const tHen = henRow(t, 'sm');
