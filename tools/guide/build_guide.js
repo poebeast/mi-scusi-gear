@@ -37,7 +37,7 @@ ${callout('🖱️', 'На широком экране окно открывае
 <h2 id="stats">3. Статы</h2>
 ${img('04-stats', 'Статы')}
 ${steps([['CP / HP / MP', 'с учётом CON/MEN, вещей, пассивок, клана и баффов.'], ['Боевые статы', 'P. Atk., M. Def., скорости, крит, щит — те же цифры, что в окне персонажа в игре.'], ['Атрибуты', '<span class="g">зелёный</span> — выше базового, <span class="r">красный</span> — ниже. Наведение показывает базу.'], ['Set bonus', 'какие сеты работают и их заточка.'], ['Effects not counted', 'эффекты, которые в статы не входят: шансовые срабатывания и условия вроде «при HP ниже…».']])}
-${toggle('Насколько это точно?', '<p>Все формулы взяты из закреплённой темы сервера «Математика и механики игры» — и статы, и урон, и шансы. Таблицы модификаторов STR/DEX/CON/INT/WIT/MEN и уровня сверены с ней значение в значение.</p><p>Движок сверен с окном персонажа в игре (Swordsinger 75: HP, MP, CP, атака, защита, скорость атаки и крит сошлись) и с расчётами на 2 400 случаях. Надетая вещь заменяет базу своего слота, как в игре.</p>')}
+${toggle('Насколько это точно?', '<p>Все формулы взяты из закреплённой темы сервера <a href="https://mw5.community/topic/208162-matematika-i-mehaniki-igry/" target="_blank" rel="noopener">«Математика и механики игры»</a> — и статы, и урон, и шансы. Таблицы модификаторов STR/DEX/CON/INT/WIT/MEN и уровня сверены с ней значение в значение.</p><p>Движок сверен с окном персонажа в игре (Swordsinger 75: HP, MP, CP, атака, защита, скорость атаки и крит сошлись) и с расчётами на 2 400 случаях. Надетая вещь заменяет базу своего слота, как в игре.</p>')}
 
 <h2 id="tattoo">4. Тату</h2>
 ${img('05-tattoos', 'Тату')}
@@ -90,6 +90,8 @@ p{margin:6px 0 12px}
 .toc-t{width:100%;font-size:12px;text-transform:uppercase;letter-spacing:.08em;color:var(--ink2)}
 .toc a{color:var(--ink);text-decoration:none;border-bottom:1px solid rgba(255,255,255,.2)}
 .toc a:hover{border-color:var(--accent)}
+main a:not(.toc a){color:var(--accent);text-decoration:none;border-bottom:1px solid rgba(251,191,36,.4)}
+main a:not(.toc a):hover{border-color:var(--accent)}
 figure{margin:14px 0 8px}
 figure img{display:block;max-width:100%;border-radius:8px;border:1px solid var(--line);box-shadow:0 8px 28px rgba(0,0,0,.35)}
 .steps{counter-reset:s;list-style:none;padding:0;margin:8px 0 16px}
