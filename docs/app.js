@@ -444,7 +444,7 @@
     push('self', CLASSES[c.cls].n, 'own skills', own);
     for (const k of Object.keys(CLASSES)) {
       if (!party.has(k) || k === c.cls) continue;
-      push(k, CLASSES[k].n, 'party & target buffs', DATA.buffs.filter(b => b.cls.includes(k) && b.tgt !== 'self'));
+      push(k, CLASSES[k].n, '', DATA.buffs.filter(b => b.cls.includes(k) && b.tgt !== 'self'));
     }
     return groups;
   }
@@ -831,7 +831,9 @@
       h('div', { class: 'idtext' }, h('b', null, c.nick || CLASSES[c.cls].n),
         h('small', null, `${CLASSES[c.cls].n} · ${raceLabel(c)} · Lv. ${c.level}`)),
       h('div', { class: 'setchips' }, sets.map(x => h('span', { class: 'chip' }, x.set.n + (x.minE >= 3 ? ' +' + Math.min(x.minE, 6) : '')))),
-      h('span', { class: 'note wornnote' }, !empty.length ? 'Full gear' : empty.length === Object.keys(SLOTS).length ? 'Nothing equipped — click a slot below' : 'Empty: ' + [...new Set(empty)].join(', ')));
+      // На пустом персонаже подпись не нужна: пустые слоты и так видно прямо под строкой.
+      ...(empty.length === Object.keys(SLOTS).length ? []
+        : [h('span', { class: 'note wornnote' }, !empty.length ? 'Full gear' : 'Empty: ' + [...new Set(empty)].join(', '))]));
   }
 
   function slotButton(slot, who) {
@@ -933,7 +935,8 @@
     els.tattoos.innerHTML = '';
     const hm = hennaMods(c);
     const sum = ATTRS.filter(a => hm[a]).map(a => h('span', { class: hm[a] > 0 ? 'p' : 'm' }, `${a} ${hm[a] > 0 ? '+' : '−'}${Math.abs(hm[a])}`));
-    els.tattoos.append(h('h3', null, 'Tattoos'), henRow(c, '', true), sum.length ? h('div', { class: 'hsum' }, sum) : null, h('div', { class: 'hbtnrow' }, henBtn(c)));
+    // append(null) вставил бы строку «null», поэтому пустую сводку просто не добавляем.
+    els.tattoos.append(h('h3', null, 'Tattoos'), henRow(c, '', true), ...(sum.length ? [h('div', { class: 'hsum' }, sum)] : []), h('div', { class: 'hbtnrow' }, henBtn(c)));
   }
 
 
@@ -1230,7 +1233,7 @@
         btn.addEventListener('mouseleave', hideTip);
         list.append(btn);
       }
-      wrap.append(h('div', { class: 'bg' }, h('h4', null, grp.title, h('small', null, grp.sub)), list));
+      wrap.append(h('div', { class: 'bg' }, h('h4', null, grp.title, ...(grp.sub ? [h('small', null, grp.sub)] : [])), list));
     }
     if (!groups.length) wrap.append(h('div', { class: 'empty' }, 'No buffs available.'));
     box.append(wrap);
