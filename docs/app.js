@@ -240,6 +240,9 @@
       line = line.replace(/^(?:For|Applies to) [^:]*members\s*:\s*/i, '');
       if (!line) continue;
       if (/\bchance\b.*:\s*$/i.test(line) || /^When attacked|^When HP is below|^When taking|^When using|^During |^With an? \d+% chance|^With \d+% chance|^When the (?:master|servitor)|servitor\b[^:]*:\s*$/i.test(line)) { cond = 'skip'; notes.push(line); continue; }
+      // «Heads:» / «Tails:» у Coin Flipping — два взаимоисключающих исхода; считаем атакующий.
+      const hm = line.match(/^(Heads|Tails)\s*:\s*$/i);
+      if (hm) { cond = /tails/i.test(hm[1]) ? 'skip' : null; continue; }
       const cm = line.match(/^(If a shield is equipped|Shield Equip Bonus|When HP\s*<\s*\d+%|For party members|Totally)\s*:\s*/i);
       if (cm) {
         const c = cm[1].toLowerCase();
@@ -575,7 +578,6 @@
     for (const s of ['head', 'chest', 'legs', 'gloves', 'feet', 'shield']) { const e = c.eq[s]; const it = e && ITEMS.get(e.id); if (it && it.st && it.st.eva) armEva += it.st.eva; }
     st.eva = fin('eva', sq + armEva);
     const critBase = w ? (w.st && w.st.crit) || BASE_CRIT[wtype] || 8 : 4;
-    // Потолка 500 нет: Lu4 Planner и в статах, и в симуляторе считает шанс крита выше 500.
     // Шанс физ. крита: проценты здесь складываются, а не перемножаются (официальная формула сервера
     // pCritical = weaponCrit x mod_dex x (1 + mod_per) + mod_diff). Потолок 500 срезается в самом конце, в таблице урона.
     st.crit = critBase * 10 * bonus.DEX(attrs.DEX) * (1 + (sum.crit || 0)) + (add.crit || 0);
