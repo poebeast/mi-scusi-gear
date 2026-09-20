@@ -7,7 +7,8 @@ RP = json.load(open('r_picker.json'))
 RT = json.load(open('r_tattoo.json'))
 RTIP = json.load(open('r_ptip.json'))
 RB = json.load(open('r_tbuffs.json'))
-# Окна прижаты к правому краю; при замере окно было на 16 px уже, поэтому сдвигаем их координаты.
+# Окна прижаты к правому краю. В момент замера видимая область на 16 px уже, чем на снимке
+# (полоса прокрутки), поэтому их координаты сдвигаем.
 for D in (RP, RT, RB):
     for k, v in D.items():
         if v: v[0] += 16

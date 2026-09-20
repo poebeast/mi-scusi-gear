@@ -6,3 +6,9 @@ site/
 wardrobe.html
 preview-server.cjs
 /icons/
+tools/guide/.chrome-*/
+tools/guide/img/
+tools/guide/*.png
+tools/guide/*.json
+tools/guide/guide.html
+tools/guide/Mi-scusi-guide-preview.html
