@@ -124,8 +124,11 @@
     const chest = c.eq.chest && ITEMS.get(c.eq.chest.id);
     const st = { wtype: w ? w.wt : null, hasShield: !!(c.eq.shield && ITEMS.get(c.eq.shield.id)), at: chest && chest.at };
     for (const p of PASSIVES[c.cls] || []) {
-      const l = passiveLevel(p, c.level);
-      if (!l) continue;
+      // max — наибольший доступный уровень, l — выбранный (по умолчанию максимальный).
+      const max = passiveLevel(p, c.level);
+      if (!max) continue;
+      const ov = c.passLv && +c.passLv[p.id];
+      const l = ov >= 1 && ov <= max ? ov : max;
       const text = p.lv[l] || '';
       let off = '';
       let wtOff = false;
@@ -142,7 +145,7 @@
       }
       const unlearned = !!(p.book && c.noBook && c.noBook[p.id]);
       if (unlearned) off = 'book not learned';
-      out.push({ p, l, text, off, wtOff, unlearned });
+      out.push({ p, l, max, text, off, wtOff, unlearned });
     }
     return out;
   }
@@ -330,6 +333,8 @@
       c.clanLv = c.clanLv || {};
       // Пассивки из книг, которые персонаж не выучил.
       c.noBook = c.noBook || {};
+      // Выбранный вручную уровень пассивки; чего тут нет — берётся максимальный по уровню персонажа.
+      c.passLv = c.passLv || {};
       for (const k of CLAN) { const v = +c.clanLv[k.id]; c.clanLv[k.id] = v >= 1 && v <= k.l ? v : k.l; }
       // Старые наборы тату: урезаем плюсы сверх +5 на атрибут.
       const used = {};
@@ -989,18 +994,31 @@
     box.innerHTML = '';
     const on = r.pass.filter(x => !x.off).length;
     box.append(h('div', { class: 'kithead' }, h('h3', null, 'Passive skills'), h('span', { class: 'note' }, r.pass.length ? `${on} of ${r.pass.length} active` : 'None at this level')));
-    const tipFor = x => `<b>${esc(x.p.n)} Lv. ${x.l}</b>${x.off ? `<div class="k bad">Not counted: ${esc(x.off)}</div>` : ''}<div class="ln">${esc(x.text)}</div>`
-      + (x.p.book ? `<div class="k">Learned from ${esc(x.p.book)}. Click to mark it as ${x.unlearned ? 'learned' : 'not learned'}.</div>` : '');
+    const tipFor = x => `<b>${esc(x.p.n)} Lv. ${x.l}${x.max > 1 ? ' of ' + x.max : ''}</b>${x.off ? `<div class="k bad">Not counted: ${esc(x.off)}</div>` : ''}<div class="ln">${esc(x.text)}</div>`
+      + (x.p.book ? `<div class="k">Learned from ${esc(x.p.book)}. Click to cycle the level${x.max > 1 ? ' (1–' + x.max + ')' : ''} and «not learned».</div>`
+        : x.max > 1 ? `<div class="k">Click to raise the level (1–${x.max}), right-click to lower it.</div>` : '');
+    if (r.pass.some(x => x.p.book || x.max > 1)) box.append(h('span', { class: 'note' }, 'Click a skill to raise its level, right-click to lower it. Hover to see what it gives.'));
     box.append(h('div', { class: 'iconlist' }, r.pass.map(x => {
-      const b = h(x.p.book ? 'button' : 'span', { class: 'pic' + (x.off ? ' off' : '') + (x.p.book ? ' book' : ''), tabindex: x.p.book ? null : '0', type: x.p.book ? 'button' : null, 'aria-label': `${x.p.n}, level ${x.l}${x.off ? ', not counted' : ''}` },
-        h('img', { src: icon(x.p.ic), alt: '', loading: 'lazy' }), h('span', { class: 'clanlv' }, x.l));
-      if (x.p.book) b.addEventListener('click', () => {
-        if (x.unlearned) delete c.noBook[x.p.id]; else c.noBook[x.p.id] = true;
+      // Кликом переключается уровень по кругу; у книжных в круг входит ещё «не выучена».
+      const pick = x.p.book || x.max > 1;
+      const b = h(pick ? 'button' : 'span', { class: 'pic' + (x.off ? ' off' : '') + (x.p.book ? ' book' : ''), tabindex: pick ? null : '0', type: pick ? 'button' : null, 'aria-label': `${x.p.n}, level ${x.l}${x.off ? ', not counted' : ''}` },
+        h('img', { src: icon(x.p.ic), alt: '', loading: 'lazy' }), h('span', { class: 'clanlv' + (!x.unlearned && x.l !== x.max ? ' set' : '') }, x.unlearned ? '—' : x.l));
+      // Шаг по кругу: вперёд по клику, назад по правой кнопке. 0 — «не выучена», только у книжных.
+      const step = d => {
+        const lo = x.p.book ? 0 : 1;
+        let n = (x.unlearned ? 0 : x.l) + d;
+        if (n > x.max) n = lo;
+        if (n < lo) n = x.max;
+        if (n === 0) c.noBook[x.p.id] = true; else { delete c.noBook[x.p.id]; c.passLv[x.p.id] = n; }
         update(false);
         const nb = els.passives.querySelector(`[data-pid="${x.p.id}"]`);
         const nx = compute(c).pass.find(y => y.p.id === x.p.id);
         if (nb && nx) showTip(nb, tipFor(nx));
-      });
+      };
+      if (pick) {
+        b.addEventListener('click', () => step(1));
+        b.addEventListener('contextmenu', e => { e.preventDefault(); step(-1); });
+      }
       b.dataset.pid = x.p.id;
       b.addEventListener('mouseenter', () => showTip(b, tipFor(x))); b.addEventListener('mouseleave', hideTip);
       b.addEventListener('focus', () => showTip(b, tipFor(x))); b.addEventListener('blur', hideTip);

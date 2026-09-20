@@ -264,6 +264,8 @@ dialog::backdrop{background:rgba(10,25,60,.28);-webkit-backdrop-filter:blur(4px)
 button.pic{cursor:pointer}
 .pic.off img{filter:grayscale(1) opacity(.45)}
 .pic.off .clanlv{background:var(--mute)}
+/* Уровень выбран вручную, не максимальный для этого уровня персонажа. */
+.clanlv.set{background:var(--ink);color:var(--bg0)}
 .pic.book::before{content:"";position:absolute;left:-3px;top:-3px;width:9px;height:9px;border-radius:50%;background:#14b8a6;box-shadow:0 0 0 2px #fff;z-index:1}
 .pic.book.off::before{background:var(--bad)}
 .tip .k.bad{color:var(--bad);font-weight:600}
