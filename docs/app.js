@@ -180,6 +180,10 @@
     [/^Received P\.\s?Crit(?:ical)?\.? Damage/i, 'rcvcrit'],
     [/^Received M\.\s?Crit(?:ical)?\.? Damage/i, 'rcvmcrit'],
     [/^Received P\.\s?Crit(?:ical)?\.? Rate/i, 'rcvcc'],
+    // Уклонение от умений — отдельный шанс, с «Уклонением» никак не связан; эффекты складываются, потолок 80%.
+    [/^Chance to evade P\.\/M\.\s?Skills?/i, 'evaskill'],
+    [/^Chance to evade P\.\s?Skills?/i, 'evapskill'],
+    [/^Chance to evade M\.\s?Skills?/i, 'evamskill'],
   ];
   const WWORD = {
     sword: ['sword', 'bigsword'], 'two-handed sword': ['bigsword'], 'one-handed sword': ['sword'],
@@ -595,7 +599,7 @@
       if (mm && mm !== 1) parts.push((mm > 1 ? '+' : '') + Math.round((mm - 1) * 1000) / 10 + '%');
       if (parts.length) misc.push([STAT_LABEL[k], parts.join(', ')]);
     }
-    return { attrs, base: Object.fromEntries(ATTRS.map((a, i) => [a, base[i]])), st, misc, sets, warn, pass, add, mul, prod, notes: [...new Set(notes)] };
+    return { attrs, base: Object.fromEntries(ATTRS.map((a, i) => [a, base[i]])), st, misc, sets, warn, pass, add, mul, sum, prod, notes: [...new Set(notes)] };
   }
 
   // ---------------------------------------------------------------- общее сохранение
@@ -1024,6 +1028,7 @@
     // Позиция: точность x1 / x1.2 / x1.3, физический урон x1 / x1.1 / x1.2, шанс крита x1 / x1.2 / x1.3.
     const pos = ({ front: 1, side: 1.2, back: 1.3 })[dmgPrefs.pos];
     const posDmg = ({ front: 1, side: 1.1, back: 1.2 })[dmgPrefs.pos];
+    const resDiff = Math.max(0, 3 * ((t.level || 0) - (c.level || 0)));
     const rows = [];
     // Обычная атака.
     {
@@ -1036,18 +1041,21 @@
       // Сила крита: 77 x (P. Atk. + статический бонус СА) x соски x 2 x проценты / P. Def.
       const crit = (a.patk + (A.add.critdmg || 0)) * ss * 2 * (1 + pctOf(A, 'critdmg')) * K / d.pdef * pvp * posDmg * (1 + pctOf(D, 'rcvcrit'));
       let avg = (1 - cc) * norm + cc * crit;
-      // Щит блокирует только спереди; по лучникам шанс ×3 (как в Lu4 Planner).
+      // Щит блокирует только спереди (сектор 90° без Aegis).
       const sh = t.eq.shield && ITEMS.get(t.eq.shield.id);
-      let block = 0;
+      let block = 0, pblock = 0;
       if (sh && dmgPrefs.pos === 'front') {
         // Шанс блока = шанс щита x DEX x проценты + бонус от типа урона: +30 от стрел, +12 от ножей.
         const wBlock = bow ? 30 : /dagger/.test(wt || '') ? 12 : 0;
         block = Math.min(1, ((d.srate || 0) * (1 + pctOf(D, 'srate')) + wBlock) / 100);
         const bn = a.patk * ss * K / (d.pdef + (d.sdef || 0)) * pvp;
         avg = (1 - block) * avg + block * ((1 - cc) * bn + cc * bn * 2);
+        // Идеальная блокировка: 2 x модификатор DEX цели, урон ровно 1.
+        pblock = Math.min(1, 2 * bonus.DEX(D.attrs.DEX) / 100);
+        avg = (1 - pblock) * avg + pblock;
       }
       const cycle = 500 / a.aspd;
-      rows.push({ n: 'Normal attack', ic: null, lv: '', norm, crit, hit, cc, block, cycle, exp: hit * avg, ok: true });
+      rows.push({ n: 'Normal attack', ic: null, lv: '', norm, crit, hit, cc, block, pblock, cycle, exp: hit * avg, ok: true });
     }
     for (const sk of (DATA.attacks || {})[c.cls] || []) {
       const l = skillLevel(sk, c.level);
@@ -1066,7 +1074,10 @@
       const bsps = sk.magic && dmgPrefs.mshot === 4 ? 1.5 : 1;
       const cast = sk.hit * 333 / (sk.magic ? a.cspd : a.aspd) * hitK / bsps;
       const reuse = (sk.reuse || 0) * reuseK;
-      const cycle = Math.max(reuse, cast);
+      // Skill Mastery: воины — mod_str x (1 + 10 с включённым Focus Skill Mastery), маги — mod_int.
+      // У атакующего умения при срабатывании нет отката, поэтому цикл в среднем короче.
+      const mastery = Math.min(1, (sk.magic ? bonus.INT(A.attrs.INT) : bonus.STR(A.attrs.STR) * (1 + (c.buffs && c.buffs['334'] != null ? 10 : 0))) / 100);
+      const cycle = Math.max(reuse, cast) * (1 - mastery) + cast * mastery;
       let norm, crit, cc;
       if (sk.magic) {
         norm = Math.sqrt(a.matk * shots.ms) * power * 91 / d.mdef * pvp * (1 + pctOf(A, 'mskill'));
@@ -1076,15 +1087,28 @@
       } else {
         const pdef = d.pdef * (1 - (sk.defIgn || 0) / 100);
         // Удар кинжалом: соска усиливает только P. Atk. (так считает Lu4 Planner).
-        norm = (sk.blow ? (power * (sk.pm || 1) + a.patk * ss) * K / pdef * pvp * (1 + pctOf(A, 'pskill'))
-          : (power + a.patk) * ss * (sk.k || 1) * K / pdef * pvp * (1 + pctOf(A, 'pskill'))) * posDmg;
+        // Удар кинжалом: 77 x (power + P. Atk. + статический бонус СА) x соски (1.5 у кинжалов) / P. Def.
+        // Умения на зарядах: chrgBonus = 0.8 + 0.2 x уровень заряда.
+        const ssBlow = dmgPrefs.ss ? 1.5 + shots.sb : 1;
+        const chrg = sk.k ? 0.8 + 0.2 * (dmgPrefs.charges || 0) : 1;
+        norm = (sk.blow ? (power * (sk.pm || 1) + a.patk + (A.add.critdmg || 0)) * ssBlow * K / pdef * pvp * (1 + pctOf(A, 'pskill'))
+          : (power + a.patk) * ss * chrg * K / pdef * pvp * (1 + pctOf(A, 'pskill'))) * posDmg;
         crit = norm * sk.cm * (1 + pctOf(A, 'pskillcrit'));
         // Шанс крита умением: обычные — от STR, blow/stab — от DEX.
         const cmod = sk.blow ? bonus.DEX(A.attrs.DEX) : bonus.STR(A.attrs.STR);
         cc = Math.min(1, sk.cc / 100 * cmod * Math.max(0, 1 + pctOf(D, 'rcvcc')));
       }
-      const avg = (1 - cc) * norm + cc * crit;
-      rows.push({ n: sk.n, ic: sk.ic, lv: l, magic: sk.magic, norm, crit, hit: 1, cc, block: 0, cycle, cast, reuse, exp: avg, ok: !why, why, mp: sk.mp });
+      let avg = (1 - cc) * norm + cc * crit;
+      // Сопротивление магии: полное 0.5% + level_diff (урон 0), частичное 5% + level_diff (урон пополам),
+      // где level_diff = 3 x (уровень цели − уровень атакующего), но не меньше нуля.
+      let hit = 1;
+      if (sk.magic) {
+        hit = 1 - Math.min(1, (0.5 + resDiff) / 100);
+        avg *= 1 - Math.min(1, (5 + resDiff) / 100) / 2;
+      }
+      // Уклонение цели от умений: эффекты складываются, потолок 80%.
+      hit *= 1 - Math.min(0.8, (D.sum.evaskill || 0) + (D.sum[sk.magic ? 'evamskill' : 'evapskill'] || 0));
+      rows.push({ n: sk.n, ic: sk.ic, lv: l, magic: sk.magic, norm, crit, hit, cc, block: 0, cycle, cast, reuse, exp: hit * avg, ok: !why, why, mp: sk.mp });
     }
     rows.forEach(r => (r.dps = r.ok ? r.exp / r.cycle : 0));
     return { rows, A, D, shots };
@@ -1094,7 +1118,7 @@
     const c = ch();
     const box = els.dmg;
     if (!box) return;
-    if (!dmgPrefs) dmgPrefs = { target: null, pos: 'front', ss: true, mshot: 4 };
+    if (!dmgPrefs) dmgPrefs = { target: null, pos: 'front', ss: true, mshot: 4, charges: 7 };
     box.innerHTML = '';
     if (dmgPrefs.target == null || !byKey(dmgPrefs.target) || byKey(dmgPrefs.target) === c) dmgPrefs.target = 'f:' + FOE_ORDER.find(k => k !== c.cls);
     const t = byKey(dmgPrefs.target);
@@ -1111,7 +1135,11 @@
       h('div', { class: 'dctl' },
         h('label', { class: 'dsel' }, 'Position ', h('select', { onchange: e => set('pos', e.target.value) }, [['front', 'Front'], ['side', 'Side'], ['back', 'Back']].map(([v, n]) => h('option', { value: v, selected: v === dmgPrefs.pos ? true : null }, n)))),
         h('label', { class: 'dsel' }, h('input', { type: 'checkbox', checked: dmgPrefs.ss ? true : null, onchange: e => set('ss', e.target.checked) }), ' Soulshot'),
-        h('label', { class: 'dsel' }, 'Spiritshot ', h('select', { onchange: e => set('mshot', +e.target.value) }, [[4, 'Blessed'], [2, 'Normal'], [1, 'None']].map(([v, n]) => h('option', { value: v, selected: v === dmgPrefs.mshot ? true : null }, n)))))));
+        h('label', { class: 'dsel' }, 'Spiritshot ', h('select', { onchange: e => set('mshot', +e.target.value) }, [[4, 'Blessed'], [2, 'Normal'], [1, 'None']].map(([v, n]) => h('option', { value: v, selected: v === dmgPrefs.mshot ? true : null }, n)))),
+        // Заряды нужны только тем, у кого есть умения на них (Sonic / Force).
+        ((DATA.attacks || {})[c.cls] || []).some(x => x.k)
+          ? h('label', { class: 'dsel' }, 'Charges ', h('select', { onchange: e => set('charges', +e.target.value) }, [0, 1, 2, 3, 4, 5, 6, 7].map(v => h('option', { value: v, selected: v === dmgPrefs.charges ? true : null }, String(v)))))
+          : null)));
     const { rows, D, shots } = damageRows(c, t);
     const f0 = x => Math.round(x).toLocaleString('en-US');
     const d = D.st;
@@ -1135,14 +1163,14 @@
       h('td', { class: 'sk' }, r.ic ? h('img', { src: icon(r.ic), alt: '', loading: 'lazy' }) : h('span', { class: 'na' }, '⚔'), h('span', null, h('b', null, r.n), r.lv ? h('small', null, ' Lv. ' + r.lv) : null, r.why ? h('small', { class: 'why' }, ' — ' + r.why) : null)),
       h('td', null, f0(r.norm)),
       h('td', null, f0(r.crit)),
-      h('td', null, (r.hit < 1 ? Math.round(r.hit * 100) + '% / ' : '') + Math.round(r.cc * 100) + '%' + (r.block ? ` · block ${Math.round(r.block * 100)}%` : '')),
+      h('td', null, (r.hit < 1 ? Math.round(r.hit * 100) + '% / ' : '') + Math.round(r.cc * 100) + '%' + (r.block ? ` · block ${Math.round(r.block * 100)}%` : '') + (r.pblock ? ` · perfect ${Math.round(r.pblock * 10) / 10}%` : '')),
       h('td', null, f0(r.exp)),
       h('td', null, r.cycle.toFixed(2) + ' s'),
       h('td', { class: 'dps' }, r.ok ? f0(r.dps) : '—'),
       h('td', null, r.ok && r.dps ? (pool / r.dps).toFixed(1) + ' s' : '—'))));
     box.append(h('div', { class: 'dwrap' }, h('table', { class: 'dtable' },
       h('thead', null, h('tr', null, ['Skill', 'Hit', 'Crit', 'Hit · crit %', 'Average', 'Cycle', 'DPS', 'CP+HP in'].map(x => h('th', null, x)))), tb)));
-    box.append(h('p', { class: 'note' }, 'Average includes crit chance and, for normal attacks, miss and shield block. Cycle is the longer of reuse and cast time (cast time scales with Atk. Spd. / Casting Spd.). «CP+HP in» — time to burn the target’s CP and HP using only that line. PvP, no attributes.'));
+    box.append(h('p', { class: 'note' }, 'Average includes crit chance and, for normal attacks, miss, shield block and perfect block; for spells — full (0.5% + level) and partial (5% + level) magic resistance. Cycle is the longer of reuse and cast time (cast time scales with Atk. Spd. / Casting Spd.; blessed spiritshots cut it by 1.5). «CP+HP in» — time to burn the target’s CP and HP using only that line. PvP, no attributes, no bow distance bonus.'));
   }
 
   function renderBuffs() {
