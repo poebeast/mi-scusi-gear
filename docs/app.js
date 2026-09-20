@@ -43,9 +43,11 @@
    ['spellhowler', 'Spellhowler', 'mystic', 'darkelf', 40], ['phantomsummoner', 'Phantom Summoner', 'mystic', 'darkelf', 41], ['shillienelder', 'Shillien Elder', 'mystic', 'darkelf', 43],
    ['destroyer', 'Destroyer', 'fighter', 'orc', 46], ['tyrant', 'Tyrant', 'fighter', 'orc', 48], ['warcryer', 'Warcryer', 'mystic', 'orc', 52],
    ['bountyhunter', 'Bounty Hunter', 'fighter', 'dwarf', 55], ['warsmith', 'Warsmith', 'fighter', 'dwarf', 57],
-   // Terramancer (кастомная ветка гномов Lu4) на сервере использует шаблон гнома-воина — так в данных Lu4 Planner.
+   // Terramancer (кастомная ветка гномов-магов Lu4): P. Def., P. Atk. и скорость — как у гнома-воина,
+   // но свои базовые атрибуты (ниже, CLASSES.terramancer.attr) — так в данных Lu4 Planner.
    ['terramancer', 'Terramancer', 'fighter', 'dwarf', 210]]
     .forEach(([k, n, arch, race, id]) => { CLASSES[k] = { n, arch, race, hp: arch === 'fighter' ? 2300 : 1700, mp: arch === 'fighter' ? 900 : 1600, cpr: 0.6 }; CLASS_ICON[k] = id; });
+  Object.assign(CLASSES.terramancer, { attr: [21, 20, 30, 39, 20, 40], label: 'Mystic' });
   // Противники: по одному персонажу каждого класса, порядок — по расам.
   const FOE_ORDER = Object.keys(CLASSES).sort((a, b) => RACE_ORDER.indexOf(CLASSES[a].race) - RACE_ORDER.indexOf(CLASSES[b].race) || (CLASSES[a].arch > CLASSES[b].arch ? 1 : CLASSES[a].arch < CLASSES[b].arch ? -1 : 0) || CLASS_ICON[a] - CLASS_ICON[b]);
   // Пол по умолчанию — как на официальном рендере класса.
@@ -287,7 +289,7 @@
   // ---------------------------------------------------------------- состояние
   // Пол по умолчанию для остальных классов (как на их официальных рендерах).
   Object.assign(CLASS_GENDER, { gladiator: 'male', warlord: 'female', darkavenger: 'male', treasurehunter: 'female', sorcerer: 'female', necromancer: 'female', warlock: 'male', prophet: 'male', templeknight: 'male', plainwalker: 'female', spellsinger: 'female', elementalsummoner: 'male', shillienknight: 'female', bladedancer: 'male', abysswalker: 'female', spellhowler: 'female', phantomsummoner: 'female', shillienelder: 'female', destroyer: 'female', tyrant: 'male', warcryer: 'female', bountyhunter: 'female', warsmith: 'female', terramancer: 'male' });
-  const raceLabel = c => RACES.find(r => r[0] === c.race)[1] + ' ' + (c.type === 'mystic' ? 'Mystic' : 'Fighter');
+  const raceLabel = c => RACES.find(r => r[0] === c.race)[1] + ' ' + (CLASSES[c.cls] && CLASSES[c.cls].label || (c.type === 'mystic' ? 'Mystic' : 'Fighter'));
   function blankChar(cls, i) {
     const c = CLASSES[cls];
     return { nick: '', cls, race: c.race, type: c.arch, gender: CLASS_GENDER[cls] || 'male', level: 75, eq: {}, hen: [null, null, null], buffs: {} };
@@ -444,7 +446,7 @@
     const arch = c.type || cls.arch;
     const lvl = c.level;
     const notes = [], warn = [];
-    const base = BASE_ATTR[c.race][arch];
+    const base = cls.attr || BASE_ATTR[c.race][arch];
     const attrs = {};
     ATTRS.forEach((a, i) => (attrs[a] = base[i]));
     const hen = hennaMods(c);
@@ -556,7 +558,8 @@
     for (const s of ['head', 'chest', 'legs', 'gloves', 'feet', 'shield']) { const e = c.eq[s]; const it = e && ITEMS.get(e.id); if (it && it.st && it.st.eva) armEva += it.st.eva; }
     st.eva = fin('eva', sq + armEva);
     const critBase = w ? (w.st && w.st.crit) || BASE_CRIT[wtype] || 8 : 4;
-    st.crit = Math.min(500, fin('crit', critBase * 10 * bonus.DEX(attrs.DEX)));
+    // Потолка 500 нет: Lu4 Planner и в статах, и в симуляторе считает шанс крита выше 500.
+    st.crit = fin('crit', critBase * 10 * bonus.DEX(attrs.DEX));
     const spdBase = w ? (w.st && w.st.aspd) || ATK_SPD[wtype] || 325 : 300;
     st.aspd = fin('aspd', spdBase * bonus.DEX(attrs.DEX));
     st.cspd = fin('cspd', 333 * bonus.WIT(attrs.WIT));
@@ -566,7 +569,8 @@
     if (hasShield) {
       const e = c.eq.shield, it = ITEMS.get(e.id);
       st.sdef = fin('sdef', itemStat(it, 'pdef', e.e || 0));
-      if (it.st && it.st.srate) st.srate = fin('srate', it.st.srate);
+      // Шанс блока — шанс щита × бонус DEX, как показывает Lu4 Planner (так же считается блок в таблице урона).
+      if (it.st && it.st.srate) st.srate = it.st.srate * bonus.DEX(attrs.DEX);
     }
 
     const misc = [];
@@ -946,6 +950,7 @@
   // Для сверки со сторонним калькулятором в тестах.
   window.__msCompute = compute;
   window.__msDamage = (c, t) => damageRows(c, t);
+  window.__msClass = k => CLASSES[k];
 
   // Пассивки — иконками, описание в подсказке. Книжную пассивку нажатием отмечают изученной или нет.
   function renderPassives(r) {
@@ -1013,7 +1018,9 @@
     {
       const hit = Math.min(98, hitChance(a.acc - d.eva) * pos) / 100;
       // Received P. Crit. Rate у цели (например, мастерство лёгкой брони) снижает шанс крита по ней.
-      const cc = Math.min(1, a.crit / 1000 * pos * Math.max(0, 1 + pctOf(D, 'rcvcc')));
+      // Шанс крита обычной атакой в Lu4 Planner: P. Crit. Rate × 1.1, сбоку ещё ×1.1, сзади ×1.3.
+      const critPos = ({ front: 1, side: 1.1, back: 1.3 })[dmgPrefs.pos];
+      const cc = Math.min(1, a.crit / 1000 * 1.1 * critPos * Math.max(0, 1 + pctOf(D, 'rcvcc')));
       const norm = a.patk * ss * K / d.pdef * pvp;
       const crit = (a.patk * ss * 2 * (1 + pctOf(A, 'critdmg')) + (A.add.critdmg || 0)) * K / d.pdef * pvp * (1 + pctOf(D, 'rcvcrit'));
       let avg = (1 - cc) * norm + cc * crit;

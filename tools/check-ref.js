@@ -1,7 +1,8 @@
 // Сверка наших статов с расчётом Lu4 Planner (data/raw/ref.json): node tools/check-ref.js [фильтр] [строк]
-// Важно: Lu4 Planner прибавляет базу персонажа (P. Def. 80, M. Def. 41, P. Atk. 4) к экипировке всегда,
-// а в игре надетая вещь заменяет базу слота (сверено с окном персонажа). Поэтому в случаях с гиром
-// P. Atk./M. Atk./P. Def./M. Def. расходятся с ним намеренно; голые персонажи совпадают полностью.
+// Не сверяем (SKIP): с 19.09 Lu4 Planner прибавляет базу персонажа к оружию и умножает плоские P. Atk./M. Atk.
+// пассивок на STR/INT и уровень, а без оружия даёт «кулак» (Atk. Spd. 379, крит 8). С окном персонажа в игре
+// это не сходится (Swordsinger 75: P. Atk. 405 и M. Atk. 172 в игре = наш расчёт, у планера 460 и 182),
+// поэтому P. Atk./M. Atk. не сверяем нигде, а Atk. Spd. и крит — у персонажей без оружия.
 const fs = require('fs');
 const { execFileSync } = require('child_process');
 const SP = require('path').join(require('os').tmpdir(), 'ms-check');
@@ -16,6 +17,7 @@ const NAT = { paladin: ['human', 'fighter'], bishop: ['human', 'mystic'], elder:
   gladiator: ['human', 'fighter'], warlord: ['human', 'fighter'], darkavenger: ['human', 'fighter'], treasurehunter: ['human', 'fighter'], sorcerer: ['human', 'mystic'], necromancer: ['human', 'mystic'], warlock: ['human', 'mystic'], prophet: ['human', 'mystic'],
   templeknight: ['elf', 'fighter'], plainwalker: ['elf', 'fighter'], spellsinger: ['elf', 'mystic'], elementalsummoner: ['elf', 'mystic'], shillienknight: ['darkelf', 'fighter'], bladedancer: ['darkelf', 'fighter'], abysswalker: ['darkelf', 'fighter'],
   spellhowler: ['darkelf', 'mystic'], phantomsummoner: ['darkelf', 'mystic'], shillienelder: ['darkelf', 'mystic'], destroyer: ['orc', 'fighter'], tyrant: ['orc', 'fighter'], warcryer: ['orc', 'mystic'], bountyhunter: ['dwarf', 'fighter'], warsmith: ['dwarf', 'fighter'], terramancer: ['dwarf', 'fighter'] };
+// Книги: в эталонах планера три книжных Will всегда изучены, поэтому noBook у случаев пустой.
 const cases = ref.cases.filter(c => !filter || c.id.includes(filter));
 for (const c of cases) Object.assign(c.char, { race: NAT[c.char.cls][0], type: NAT[c.char.cls][1], gender: 'male', hen: c.char.hen || [null, null, null], buffs: c.char.buffs || {}, clan: false, clanLv: {} });
 
@@ -43,7 +45,9 @@ cases.forEach((c, i) => {
   const o = ours[i];
   if (!o || o.err) { rows.push(c.id + ' ERR ' + (o && o.err)); return; }
   const diffs = [];
+  const SKIP = /-naked-/.test(c.id) || !c.char.eq.weapon ? ['patk', 'matk', 'aspd', 'crit'] : ['patk', 'matk'];
   for (const [k, rk, mult] of KEYS) {
+    if (SKIP.includes(k)) continue;
     const rv = c.ref[rk] * (mult || 1), ov = o.st[k];
     if (rv == null || ov == null) continue;
     const d = rv ? (ov - rv) / rv * 100 : 0;
