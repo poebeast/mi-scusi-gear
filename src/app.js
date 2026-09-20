@@ -159,6 +159,9 @@
     [/^All Skills Reuse Time/i, 'reuse'],
     [/^P\.\s?Skills? Reuse Time/i, 'preuse'],
     [/^M\.\s?Skills? Reuse Time/i, 'mreuse'],
+    // «Bow Reuse Delay» — СА Quick Recovery на луках. Лук уже надет, а с луком в руках
+    // из физических умений доступны только лучные, поэтому это тот же preuse.
+    [/^Bow Reuse Delay/i, 'preuse'],
     [/^(?:All )?Skills Hit Time/i, 'hittime'],
     [/^P\.\s?Skills? Hit Time/i, 'phittime'],
     [/^P\.?\s?Atk\.? when using a bow/i, 'patk', 'bow'],
