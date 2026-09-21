@@ -197,10 +197,16 @@
     [/^(?:Bow's )?Attack Range/i, 'range'],
     // Сопротивление дебафам входит в формулу шанса прохождения: debuff_res_multiplier = (100 - debuff) / 100.
     [/^Resistance to de-?buffs/i, 'debuffres'],
+    // Сопротивление стихиям у цели: защитный трейт. «Resistance to Water -25%» превращается в множитель
+    // урона по умениям с трейтом воды. Пары («Wind and Dark») дают два эффекта от одного источника.
+    [/^Resistance to all elements/i, 'res_all'],
+    [/^Resistance to (Fire|Water|Wind|Earth|Holy|Dark)/i, 'res'],
     [/^Chance to evade P\.\/M\.\s?Skills?/i, 'evaskill'],
     [/^Chance to evade P\.\s?Skills?/i, 'evapskill'],
     [/^Chance to evade M\.\s?Skills?/i, 'evamskill'],
   ];
+  // Названия стихий в текстах умений и соответствующие им трейты из вики.
+  const ELEM = { fire: 'fire', water: 'water', wind: 'wind', earth: 'earth', holy: 'holy', dark: 'unholy' };
   const WWORD = {
     sword: ['sword', 'bigsword'], 'two-handed sword': ['bigsword'], 'one-handed sword': ['sword'],
     blunt: ['blunt', 'bigblunt'], 'two-handed blunt': ['bigblunt'], 'one-handed blunt': ['blunt'],
@@ -238,7 +244,10 @@
       line = line.trim().replace(/^Clan members'\s*/i, '')
         // Единые названия для перезарядки: «P. and M. Skills» → All, ритмы на урон не влияют.
         .replace(/P\. and M\. Skills/gi, 'All Skills').replace(/Skills and Rhythms/gi, 'Skills')
-        .replace(/Reuse Delay for magic by/gi, 'M. Skills Reuse Time by').replace(/Physical Skill Cooldown/gi, 'P. Skills Reuse Time');
+        .replace(/Reuse Delay for magic by/gi, 'M. Skills Reuse Time by').replace(/Physical Skill Cooldown/gi, 'P. Skills Reuse Time')
+        // «Resistance to Holy and Dark +20%» — один эффект сразу на два трейта. Разворачиваем в две части,
+        // иначе разбор разорвёт строку по «and» и потеряет её целиком.
+        .replace(/^Resistance to (Fire|Water|Wind|Earth|Holy|Dark) and (Fire|Water|Wind|Earth|Holy|Dark)(.*)$/i, 'Resistance to $1$3, Resistance to $2$3');
       if (!line || /^Affects all clan members/i.test(line)) continue;
       let lineCond = cond;
       // «With Heavy Armor:», «With Light Armor and Dagger/Dual Dagger:» — условия по броне и оружию.
@@ -297,7 +306,8 @@
           const mm = name.match(re);
           if (!mm) continue;
           if (lineCond !== 'skip') {
-            const mod = { k: key === 'attr' ? mm[1].toUpperCase() : key, v: val, pct: !!m[3] };
+            const kk = key === 'attr' ? mm[1].toUpperCase() : key === 'res' ? 'res_' + ELEM[mm[1].toLowerCase()] : key;
+            const mod = { k: kk, v: val, pct: !!m[3] };
             const cs = [lineCond, sub, nameCond, eqCond && eqCond.join('+')].filter(Boolean);
             if (cs.length) mod.cond = cs.join('+');
             mods.push(mod);
@@ -1060,9 +1070,23 @@
     const ssB = dmgPrefs.mshot === 4 ? 4 : dmgPrefs.mshot > 1 ? 2 : 1;
     const mm = b.mag ? 11 * Math.sqrt(ssB * A.st.matk) / D.st.mdef : 1;
     const res = Math.max(0, 1 - (D.sum.debuffres || 0));
-    const k = mm * res;
-    return { dl, ml, mm, res, k, need: k > 0 ? 90 / k : Infinity };
+    // trait_res_multiplier = 1 / резист цели к этому типу дебафа: Resist Dark режет шанс Curse Gloom.
+    const tr = String(b.trait || '').replace(/^trait_/, '');
+    const trRes = 1 / Math.max(0.05, defTrait(D, ELEM_TR.includes(tr) ? tr : null));
+    const k = mm * trRes * res;
+    return { dl, ml, mm, res, trRes, k, need: k > 0 ? 90 / k : Infinity };
   }
+  // Множитель урона от стихийного трейта. Защитный трейт цели — произведение (1 + сопротивление)
+  // по источникам, урон умножается на 1 + (1 − защитный трейт). Сверено с Lu4 Planner: Surrender to
+  // Water Lv. 14 даёт ×1.25, Curse Gloom («все стихии −10%») ×1.1, вместе ×1.325 (0.75 × 0.9 = 0.675).
+  const ELEM_TR = ['fire', 'water', 'wind', 'earth', 'holy', 'unholy'];
+  // Защитный трейт цели: произведение (1 + сопротивление) по источникам.
+  // «Resistance to all elements» действует только на шесть стихий, на трейты вроде bleed или shock — нет.
+  function defTrait(D, tr) {
+    if (!tr) return 1;
+    return (D.mul['res_' + tr] || 1) * (ELEM_TR.includes(tr) ? D.mul.res_all || 1 : 1);
+  }
+  function traitMul(D, tr) { return tr ? Math.max(0.05, Math.min(2, 2 - defTrait(D, tr))) : 1; }
   // Шанс попадания обычной атакой: 88 + 2 x (точность − уклонение цели), не выше 98% и не ниже 28%.
   function hitChance(d) { return 88 + 2 * d; }
   const HIT_MAX = 98, HIT_MIN = 28;
@@ -1168,6 +1192,9 @@
         const cmod = sk.blow ? bonus.DEX(A.attrs.DEX) : bonus.STR(A.attrs.STR);
         cc = Math.min(1, sk.cc / 100 * cmod * Math.max(0, 1 + pctOf(D, 'rcvcc')));
       }
+      // Модификаторы урона применяются в конце формулы: трейт стихии — один из них.
+      const tm = traitMul(D, sk.tr);
+      norm *= tm; crit *= tm;
       let avg = (1 - cc) * norm + cc * crit;
       // Сопротивление магии: полное 0.5% + level_diff (урон 0), частичное 5% + level_diff (урон пополам),
       // где level_diff = 3 x (уровень цели − уровень атакующего), но не меньше нуля.
@@ -1239,8 +1266,15 @@
         const ch = debuffChance(A, D, x.b, x.lv, t.level);
         box2.append(h('span', null, (i ? ' · ' : '') + `${x.b.n} Lv. ${x.lv} — ${x.b.mag ? 'magic ×' + (Math.round(ch.mm * 100) / 100) : 'physical'}`
           + (ch.res < 1 ? `, target debuff resist ${Math.round((1 - ch.res) * 100)}%` : '')
+          + (ch.trRes !== 1 ? `, ${String(x.b.trait || '').replace(/^trait_/, '')} trait ×${Math.round(ch.trRes * 100) / 100}` : '')
           + `, caps at 90% if the skill's own base ≥ ${ch.need === Infinity ? '∞' : Math.round(ch.need)}`));
       });
+      // Снятое сопротивление стихии — это множитель урона по умениям с этим трейтом.
+      // Одинаковые множители собираем в одну группу, чтобы «все стихии −10%» не печатались шесть раз.
+      const grp = new Map();
+      for (const e of ELEM_TR) { const v = Math.round(traitMul(D, e) * 100) / 100; if (v !== 1) grp.set(v, [...(grp.get(v) || []), e]); }
+      if (grp.size) box2.append(h('span', null, '  ·  damage ' +
+        [...grp].map(([v, es]) => (es.length === ELEM_TR.length ? 'all elements' : es.join(' / ')) + ' ' + fx(v)).join(', ')));
       box.append(box2);
     }
     const pool = d.hp + d.cp;
@@ -1366,7 +1400,7 @@
     const n = Object.keys(dmgPrefs.deb || {}).length;
     box.append(h('div', { class: 'secthead' },
       h('h3', null, 'Debuffs on the target'),
-      h('span', { class: 'note' }, 'Negative skills the party can land on this target. Level follows the level of that class’s character. Only effects the engine knows are applied — resistances to elements are shown but not counted, the site has no attribute system.'),
+      h('span', { class: 'note' }, 'Negative skills the party can land on this target. Level follows the level of that class’s character. Lowered resistance to an element multiplies the damage of skills with that trait; the attribute (stone) system is not modelled.'),
       h('button', { class: 'btn sm', disabled: !n, onclick: () => { dmgPrefs.deb = {}; renderDamage(); drawDebDialog(); } }, 'Remove all')));
     const byCls = {};
     for (const b of DEBUFFS.values()) for (const k of b.cls || []) (byCls[k] = byCls[k] || []).push(b);

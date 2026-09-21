@@ -366,6 +366,9 @@ const powerOf = t => {
   const m = String(t).match(/Power:\s*(\d[\d ]*)/i) || String(t).match(/(\d[\d ]*)\s*Power/i);
   return m ? +m[1].replace(/\s/g, '') : 0;
 };
+// Трейт стихии умения («trait_water» у Hydro Blast). По нему цель получает множитель урона от дебафов
+// вида «Resistance to Water −25%»; trait_none и отсутствие трейта ничего не дают.
+const traitOf = s => { const t = String((s.st || {}).Trait || '').replace(/^trait_/, ''); return t && t !== 'none' ? t : undefined; };
 const attacks = {};
 for (const [cls, c] of Object.entries(clsRaw)) {
   const learn = {};
@@ -387,7 +390,7 @@ for (const [cls, c] of Object.entries(clsRaw)) {
     const ign = (text.match(/Ignores (\d+)% of enemy's P\. Def/i) || [])[1];
     attacks[cls].push({
       id, n: s.name, ic: (s.icon || '').replace(/\.png$/, ''), learn: list.sort((a, b) => a[0] - b[0] || a[1] - b[1]), pw,
-      magic: !!m.magic, hit: m.hit, reuse: m.reuse, cc: m.cc, cm: m.cm,
+      magic: !!m.magic, hit: m.hit, reuse: m.reuse, cc: m.cc, cm: m.cm, tr: traitOf(s),
       mp: +(String((s.st || {}).Consumes || '').match(/\d+/) || [0])[0],
       noShield: /Ignores Shield Defen/i.test(text) || undefined, defIgn: ign ? +ign : undefined,
       blow: /Mortal Blow/.test(s.name) || undefined, weapon: SK_WEAPON[id],
@@ -422,7 +425,7 @@ for (const [cls, pid] of Object.entries(NEW_PL)) {
     const ign = (text.match(/Ignores (\d+)% of enemy's P\. Def/i) || [])[1];
     attacks[cls].push({
       id: x.id, n: s.name, ic: (s.icon || '').replace(/\.png$/, ''), learn, pw,
-      magic: !!m.magic, hit: m.hit, reuse: m.reuse, cc: m.cc, cm: m.cm, k: factorOf(m),
+      magic: !!m.magic, hit: m.hit, reuse: m.reuse, cc: m.cc, cm: m.cm, k: factorOf(m), tr: traitOf(s),
       mp: +(String((s.st || {}).Consumes || '').match(/\d+/) || [0])[0],
       noShield: /Ignores Shield Defen/i.test(text) || undefined, defIgn: ign ? +ign : undefined,
       blow: /Blow|Backstab/.test(s.name) || undefined, weapon: SK_WEAPON[x.id] || (/ Shot$/.test(s.name) ? 'bow' : /Blow|Backstab|Stab/.test(s.name) ? 'dagger' : undefined),
