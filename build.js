@@ -8,6 +8,7 @@ const readJson = (p, d) => (fs.existsSync(R(p)) ? JSON.parse(read(p)) : d);
 const items = readJson('data/items.json', []);
 const sets = readJson('data/sets.json', []);
 const buffs = readJson('data/buffs.json', []);
+const debuffs = readJson('data/debuffs.json', []);
 const passives = readJson('data/passives.json', {});
 const clan = readJson('data/clan.json', []);
 const hptab = readJson('data/hptab.json', {});
@@ -19,7 +20,7 @@ fs.rmSync(out, { recursive: true, force: true });
 fs.mkdirSync(path.join(out, 'icons'), { recursive: true });
 
 // Кладём только иконки, на которые ссылаются данные.
-const used = new Set([...items.map(i => i.ic), ...buffs.map(b => b.ic), ...Object.values(passives).flat().map(p => p.ic), ...clan.map(c => c.ic), ...Object.values(attacks).flat().map(a => a.ic), ...['str', 'dex', 'con', 'int', 'wit', 'men'].map(a => 'etc_' + a + '_symbol_i00'), ...[5, 16, 30, 21, 51, 9, 24, 37].map(n => 'cls_' + n)].filter(Boolean));
+const used = new Set([...items.map(i => i.ic), ...buffs.map(b => b.ic), ...debuffs.map(b => b.ic), ...Object.values(passives).flat().map(p => p.ic), ...clan.map(c => c.ic), ...Object.values(attacks).flat().map(a => a.ic), ...['str', 'dex', 'con', 'int', 'wit', 'men'].map(a => 'etc_' + a + '_symbol_i00'), ...[5, 16, 30, 21, 51, 9, 24, 37].map(n => 'cls_' + n)].filter(Boolean));
 const missing = [];
 for (const name of used) {
   const f = R('icons/' + name + '.png');
@@ -29,7 +30,7 @@ for (const name of used) {
 for (const f of fs.readdirSync(R('icons')).filter(f => /^class_icon_\d+\.png$/.test(f))) fs.copyFileSync(R('icons/' + f), path.join(out, 'icons', f));
 if (missing.length) console.warn('нет иконок:', missing.length, missing.slice(0, 10).join(', '));
 
-fs.writeFileSync(path.join(out, 'data.js'), 'window.MISCUSI_DATA=' + JSON.stringify({ items, sets, buffs, passives, clan, hptab, attacks, state }) + ';\n');
+fs.writeFileSync(path.join(out, 'data.js'), 'window.MISCUSI_DATA=' + JSON.stringify({ items, sets, buffs, debuffs, passives, clan, hptab, attacks, state }) + ';\n');
 fs.copyFileSync(R('src/app.js'), path.join(out, 'app.js'));
 fs.copyFileSync(R('src/style.css'), path.join(out, 'style.css'));
 fs.copyFileSync(R('src/themes.css'), path.join(out, 'themes.css'));
@@ -63,4 +64,4 @@ fs.writeFileSync(path.join(out, 'index.html'), `<!doctype html>
 </body>
 </html>
 `);
-console.log('docs/ готов:', items.length, 'предметов,', sets.length, 'сетов,', buffs.length, 'баффов,', used.size - missing.length, 'иконок');
+console.log('docs/ готов:', items.length, 'предметов,', sets.length, 'сетов,', buffs.length, 'баффов,', debuffs.length, 'дебафов,', used.size - missing.length, 'иконок');

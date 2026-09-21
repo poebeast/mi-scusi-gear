@@ -115,6 +115,10 @@
   const SETS = new Map((DATA.sets || []).map(s => [s.id, s]));
   const BUFFS = new Map((DATA.buffs || []).map(b => [b.id, b]));
   const PASSIVES = DATA.passives || {};
+  // Дебафы: вешаются на цель в калькуляторе урона. ml — магический уровень по уровням умения,
+  // он же уровень изучения; из него берётся и доступный уровень, и clamped_dl в шансе прохождения.
+  const DEBUFFS = new Map((DATA.debuffs || []).map(b => [b.id, b]));
+  const debLevel = (b, lvl) => { let n = 0; (b.ml || []).forEach((m, i) => { if (m <= lvl) n = i + 1; }); return n; };
   const CLAN = DATA.clan || [];
   // Уровень пассивки на уровне персонажа: наибольший выученный не позже этого уровня.
   const passiveLevel = (p, lvl) => p.learn.reduce((m, [L, l]) => (L <= lvl && l > m ? l : m), 0);
@@ -191,6 +195,8 @@
     [/^Received P\.\s?Crit(?:ical)?\.? Rate/i, 'rcvcc'],
     // Уклонение от умений — отдельный шанс, с «Уклонением» никак не связан; эффекты складываются, потолок 80%.
     [/^(?:Bow's )?Attack Range/i, 'range'],
+    // Сопротивление дебафам входит в формулу шанса прохождения: debuff_res_multiplier = (100 - debuff) / 100.
+    [/^Resistance to de-?buffs/i, 'debuffres'],
     [/^Chance to evade P\.\/M\.\s?Skills?/i, 'evaskill'],
     [/^Chance to evade P\.\s?Skills?/i, 'evapskill'],
     [/^Chance to evade M\.\s?Skills?/i, 'evamskill'],
@@ -467,7 +473,8 @@
       return false;
     });
   }
-  function compute(c) {
+  // extra — дополнительные эффекты поверх персонажа: дебафы, наложенные на него в калькуляторе урона.
+  function compute(c, extra) {
     const cls = CLASSES[c.cls];
     const arch = c.type || cls.arch;
     const lvl = c.level;
@@ -518,6 +525,8 @@
       const p = parseFx(b.lv[lv - 1]);
       addMods(p.mods, b.n);
     }
+
+    if (extra) for (const x of extra) addMods(parseFx(x.text).mods, x.n);
 
     const chestIt = c.eq.chest && ITEMS.get(c.eq.chest.id);
     const live = mods.filter(m => !m.cond || condOk(m.cond, { wtype, hasShield, at: chestIt && chestIt.at }));
@@ -985,6 +994,8 @@
   // Для сверки со сторонним калькулятором в тестах.
   window.__msCompute = compute;
   window.__msDamage = (c, t) => damageRows(c, t);
+  window.__msPrefs = () => dmgPrefs;
+  window.__msDebuffs = () => [...DEBUFFS.values()];
   window.__msClass = k => CLASSES[k];
 
   // Пассивки — иконками, описание в подсказке. Книжную пассивку нажатием отмечают изученной или нет.
@@ -1031,7 +1042,27 @@
   //   магия: √(M. Atk. × соска) × сила × 91 ÷ M. Def.; крит ×2,5
   //   обычная атака: P. Atk. × соска × 70/77 ÷ P. Def., раз в 500 / Atk. Spd. секунд.
   // var и функции: первый рендер идёт раньше этих строк.
-  var dmgPrefs;
+  var dmgPrefs = { target: null, pos: 'front', ss: true, mshot: 4, charges: 8, dist: 500, deb: {} };
+  // Дебафы, наложенные на цель: { id умения: уровень }. Живут в настройках калькулятора, а не в персонаже.
+  const debList = t => Object.keys(dmgPrefs.deb || {}).map(id => {
+    const b = DEBUFFS.get(id); if (!b) return null;
+    const lv = Math.min(dmgPrefs.deb[id], b.lv.length);
+    return { b, lv, n: b.n + ' Lv. ' + lv, text: b.lv[lv - 1] || '' };
+  }).filter(Boolean);
+  // Шанс прохождения дебафа, формула сервера:
+  // Chance = (30 + clamped_dl x lv_bonus_rate + activate_rate - basic_property_value)
+  //          x magic_multiplier x trait_res x debuff_res x attribute_part / trait_atk, потолок 90%, пол 10%.
+  // lv_bonus_rate, activate_rate и basic_property_value лежат в скриптах сервера и нам недоступны,
+  // поэтому считаем множители и показываем, при каком базовом значении шанс упирается в потолок.
+  function debuffChance(A, D, b, lv, tLevel) {
+    const ml = (b.ml || [])[lv - 1] || 0;
+    const dl = Math.max(0, ml - tLevel + 3);
+    const ssB = dmgPrefs.mshot === 4 ? 4 : dmgPrefs.mshot > 1 ? 2 : 1;
+    const mm = b.mag ? 11 * Math.sqrt(ssB * A.st.matk) / D.st.mdef : 1;
+    const res = Math.max(0, 1 - (D.sum.debuffres || 0));
+    const k = mm * res;
+    return { dl, ml, mm, res, k, need: k > 0 ? 90 / k : Infinity };
+  }
   // Шанс попадания обычной атакой: 88 + 2 x (точность − уклонение цели), не выше 98% и не ниже 28%.
   function hitChance(d) { return 88 + 2 * d; }
   const HIT_MAX = 98, HIT_MIN = 28;
@@ -1047,7 +1078,8 @@
   function skillLevel(sk, lvl) { return sk.learn.reduce((m, [L, l]) => (L <= lvl && l > m ? l : m), 0); }
   function powerAt(sk, l) { let p = 0; for (const k in sk.pw) if (+k <= l && sk.pw[k]) p = sk.pw[k]; return p; }
   function damageRows(c, t) {
-    const A = compute(c), D = compute(t);
+    const deb = debList(t);
+    const A = compute(c), D = compute(t, deb);
     const a = A.st, d = D.st;
     const w = c.eq.weapon && ITEMS.get(c.eq.weapon.id);
     const wt = w ? w.wt : null;
@@ -1163,7 +1195,8 @@
     const c = ch();
     const box = els.dmg;
     if (!box) return;
-    if (!dmgPrefs) dmgPrefs = { target: null, pos: 'front', ss: true, mshot: 4, charges: 8, dist: 500 };
+    if (!dmgPrefs) dmgPrefs = { target: null, pos: 'front', ss: true, mshot: 4, charges: 8, dist: 500, deb: {} };
+    if (!dmgPrefs.deb) dmgPrefs.deb = {};
     box.innerHTML = '';
     if (dmgPrefs.target == null || !byKey(dmgPrefs.target) || byKey(dmgPrefs.target) === c) dmgPrefs.target = 'f:' + FOE_ORDER.find(k => k !== c.cls);
     const t = byKey(dmgPrefs.target);
@@ -1189,24 +1222,40 @@
         c.eq.weapon && ITEMS.get(c.eq.weapon.id) && ITEMS.get(c.eq.weapon.id).wt === 'bow'
           ? h('label', { class: 'dsel' }, 'Distance ', h('input', { type: 'number', min: '0', step: '50', value: dmgPrefs.dist, 'aria-label': 'Shot distance', onchange: e => set('dist', Math.max(0, Math.round(+e.target.value || 0))) }))
           : null)));
-    const { rows, D, shots, atkRange, distMul } = damageRows(c, t);
+    const { rows, A, D, shots, atkRange, distMul } = damageRows(c, t);
     const f0 = x => Math.round(x).toLocaleString('en-US');
     const d = D.st;
     const fx = v => '×' + (Math.round(v * 100) / 100);
     box.append(h('div', { class: 'dtarget' }, `Target: P. Def. ${f0(d.pdef)} · M. Def. ${f0(d.mdef)} · Evasion ${f0(d.eva)} · HP ${f0(d.hp)} · CP ${f0(d.cp)}` + (t.eq.shield && ITEMS.get(t.eq.shield.id) ? ` · shield ${f0(d.sdef || 0)}` : '')
       + `  ·  Shots: soulshot ${dmgPrefs.ss ? fx(shots.ss) : 'off'}, spiritshot ${dmgPrefs.mshot > 1 ? fx(shots.ms) : 'off'}` + (shots.sb ? ` · weapon enchant ${fx(1 + shots.sb)}` : '')
       + (atkRange ? `  ·  Shot range ${f0(atkRange)}, at ${f0(dmgPrefs.dist || 0)} that is ${distMul >= 1 ? '+' : ''}${Math.round((distMul - 1) * 1000) / 10}% damage` : '')));
+    const deb = debList(t);
+    if (deb.length) {
+      // Шанс прохождения: считаем множители формулы сервера. Базовый шанс умения лежит в скриптах
+      // сервера, поэтому показываем порог — при каком базовом значении дебаф упирается в потолок 90%.
+      const box2 = h('div', { class: 'dtarget' });
+      box2.append(h('b', null, 'Debuffs: '));
+      deb.forEach((x, i) => {
+        const ch = debuffChance(A, D, x.b, x.lv, t.level);
+        box2.append(h('span', null, (i ? ' · ' : '') + `${x.b.n} Lv. ${x.lv} — ${x.b.mag ? 'magic ×' + (Math.round(ch.mm * 100) / 100) : 'physical'}`
+          + (ch.res < 1 ? `, target debuff resist ${Math.round((1 - ch.res) * 100)}%` : '')
+          + `, caps at 90% if the skill's own base ≥ ${ch.need === Infinity ? '∞' : Math.round(ch.need)}`));
+      });
+      box.append(box2);
+    }
     const pool = d.hp + d.cp;
     // Цель можно переодеть прямо здесь: гир, заточка, тату, уровень, баффы, клан-скилы.
     const tHen = henRow(t, 'sm');
     const tLvl = h('input', { type: 'number', min: '1', max: '75', value: t.level, 'aria-label': 'Target level', onchange: e => { t.level = Math.max(1, Math.min(75, Math.round(+e.target.value || 75))); update(false, t); } });
     const nb = Object.keys(t.buffs).length;
+    const nd = Object.keys(dmgPrefs.deb || {}).length;
     box.append(h('div', { class: 'tedit' },
       h('div', { class: 'tgear' }, ['head', 'chest', 'legs', 'gloves', 'feet', 'weapon', 'shield', 'neck', 'ear1', 'ear2', 'ring1', 'ring2'].map(sl => slotButton(sl, t))),
       h('div', { class: 'tctl' },
         h('label', { class: 'dsel' }, 'Lv. ', tLvl),
         tHen,
         h('button', { class: 'btn sm', onclick: () => openBuffs(t) }, nb ? `Buffs (${nb})` : 'Buffs'),
+        h('button', { class: 'btn sm', onclick: () => openDebuffs(t) }, nd ? `Debuffs (${nd})` : 'Debuffs'),
         h('label', { class: 'dsel' }, h('input', { type: 'checkbox', checked: t.clan ? true : null, onchange: e => { t.clan = e.target.checked; update(false, t); } }), ' Clan skills'))));
     const sorted = rows.slice().sort((x, y) => (y.ok - x.ok) || y.dps - x.dps);
     const tb = h('tbody', null, sorted.map(r => h('tr', { class: r.ok ? '' : 'off' },
@@ -1307,6 +1356,74 @@
     dlg.append(h('div', { class: 'dlg' }, h('div', { class: 'dlghead' }, h('h2', null, 'Buffs', h('small', { class: 'dlgwho' }, ' · ' + (c.nick || CLASSES[c.cls].n))), h('button', { class: 'btn sm', onclick: () => dlg.close() }, 'Close')), body));
     body.scrollTop = sc;
   }
+  // ---------------------------------------------------------------- дебафы на цели
+  // Живут в настройках калькулятора: это не свойство персонажа, а состояние конкретного размена.
+  function debCaster(b) {
+    const cls = (b.cls || []).find(k => STATE.foes[k]);
+    return cls && STATE.foes[cls] ? STATE.foes[cls].level : 75;
+  }
+  function buildDebuffs(t, box) {
+    const n = Object.keys(dmgPrefs.deb || {}).length;
+    box.append(h('div', { class: 'secthead' },
+      h('h3', null, 'Debuffs on the target'),
+      h('span', { class: 'note' }, 'Negative skills the party can land on this target. Level follows the level of that class’s character. Only effects the engine knows are applied — resistances to elements are shown but not counted, the site has no attribute system.'),
+      h('button', { class: 'btn sm', disabled: !n, onclick: () => { dmgPrefs.deb = {}; renderDamage(); drawDebDialog(); } }, 'Remove all')));
+    const byCls = {};
+    for (const b of DEBUFFS.values()) for (const k of b.cls || []) (byCls[k] = byCls[k] || []).push(b);
+    const wrap = h('div', { class: 'buffgroups' });
+    for (const k of FOE_ORDER) {
+      const list = (byCls[k] || []).filter(b => debLevel(b, debCaster(b)) > 0);
+      if (!list.length) continue;
+      const row = h('div', { class: 'bufflist' });
+      for (const b of list) {
+        const lvMax = debLevel(b, debCaster(b));
+        const on = dmgPrefs.deb[b.id] != null;
+        const lv = on ? dmgPrefs.deb[b.id] : lvMax;
+        const btn = h('button', { class: 'buff' + (on ? ' on' : ''), 'aria-pressed': on ? 'true' : 'false', 'aria-label': b.n },
+          h('img', { src: icon(b.ic), alt: '' }), h('span', { class: 'lv' }, lv));
+        btn.addEventListener('click', () => {
+          if (on) delete dmgPrefs.deb[b.id]; else dmgPrefs.deb[b.id] = lvMax;
+          renderDamage(); drawDebDialog();
+        });
+        btn.addEventListener('mouseenter', () => showTip(btn, `<b>${esc(b.n)} · Lv. ${lv}</b><div class="ln">${esc(b.lv[lv - 1] || '')}</div><div class="k">Magic level ${(b.ml || [])[lv - 1] || '?'} · ${esc(b.dur || '')}</div>`));
+        btn.addEventListener('mouseleave', hideTip);
+        row.append(btn);
+      }
+      wrap.append(h('div', { class: 'bg' }, h('h4', null, CLASSES[k].n), row));
+    }
+    box.append(wrap);
+    if (n) {
+      const act = h('div', { class: 'active' });
+      for (const id of Object.keys(dmgPrefs.deb)) {
+        const b = DEBUFFS.get(id); if (!b) continue;
+        const top = debLevel(b, debCaster(b)) || b.lv.length;
+        const sel = h('select', { 'aria-label': 'Level ' + b.n, onchange: e => { dmgPrefs.deb[id] = +e.target.value; renderDamage(); drawDebDialog(); } },
+          b.lv.slice(0, top).map((_, i) => h('option', { value: i + 1, selected: dmgPrefs.deb[id] === i + 1 ? true : null }, 'Lv. ' + (i + 1))));
+        act.append(h('span', { class: 'chip' }, h('img', { src: icon(b.ic), alt: '' }), b.n, sel,
+          h('button', { 'aria-label': 'Remove ' + b.n, onclick: () => { delete dmgPrefs.deb[id]; renderDamage(); drawDebDialog(); } }, '×')));
+      }
+      box.append(h('div', { class: 'lbl', style: 'margin-top:12px' }, `Active: ${n}`), act);
+    }
+  }
+  var debDlgFor = null;
+  function drawDebDialog() {
+    const dlg = els.dialog, t = debDlgFor;
+    if (!t || dlg.dataset.kind !== 'debuffs') return;
+    const sc = dlg.querySelector('.dlgbody') ? dlg.querySelector('.dlgbody').scrollTop : 0;
+    dlg.innerHTML = '';
+    const body = h('div', { class: 'dlgbody' });
+    buildDebuffs(t, body);
+    dlg.append(h('div', { class: 'dlg' }, h('div', { class: 'dlghead' }, h('h2', null, 'Debuffs', h('small', { class: 'dlgwho' }, ' · ' + (t.nick || CLASSES[t.cls].n))), h('button', { class: 'btn sm', onclick: () => dlg.close() }, 'Close')), body));
+    body.scrollTop = sc;
+  }
+  function openDebuffs(t) {
+    const dlg = els.dialog;
+    if (dlg.open) dlg.close();
+    debDlgFor = t; dlg.dataset.kind = 'debuffs';
+    drawDebDialog();
+    if (matchMedia('(min-width:1100px)').matches) { dlg.show(); document.body.classList.add('picking'); } else dlg.showModal();
+  }
+
   function openBuffs(c) {
     const dlg = els.dialog;
     if (dlg.open) dlg.close();

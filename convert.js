@@ -311,6 +311,48 @@ for (const b of buffs) {
   if (b.ab.some(Boolean)) b.stack = b.ab.filter(Boolean).pop();
 }
 
+// ---------------------------------------------------------------- дебафы (icon_type-3)
+// Отрицательные умения, которые вешаются на цель. Нужны для калькулятора урона: часть из них
+// снижает цели M. Def. или сопротивления, а это напрямую меняет урон всей группы.
+// ml — магический уровень по уровням умения (из Lu4 Planner), он же входит в формулу шанса прохождения.
+const plSkills = (rawOr('planner.json', {}).skills) || {};
+const mlOf = (cls, id) => {
+  const arr = plSkills[cls] || [];
+  const rec = arr.find(x => String(x.id) === String(id));
+  return rec && rec.ml ? rec.ml : null;
+};
+const debMap = new Map();
+for (const [cls, c] of Object.entries(buffSrc)) {
+  const learn = {};
+  for (const table of [c.first || {}, c.sched || {}])
+    for (const [L, rows] of Object.entries(table))
+      for (const [sk, l] of rows) (learn[sk] = learn[sk] || []).push([+L, l]);
+  for (const [sk, g] of Object.entries(c.groups)) {
+    if (g !== 'icon_type-3') continue;
+    const s = skRaw[sk];
+    const id = sk.split('-')[0];
+    if (!s || !Object.keys(s.lv).length) continue;
+    let b = debMap.get(id);
+    if (!b) {
+      const top = Math.max(...Object.keys(s.lv).map(Number));
+      const lv = Array.from({ length: top }, (_, i) => s.lv[i + 1] || '');
+      b = { id, n: s.name, ic: (s.icon || '').replace(/\.png$/, ''), cls: [], lv, learn: {},
+        dur: s.st && s.st.Duration, reuse: s.st && s.st['Reuse Time'], trait: s.st && s.st.Trait,
+        mag: /Магическое|Magic/i.test(s.type || '') ? 1 : 0 };
+      debMap.set(id, b);
+    }
+    b.cls.push(cls);
+    b.learn[cls] = (learn[sk] || []).sort((x, y) => x[0] - y[0] || x[1] - y[1]);
+    if (!b.ml) { const ml = mlOf(cls, id); if (ml) b.ml = ml; }
+  }
+}
+const debuffs = [...debMap.values()];
+// Без разбираемых эффектов на статы дебаф в калькуляторе бесполезен — оставляем только те,
+// у которых в тексте есть хоть одна строка вида «M. Def. -15%».
+const DEB_STAT = /(P\.|M\.)\s?(Def|Atk|Crit)|Resistance to|Evasion|Accuracy|Speed|Shield/i;
+const debKeep = debuffs.filter(b => b.lv.some(t => DEB_STAT.test(t || '')));
+fs.writeFileSync(R('data/debuffs.json'), JSON.stringify(debKeep));
+
 // ---------------------------------------------------------------- атакующие умения для калькулятора урона
 // Список умений с уроном и их механика (время применения, перезарядка, база крита) — из расчёта Lu4 Planner,
 // сила по уровням — со страниц умений на вики.
@@ -444,9 +486,9 @@ for (const it of items) if (JEWEL_MPB[it.n] && ['ear', 'neck', 'ring'].includes(
 fs.writeFileSync(R('data/items.json'), JSON.stringify(items));
 fs.writeFileSync(R('data/sets.json'), JSON.stringify(sets));
 fs.writeFileSync(R('data/buffs.json'), JSON.stringify(buffs));
-const iconList = [...new Set([...items.map(i => i.ic), ...buffs.map(b => b.ic), ...Object.values(passives).flat().map(p => p.ic), ...clan.map(c => c.ic), ...Object.values(attacks).flat().map(a => a.ic)].filter(Boolean))];
+const iconList = [...new Set([...items.map(i => i.ic), ...buffs.map(b => b.ic), ...debKeep.map(b => b.ic), ...Object.values(passives).flat().map(p => p.ic), ...clan.map(c => c.ic), ...Object.values(attacks).flat().map(a => a.ic)].filter(Boolean))];
 fs.writeFileSync(R('data/raw/icon-list.txt'), iconList.join('\n'));
-console.log('items', items.length, 'sets', sets.length, 'buffs', buffs.length, 'icons', iconList.length);
+console.log('items', items.length, 'sets', sets.length, 'buffs', buffs.length, 'debuffs', debKeep.length, 'icons', iconList.length);
 console.log('slots', JSON.stringify(items.reduce((o, i) => ((o[i.s] = (o[i.s] || 0) + 1), o), {})));
 console.log('unknown types', [...unknown.types].slice(0, 40));
 console.log('unknown stats', [...unknown.stats]);
