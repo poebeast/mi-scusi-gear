@@ -147,17 +147,39 @@
         off = 'needs ' + need.join(' and ');
         break;
       }
+      // Умения, которые срабатывают от блока щитом, без щита не работают вовсе — например, с посохом.
+      if (!off && /Shield Block/i.test(text) && !st.hasShield) off = 'needs a shield';
       const unlearned = !!(p.book && c.noBook && c.noBook[p.id]);
       if (unlearned) off = 'book not learned';
       out.push({ p, l, max, text, off, wtOff, unlearned });
     }
     return out;
   }
+  // Core of Magic (39355) — награда квеста «Breath of Magic», который открывает подкласс.
+  // Лежит в инвентаре и просто добавляет параметры, поэтому это галочка, а не слот.
+  // Coin Flipping: у баффа два исхода, какой считать — выбирает игрок.
+  const COIN_ID = '28106';
+  const SUB_CORE = { id: '39355', n: 'Core of Magic', text: ['Max HP +35', 'P. Def. +10', 'M. Def. +10'].join(String.fromCharCode(10)), note: 'Bonus EXP +3%' };
   const VARIANTS = new Map();
   for (const it of DATA.items) {
     const k = it.base || it.id;
     if (!VARIANTS.has(k)) VARIANTS.set(k, []);
     VARIANTS.get(k).push(it);
+  }
+  // Редкая версия вещи — отдельный предмет с тем же названием и <Rare Item Effect>.
+  // Связываем обычную и редкую пару, чтобы в окне выбора их можно было переключать одним селектом.
+  const RARE_PAIR = new Map();
+  {
+    const by = new Map();
+    for (const it of DATA.items) {
+      const k = [it.n, it.s || '', it.at || '', it.wt || '', it.sa || ''].join('|');
+      if (!by.has(k)) by.set(k, []);
+      by.get(k).push(it);
+    }
+    for (const list of by.values()) {
+      const n = list.find(x => !x.fnd), r = list.find(x => x.fnd);
+      if (n && r) { RARE_PAIR.set(n.id, r.id); RARE_PAIR.set(r.id, n.id); }
+    }
   }
 
   // ---------------------------------------------------------------- разбор текстов эффектов
@@ -261,9 +283,10 @@
       line = line.replace(/^(?:For|Applies to) [^:]*members\s*:\s*/i, '');
       if (!line) continue;
       if (/\bchance\b.*:\s*$/i.test(line) || /^When attacked|^When HP is below|^When taking|^When using|^During |^With an? \d+% chance|^With \d+% chance|^When the (?:master|servitor)|servitor\b[^:]*:\s*$/i.test(line)) { cond = 'skip'; notes.push(line); continue; }
-      // «Heads:» / «Tails:» у Coin Flipping — два взаимоисключающих исхода; считаем атакующий.
+      // «Heads:» / «Tails:» у Coin Flipping — взаимоисключающие исходы. Какой засчитать, решает
+      // переключатель у персонажа (орёл / решка / ребро), поэтому вешаем условие, а не скип.
       const hm = line.match(/^(Heads|Tails)\s*:\s*$/i);
-      if (hm) { cond = /tails/i.test(hm[1]) ? 'skip' : null; continue; }
+      if (hm) { cond = 'coin:' + hm[1].toLowerCase(); continue; }
       const cm = line.match(/^(If a shield is equipped|Shield Equip Bonus|When HP\s*<\s*\d+%|For party members|Totally)\s*:\s*/i);
       if (cm) {
         const c = cm[1].toLowerCase();
@@ -345,6 +368,8 @@
       // Раса и тип (воин/маг) однозначно заданы классом.
       c.race = CLASSES[c.cls].race; c.type = CLASSES[c.cls].arch;
       c.eq = c.eq || {}; c.hen = c.hen || [null, null, null]; c.buffs = c.buffs || {}; c.clan = !!c.clan;
+      c.sub = !!c.sub;
+      c.coin = c.coin === 'tails' || c.coin === 'edge' ? c.coin : 'heads';
       // Уровень каждого клан-скила (1…макс), по умолчанию максимальный.
       c.clanLv = c.clanLv || {};
       // Пассивки из книг, которые персонаж не выучил.
@@ -474,6 +499,8 @@
   function condOk(cond, s) {
     return String(cond).split('+').every(x => {
       if (x === 'shield') return s.hasShield;
+      // Монета Coin Flipping: «ребром» (edge) не даёт ни одного из двух наборов.
+      if (x.startsWith('coin:')) return (s.coin || 'heads') === x.slice(5);
       if (x === 'armor:%weapon') return !!s.wtype;
       if (x === 'bow') return s.wtype === 'bow';
       // «Without Robe Armor» действует и без брони вовсе (сверено с Lu4 Planner).
@@ -527,6 +554,7 @@
     }
     // Клан-скилы максимального уровня, если включены у персонажа.
     if (c.clan) for (const k of CLAN) addMods(parseFx(clanText(k, c.clanLv[k.id])).mods, k.n);
+    if (c.sub) addMods(parseFx(SUB_CORE.text).mods, SUB_CORE.n);
     const over = buffOverrides(c);
     for (const id in c.buffs) {
       const b = BUFFS.get(id);
@@ -539,7 +567,7 @@
     if (extra) for (const x of extra) addMods(parseFx(x.text).mods, x.n);
 
     const chestIt = c.eq.chest && ITEMS.get(c.eq.chest.id);
-    const live = mods.filter(m => !m.cond || condOk(m.cond, { wtype, hasShield, at: chestIt && chestIt.at }));
+    const live = mods.filter(m => !m.cond || condOk(m.cond, { wtype, hasShield, at: chestIt && chestIt.at, coin: c.coin }));
     for (const m of live) if (ATTRS.includes(m.k)) attrs[m.k] += m.v;
     ATTRS.forEach(a => { attrs[a] += hen[a]; attrs[a] = Math.max(1, attrs[a]); });
 
@@ -1014,7 +1042,14 @@
     const box = els.passives;
     box.innerHTML = '';
     const on = r.pass.filter(x => !x.off).length;
-    box.append(h('div', { class: 'kithead' }, h('h3', null, 'Passive skills'), h('span', { class: 'note' }, r.pass.length ? `${on} of ${r.pass.length} active` : 'None at this level')));
+    // «Sub» — Core of Magic из квеста на подкласс: лежит в инвентаре и просто добавляет параметры.
+    const subSw = h('input', { type: 'checkbox', checked: c.sub ? true : null, onchange: e => { c.sub = e.target.checked; update(false); } });
+    const subLbl = h('label', { class: 'switch sub' }, subSw, h('span', null, 'Sub'));
+    const subTip = () => `<b>${esc(SUB_CORE.n)}</b><div class="ln">${esc(SUB_CORE.text)}</div>`
+      + `<div class="k">Reward for «Breath of Magic», the quest that unlocks a subclass. ${esc(SUB_CORE.note)} is not counted.</div>`;
+    subLbl.addEventListener('mouseenter', () => showTip(subLbl, subTip())); subLbl.addEventListener('mouseleave', hideTip);
+    box.append(h('div', { class: 'kithead' }, h('h3', null, 'Passive skills'),
+      h('span', { class: 'note' }, r.pass.length ? `${on} of ${r.pass.length} active` : 'None at this level'), subLbl));
     const tipFor = x => `<b>${esc(x.p.n)} Lv. ${x.l}${x.max > 1 ? ' of ' + x.max : ''}</b>${x.off ? `<div class="k bad">Not counted: ${esc(x.off)}</div>` : ''}<div class="ln">${esc(x.text)}</div>`
       + (x.p.book ? `<div class="k">Learned from ${esc(x.p.book)}. Click to cycle the level${x.max > 1 ? ' (1–' + x.max + ')' : ''} and «not learned».</div>`
         : x.max > 1 ? `<div class="k">Click to raise the level (1–${x.max}), right-click to lower it.</div>` : '');
@@ -1346,7 +1381,10 @@
         const b = BUFFS.get(id);
         const sel = h('select', { 'aria-label': 'Level ' + b.n, onchange: e => { c.buffs[id] = +e.target.value; update(false, c); } },
           b.lv.map((_, i) => h('option', { value: i + 1, selected: c.buffs[id] === i + 1 ? true : null }, 'Lv. ' + (i + 1))));
-        act.append(h('span', { class: 'chip' + (over[id] ? ' off' : ''), title: over[id] ? 'Does not stack with ' + over[id].n + ': no effect' : null }, h('img', { src: icon(b.ic), alt: '' }), b.n, sel, h('button', { 'aria-label': 'Remove ' + b.n, onclick: () => { delete c.buffs[id]; update(false, c); } }, '×')));
+        // У Coin Flipping два взаимоисключающих набора; «ребром» — не выпало ничего.
+        const coin = id === COIN_ID ? h('select', { 'aria-label': 'Coin side', onchange: e => { c.coin = e.target.value; update(false, c); } },
+          [['heads', 'Heads'], ['tails', 'Tails'], ['edge', 'Edge']].map(([v, n]) => h('option', { value: v, selected: (c.coin || 'heads') === v ? true : null }, n))) : null;
+        act.append(h('span', { class: 'chip' + (over[id] ? ' off' : ''), title: over[id] ? 'Does not stack with ' + over[id].n + ': no effect' : null }, h('img', { src: icon(b.ic), alt: '' }), b.n, sel, coin, h('button', { 'aria-label': 'Remove ' + b.n, onclick: () => { delete c.buffs[id]; update(false, c); } }, '×')));
       }
       box.append(h('div', { class: 'lbl', style: 'margin-top:12px' }, `Active: ${activeCount}`), act);
     }
@@ -1517,6 +1555,14 @@
           const sel = h('select', { id: 'sa-select', 'aria-label': 'Special ability (SA)', onchange: ev => { e.id = ev.target.value; changed(); } },
             variants.map(v => h('option', { value: v.id, selected: v.id === e.id ? true : null }, v.sa ? 'SA: ' + v.sa : 'No SA')));
           curRow.append(h('span', { class: 'lbl' }, 'SA'), sel);
+        }
+        const twin = RARE_PAIR.get(curIt.id);
+        if (twin) {
+          const normalId = curIt.fnd ? twin : curIt.id;
+          const rareId = curIt.fnd ? curIt.id : twin;
+          const rsel = h('select', { 'aria-label': 'Rarity', onchange: ev => { e.id = ev.target.value; changed(); } },
+            [[normalId, 'Normal'], [rareId, 'Rare']].map(([v, n]) => h('option', { value: v, selected: v === e.id ? true : null }, n)));
+          curRow.append(h('span', { class: 'lbl' }, 'Rarity'), rsel);
         }
         curRow.append(h('button', { class: 'btn sm', onclick: () => { delete c.eq[slot]; changed(); dlg.close(); } }, 'Unequip'));
         box.append(curRow);
