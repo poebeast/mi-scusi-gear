@@ -180,6 +180,9 @@
       const n = list.find(x => !x.fnd), r = list.find(x => x.fnd);
       if (n && r) { RARE_PAIR.set(n.id, r.id); RARE_PAIR.set(r.id, n.id); }
     }
+    // У редкого оружия название другое («Branch of the Mother Tree - Hail»), поэтому пару
+    // берём из явной ссылки twin, проставленной при сборке данных.
+    for (const it of DATA.items) if (it.twin) { RARE_PAIR.set(it.id, it.twin); RARE_PAIR.set(it.twin, it.id); }
   }
 
   // ---------------------------------------------------------------- разбор текстов эффектов

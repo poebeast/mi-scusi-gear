@@ -117,6 +117,29 @@ for (const r of Object.values(rawItems)) {
   const fxAll = essence ? (r.fx ? r.fx + '\n' : '') + 'M. Crit. Damage +10%.' : r.fx;
   items.push(Object.assign({ id, n: r.name, g: r.g, ic: (r.icon || '').replace(/\.png$/, ''), st, en, fx: cleanFx(fxAll) || undefined, sa, fnd: fnd || undefined, pvp: pvp || undefined, set: r.set ? idOf(r.set) : undefined, key: [r.name, fnd, pvp, sk.at || ''].join('|') }, sk));
 }
+// Редкие версии оружия: тот же предмет с суффиксом в названии и блоком <Rare Item Effect>.
+// Пары взяты из каталога Lu4 Planner — у редкого serverName совпадает с обычным плюс «_high»
+// (worldtree_s_branch_acumen → worldtree_s_branch_acumen_high). На вики они лежат отдельными
+// страницами под другим названием, поэтому по имени их не найти.
+const rareW = rawOr('rare-weapons.json', {});
+for (const it of items.slice()) {
+  const r = rareW[it.id];
+  if (!r || !it.wt) continue;
+  const n = it.n + ' - ' + r.suffix;
+  items.push(Object.assign({}, it, {
+    id: r.id, n, fnd: true, twin: it.id,
+    fx: cleanFx([it.fx, r.fx].filter(Boolean).join(String.fromCharCode(10))) || undefined,
+    key: [n, true, false, it.at || ''].join('|'),
+  }));
+  it.twin = r.id;
+}
+// У клона осталась ссылка base на обычный предмет — переводим её на редкий, иначе в выпадашке SA
+// смешались бы обычные и редкие варианты одного оружия.
+{
+  const twinOf = new Map(items.filter(x => x.twin).map(x => [x.id, x.twin]));
+  for (const it of items) if (it.fnd && it.wt && it.twin && it.base) it.base = twinOf.get(it.base) || it.base;
+}
+
 // Если на странице первой шла таблица дропа, берём таблицу заточки у одноимённого предмета.
 const enByName = {};
 for (const it of items) if (it.en && !enByName[it.n + '|' + it.s]) enByName[it.n + '|' + it.s] = it.en;
