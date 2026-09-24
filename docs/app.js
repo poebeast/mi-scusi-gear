@@ -159,6 +159,27 @@
   // Лежит в инвентаре и просто добавляет параметры, поэтому это галочка, а не слот.
   // Coin Flipping: у баффа два исхода, какой считать — выбирает игрок.
   const COIN_ID = '28106';
+  // Умения от Камня Жизни в оружии (вики, «Камни Жизни (LS) на Masterwork», 21.08.2026). Только те, что меняют урон:
+  // p — пассивное, a — активное (свой бафф, считаем включённым). У Refresh пассивной версии нет.
+  const LS_SKILLS = [
+    { id: 'might', n: 'Might', p: 'P. Atk. +6%', a: 'P. Atk. +8%' },
+    { id: 'empower', n: 'Empower', p: 'M. Atk. +10%', a: 'M. Atk. +15%' },
+    { id: 'focus', n: 'Focus', p: 'P. Critical Rate +35', a: 'P. Critical Rate +50' },
+    { id: 'wild', n: 'Wild Magic', p: 'M. Critical Rate +3', a: 'M. Critical Rate +4' },
+    { id: 'guidance', n: 'Guidance', p: 'Accuracy +6', a: 'Accuracy +10' },
+    { id: 'duel', n: 'Duel Might', p: 'P. Atk. in PvP +5%', a: 'P. Atk. in PvP +5%' },
+    { id: 'srefresh', n: 'Skill Refresh', a: 'P. Skills Reuse Time -15%' },
+    { id: 'mrefresh', n: 'Spell Refresh', a: 'M. Skills Reuse Time -15%' },
+    { id: 'arefresh', n: 'All Refresh', a: 'All Skills Reuse Time -15%' },
+  ];
+  const LS_BY_ID = new Map(LS_SKILLS.map(x => [x.id, x]));
+  // Текст выбранного умения камня: пассивка, а если её нет — активная версия.
+  function lsText(e) {
+    const x = e && LS_BY_ID.get(e.ls);
+    if (!x) return null;
+    const mode = e.lsm === 'a' || !x.p ? 'a' : 'p';
+    return { n: 'Life Stone: ' + x.n + (mode === 'a' ? ' (active)' : ' (passive)'), text: x[mode], mode };
+  }
   const SUB_CORE = { id: '39355', n: 'Core of Magic', text: ['Max HP +35', 'P. Def. +10', 'M. Def. +10'].join(String.fromCharCode(10)), note: 'Bonus EXP +3%' };
   const VARIANTS = new Map();
   for (const it of DATA.items) {
@@ -187,6 +208,9 @@
 
   // ---------------------------------------------------------------- разбор текстов эффектов
   const ALIASES = [
+    // «P. Atk. in PvP +5%» (Duel Might с Камня Жизни) — прибавка к физическому урону в PvP. Разбор заранее
+    // переписывает её в «PvP P. Atk.», иначе «in PvP» примется за условие. Стоит первой, до обычного P. Atk.
+    [/^PvP P\.\s?Atk/i, 'ppvp'],
     // Перезарядка и время применения умений (All — и физические, и магические).
     [/^All Skills Reuse Time/i, 'reuse'],
     [/^P\.\s?Skills? Reuse Time/i, 'preuse'],
@@ -268,7 +292,7 @@
     for (let line of String(text).split(/\n+/)) {
       line = line.trim().replace(/^Clan members'\s*/i, '')
         // Единые названия для перезарядки: «P. and M. Skills» → All, ритмы на урон не влияют.
-        .replace(/P\. and M\. Skills/gi, 'All Skills').replace(/Skills and Rhythms/gi, 'Skills')
+        .replace(/^P\.\s?Atk\.? in PvP/i, 'PvP P. Atk.').replace(/P\. and M\. Skills/gi, 'All Skills').replace(/Skills and Rhythms/gi, 'Skills')
         .replace(/Reuse Delay for magic by/gi, 'M. Skills Reuse Time by').replace(/Physical Skill Cooldown/gi, 'P. Skills Reuse Time')
         // «Resistance to Holy and Dark +20%» — один эффект сразу на два трейта. Разворачиваем в две части,
         // иначе разбор разорвёт строку по «and» и потеряет её целиком.
@@ -384,6 +408,7 @@
       const used = {};
       c.hen = c.hen.map(x => { if (!x) return null; const left = 5 - (used[x.up] || 0); if (left <= 0) return null; x.n = Math.min(x.n, left); used[x.up] = (used[x.up] || 0) + x.n; return x; });
       for (const s in c.eq) if (!c.eq[s] || !ITEMS.has(c.eq[s].id)) delete c.eq[s];
+      if (c.eq.weapon && c.eq.weapon.ls && !LS_BY_ID.has(c.eq.weapon.ls)) { delete c.eq.weapon.ls; delete c.eq.weapon.lsm; }
       for (const b in c.buffs) if (!BUFFS.has(b)) delete c.buffs[b];
     });
   }
@@ -537,6 +562,7 @@
       const it = ITEMS.get(c.eq[s].id);
       if (!it) continue;
       if (it.fx) { const p = parseFx(it.fx); addMods(p.mods, it.n); p.notes.forEach(n => notes.push(n)); }
+      if (s === 'weapon') { const ls = lsText(c.eq[s]); if (ls) addMods(parseFx(ls.text).mods, ls.n); }
       if (GRADE_LVL[it.g] && lvl < GRADE_LVL[it.g]) warn.push(`${it.n}: ${it.g}-grade requires level ${GRADE_LVL[it.g]} — expect a grade penalty in game.`);
     }
     const sets = activeSets(c);
@@ -924,6 +950,9 @@
     if (it.c === 'weapon' && shotBonus(it, e)) k.push(`Shot damage bonus +${shotBonus(it, e)}%`);
     if (it.sa) lines.push(`<div class="k">SA: ${esc(it.sa)}</div>`);
     if (it.fx) lines.push(`<div class="ln">${esc(it.fx)}</div>`);
+    const we = it.c === 'weapon' && (who || ch()).eq.weapon;
+    const lsT = we && we.id === it.id && lsText(we);
+    if (lsT) lines.push(`<div class="k">${esc(lsT.n)}</div><div class="ln">${esc(lsT.text)}</div>`);
     const set = it.set && SETS.get(it.set);
     if (set && (it.s === 'chest' || it.s === 'full')) {
       // На верхе брони показываем, что даёт сет и какие части уже надеты.
@@ -1150,6 +1179,8 @@
     const shots = shotMul(c);
     const ss = shots.ss;
     const pvp = (1 + pctOf(A, 'pvpdmg') + (A.add.pvpdmg || 0) / 100) * shots.ench;
+    // «P. Atk. in PvP» действует только на физический урон.
+    const pvpP = pvp * (1 + pctOf(A, 'ppvp') + (A.add.ppvp || 0) / 100);
     // Урон из лука зависит от доли пройденной дистанции: базовая дальность 500 плюс «Attack Range +N».
     const atkRange = bow ? 500 + (A.add.range || 0) : 0;
     const distMul = bow ? 1 + DIST_DMG[Math.max(0, Math.min(100, Math.round((dmgPrefs.dist || 0) / atkRange * 100)))] / 100 : 1;
@@ -1165,9 +1196,9 @@
       // Received P. Crit. Rate у цели (например, мастерство лёгкой брони) снижает его.
       const critPos = ({ front: 1, side: 1.2, back: 1.3 })[dmgPrefs.pos];
       const cc = Math.min(CRIT_CAP, a.crit * critPos * Math.max(0, 1 + pctOf(D, 'rcvcc'))) / 1000;
-      const norm = a.patk * ss * K / d.pdef * pvp * posDmg * distMul;
+      const norm = a.patk * ss * K / d.pdef * pvpP * posDmg * distMul;
       // Сила крита: 77 x (P. Atk. + статический бонус СА) x соски x 2 x проценты / P. Def.
-      const crit = (a.patk + (A.add.critdmg || 0)) * ss * 2 * (1 + pctOf(A, 'critdmg')) * K / d.pdef * pvp * posDmg * distMul * (1 + pctOf(D, 'rcvcrit'));
+      const crit = (a.patk + (A.add.critdmg || 0)) * ss * 2 * (1 + pctOf(A, 'critdmg')) * K / d.pdef * pvpP * posDmg * distMul * (1 + pctOf(D, 'rcvcrit'));
       let avg = (1 - cc) * norm + cc * crit;
       // Щит блокирует только спереди (сектор 90° без Aegis).
       const sh = t.eq.shield && ITEMS.get(t.eq.shield.id);
@@ -1176,7 +1207,7 @@
         // Шанс блока = шанс щита x DEX x проценты + бонус от типа урона: +30 от стрел, +12 от ножей.
         const wBlock = bow ? 30 : /dagger/.test(wt || '') ? 12 : 0;
         block = Math.min(1, ((d.srate || 0) * (1 + pctOf(D, 'srate')) + wBlock) / 100);
-        const bn = a.patk * ss * K / (d.pdef + (d.sdef || 0)) * pvp * posDmg * distMul;
+        const bn = a.patk * ss * K / (d.pdef + (d.sdef || 0)) * pvpP * posDmg * distMul;
         avg = (1 - block) * avg + block * ((1 - cc) * bn + cc * bn * 2);
         // Идеальная блокировка: 2 x модификатор DEX цели, урон ровно 1.
         pblock = Math.min(1, 2 * bonus.DEX(D.attrs.DEX) / 100);
@@ -1223,8 +1254,8 @@
         const ssBlow = dmgPrefs.ss ? 1.5 + shots.sb : 1;
         const chrg = sk.k ? 1 + 0.2 * ((dmgPrefs.charges || 1) - 1) : 1;
         // Урон blow сам по себе критический, поэтому его усиливают эффекты на Силу Физ. Крит. Атк.
-        norm = (sk.blow ? (power * (sk.pm || 1) + a.patk + (A.add.critdmg || 0)) * ssBlow * K / pdef * pvp * (1 + pctOf(A, 'critdmg'))
-          : (power + a.patk) * ss * chrg * K / pdef * pvp * (1 + pctOf(A, 'pskill'))) * posDmg * distMul;
+        norm = (sk.blow ? (power * (sk.pm || 1) + a.patk + (A.add.critdmg || 0)) * ssBlow * K / pdef * pvpP * (1 + pctOf(A, 'critdmg'))
+          : (power + a.patk) * ss * chrg * K / pdef * pvpP * (1 + pctOf(A, 'pskill'))) * posDmg * distMul;
         crit = norm * sk.cm * (1 + pctOf(A, 'pskillcrit'));
         // Шанс крита умением: обычные — от STR, blow/stab — от DEX.
         const cmod = sk.blow ? bonus.DEX(A.attrs.DEX) : bonus.STR(A.attrs.STR);
@@ -1567,9 +1598,25 @@
             [[normalId, 'Normal'], [rareId, 'Rare']].map(([v, n]) => h('option', { value: v, selected: v === e.id ? true : null }, n)));
           curRow.append(h('span', { class: 'lbl' }, 'Rarity'), rsel);
         }
+        // Камень Жизни: только умение (бонус к статам в вики не расписан). Сидит в самом оружии,
+        // поэтому переживает смену SA и редкости, а новое оружие приходит без камня.
+        if (slot === 'weapon') {
+          const lsCur = LS_BY_ID.get(e.ls);
+          const lsel = h('select', { 'aria-label': 'Life Stone skill', onchange: ev => { if (ev.target.value) e.ls = ev.target.value; else { delete e.ls; delete e.lsm; } changed(); } },
+            [h('option', { value: '' }, 'None')].concat(LS_SKILLS.map(x => h('option', { value: x.id, selected: x.id === e.ls ? true : null }, x.n))));
+          curRow.append(h('span', { class: 'lbl' }, 'Life Stone'), lsel);
+          if (lsCur) {
+            const mode = lsText(e).mode;
+            const msel = h('select', { 'aria-label': 'Life Stone skill type', onchange: ev => { e.lsm = ev.target.value; changed(); } },
+              [lsCur.p ? ['p', 'Passive'] : null, ['a', 'Active']].filter(Boolean).map(([v, n]) => h('option', { value: v, selected: v === mode ? true : null }, n)));
+            curRow.append(msel);
+          }
+        }
         curRow.append(h('button', { class: 'btn sm', onclick: () => { delete c.eq[slot]; changed(); dlg.close(); } }, 'Unequip'));
         box.append(curRow);
         if (curIt.fx) box.append(h('div', { class: 'fx' }, curIt.fx));
+        const lsNow = slot === 'weapon' && lsText(e);
+        if (lsNow) box.append(h('div', { class: 'fx' }, lsNow.n + ': ' + lsNow.text + (lsNow.mode === 'a' ? ' — counted as always on.' : '')));
       }
 
       const q = h('input', { id: 'picker-search', type: 'search', placeholder: 'Search by name', value: pickerPrefs.q, oninput: ev => { pickerPrefs.q = ev.target.value; drawList(); } });
