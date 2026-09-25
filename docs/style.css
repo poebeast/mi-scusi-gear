@@ -351,3 +351,12 @@ button.pic{cursor:pointer}
 @keyframes guidePulse{0%,100%{box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 55%,transparent);border-color:var(--edge)}50%{box-shadow:0 0 0 7px color-mix(in srgb,var(--accent) 0%,transparent),0 0 18px color-mix(in srgb,var(--accent) 60%,transparent);border-color:var(--accent);color:var(--accent)}}
 .guidebtn.blink{animation:guidePulse 1.6s ease-in-out infinite}
 @media (prefers-reduced-motion:reduce){.guidebtn.blink{animation:none;border-color:var(--accent);color:var(--accent)}}
+
+/* Однострочные подписи, списки и поля: не влезает — многоточие, а не перенос или обрезка на полуслове. */
+select,input{text-overflow:ellipsis}
+select{white-space:nowrap;overflow:hidden;max-width:100%}
+.ell,.who b,.who small,.duelist b,.cur .nm,.dlghead h2,.bg h4,.st span,.attr span,.chip,.setchips .chip,.field label,.kithead h3,.dtable td.sk b{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bg h4{display:block}
+.viewer .who .idtext,.duelist,.namerow{min-width:0;max-width:100%}
+.st span{flex:0 1 auto} .st b{flex:none}
+.grid2{grid-template-columns:minmax(0,1fr) minmax(0,1fr)} .attrs{grid-template-columns:repeat(6,minmax(0,1fr))}
