@@ -372,3 +372,112 @@ select{white-space:nowrap;overflow:hidden;max-width:100%}
 /* Значок-подсказка рядом с заголовком блока. */
 .info{width:18px;height:18px;border-radius:50%;border:1px solid var(--edge);background:var(--glass2);color:var(--mute);font:italic 700 11px/1 Georgia,serif;padding:0;cursor:help;display:inline-grid;place-items:center}
 .info:hover,.info:focus-visible{color:var(--ink);border-color:var(--accent)}
+
+/* Значок ⓘ стоит сразу за заголовком, остальное — к правому краю. */
+.kithead,.clanhead{justify-content:flex-start;gap:8px}
+.kithead>.note{margin-left:auto}
+.clanhead>.switch{margin-left:auto}
+/* Кнопки в шапке блока — к правому краю. */
+.secthead>.btn:last-child{margin-left:auto}
+/* Подпись только для скринридеров: поле и так понятно по содержимому или подсказке внутри. */
+.sr{position:absolute!important;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+/* Без подписей поля садятся по нижнему краю вровень с уровнем. */
+.charbar{align-items:end}
+
+/* «Всё на одном экране» для широких мониторов (от 1360 px): верхняя полоса и четыре колонки,
+   страница не прокручивается, длинные колонки листаются сами. Ниже 1360 px — обычная раскладка. */
+.addbuffs{display:none}
+@media (min-width:1360px){
+  html[data-theme] body{font-size:13px;line-height:1.35;overflow:hidden}
+  /* Все блоки — прямые ячейки одной сетки на весь экран. */
+  html[data-theme] .wrap{max-width:none;height:100vh;padding:10px 12px;display:grid;gap:10px;
+    grid-template-columns:clamp(230px,13.5vw,260px) minmax(0,1fr) clamp(220px,13.5vw,260px) clamp(260px,17vw,330px);grid-template-rows:auto minmax(0,1fr);
+    grid-template-areas:"top char gear gear" "stats dmg side buffs"}
+  html[data-theme] :is(.lay,.lrow){display:contents}
+  /* Колонки остаются колонками: каждая — стопка блоков со своей прокруткой. */
+  html[data-theme] .lcol{min-height:0;gap:10px}
+  html[data-theme] .lrow:nth-child(1)>.lcol{grid-area:gear}
+  html[data-theme] .lrow:nth-child(2)>.lcol:nth-child(1){grid-area:stats}
+  html[data-theme] .lrow:nth-child(2)>.lcol:nth-child(2){grid-area:dmg}
+  html[data-theme] .lrow:nth-child(2)>.lcol:nth-child(3){grid-area:side;overflow:auto}
+  html[data-theme] .lrow:nth-child(3)>.lcol{grid-area:buffs}
+  html[data-theme] .foot{display:none}
+  html[data-theme] :is(.top,.charbar,.stage,.stats,.sect,.tattoos,.clan,.lcol>.passives){border-radius:12px;box-shadow:none;margin:0;min-height:0}
+
+  /* Верхняя полоса: логотип · персонаж, имя, уровень · слоты экипировки. */
+  html[data-theme] .top{grid-area:top;padding:6px 12px;gap:6px 10px;flex-wrap:nowrap}
+  html[data-theme] .save>span:last-child{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+  html[data-theme] .brand h1{font-size:18px} html[data-theme] .brand span{font-size:11px}
+  html[data-theme] .save{font-size:11px;gap:6px}
+  html[data-theme] .charbar{grid-area:char;display:flex;align-items:center;gap:10px;padding:6px 12px}
+  html[data-theme] .charbar .field{flex-direction:row;align-items:center;gap:6px}
+  html[data-theme] .charbar .field{min-width:0} html[data-theme] .charbar .field:first-child{flex:1 1 240px} html[data-theme] .charbar .field:nth-child(2){flex:1 1 120px} html[data-theme] .charbar .field:nth-child(3){flex:0 1 230px}
+  html[data-theme] .charbar .lvl{min-width:0;width:100%} html[data-theme] .charbar .lvl input[type=range]{min-width:40px}
+  html[data-theme] .charbar label{font-size:11px;white-space:nowrap;overflow:visible;flex:none}
+  html[data-theme] .field select,html[data-theme] .field input[type=text],html[data-theme] .field input[type=number]{padding:4px 10px;border-radius:8px}
+  html[data-theme] .lvl input[type=number]{width:56px;padding:4px 4px!important;text-overflow:clip}
+  html[data-theme] .stage{padding:0;flex-direction:row;align-items:center;height:100%}
+  html[data-theme] .stage:has(>.gearrow)>.viewer{display:none}
+  html[data-theme] .stage:has(>.gearrow)>.gearrow{border:0;padding:6px 10px;gap:5px;justify-content:center;flex-wrap:nowrap;width:100%}
+  html[data-theme] .stage:has(>.gearrow)>.gearrow .slot{width:36px;height:36px}
+  html[data-theme] .slot .gr{font-size:8.5px;padding:1px 3px;min-width:12px} html[data-theme] .slot .en{font-size:9px}
+  html[data-theme] .slot .ph{font-size:8.5px}
+
+  /* Колонки: каждая прокручивается сама, страница — нет. */
+  html[data-theme] .stats{padding:10px;gap:7px;overflow:auto}
+  html[data-theme] .tattoos{flex:none;padding:10px;gap:6px}
+  html[data-theme] .lcol>.passives{flex:none;padding:10px;gap:6px;overflow:auto}
+  html[data-theme] .clan{flex:none;padding:10px;gap:6px;overflow:auto}
+  html[data-theme] .sect.dmg{height:100%;padding:10px 12px;display:flex;flex-direction:column;overflow:hidden}
+  html[data-theme] .sect:not(.dmg){height:100%;padding:10px;display:flex;flex-direction:column;overflow:auto}
+
+  /* Мелкие правки плотности. */
+  html[data-theme] :is(.sect,.tattoos,.passives,.clan) :is(h3){font-size:13.5px}
+  html[data-theme] .st{padding:3px 8px;border-radius:7px;font-size:12px} html[data-theme] .st b{font-size:12px}
+  html[data-theme] .grid2,html[data-theme] .attrs{gap:4px} html[data-theme] .attr{padding:2px 0;border-radius:7px} html[data-theme] .attr b{font-size:12.5px}
+  html[data-theme] .bars{gap:3px} html[data-theme] .bar{font-size:11.5px}
+  html[data-theme] .stats .misc{font-size:11.5px}
+  html[data-theme] .iconlist,html[data-theme] .clanlist{grid-template-columns:repeat(auto-fill,minmax(28px,1fr));gap:4px}
+  html[data-theme] .pic img,html[data-theme] .clanitem img{width:28px;height:28px;border-radius:6px}
+  html[data-theme] .tattoos .tat .sym{width:26px;height:26px}
+  html[data-theme] .hsym{transform:scale(.8);transform-origin:left center}
+
+  /* Урон: таблица растягивается и прокручивается внутри, шапка закреплена. */
+  html[data-theme] .dmg .secthead{margin-bottom:6px}
+  html[data-theme] .duel{margin-bottom:6px}
+  html[data-theme] .dtarget{margin:0 0 6px}
+  html[data-theme] .tedit{margin:0 0 6px;padding:6px 10px;gap:6px 10px}
+  html[data-theme] .tgear .slot{width:30px;height:30px} html[data-theme] .tgear .slot img{width:24px;height:24px}
+  html[data-theme] .tgear .slot .ph{font-size:7px}
+  html[data-theme] .dwrap{flex:1 1 auto;min-height:0;overflow:auto}
+  html[data-theme] .dtable{font-size:12px!important}
+  html[data-theme] .dtable th,html[data-theme] .dtable td{padding:3px 6px!important}
+  html[data-theme] .dtable thead th{position:sticky;top:0;background:var(--glass3);z-index:1}
+  html[data-theme] .dtable td.sk img,html[data-theme] .dtable td.sk .na{width:18px!important;height:18px!important}
+
+  /* Бафы: колонка со списком включённых, полная сетка по классам — в окне по кнопке. */
+  html[data-theme] .sect:not(.dmg) .buffgroups,html[data-theme] .sect:not(.dmg)>.lbl{display:none}
+  html[data-theme] .sect:not(.dmg) .secthead{flex-wrap:nowrap;margin-bottom:6px}
+  html[data-theme] .addbuffs{display:inline-flex}
+  html[data-theme] .sect:not(.dmg) .secthead .btn:last-child{margin-left:auto}
+  html[data-theme] .sect:not(.dmg) .active{flex-direction:column;flex-wrap:nowrap;gap:3px;margin:0}
+  html[data-theme] .sect:not(.dmg) .active .chip{border-radius:8px;padding:2px 6px 2px 2px;font-size:12px;justify-content:flex-start}
+  html[data-theme] .sect:not(.dmg) .active .chip img{width:22px;height:22px;border-radius:5px}
+  html[data-theme] .sect:not(.dmg) .active .chip{display:grid;grid-template-columns:22px minmax(0,1fr) auto auto auto;gap:6px;align-items:center;width:100%}
+  html[data-theme] .sect:not(.dmg) .active .chip .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+}
+@media (min-width:1360px) and (max-width:1599px){
+  html[data-theme] .stage:has(>.gearrow)>.gearrow{gap:3px;padding:6px}
+  html[data-theme] .stage:has(>.gearrow)>.gearrow .slot{width:32px;height:32px}
+}
+
+/* Сетка бафов в окне — кирпичиками: у каждого класса столько места, сколько у него иконок. */
+.dlgbody .buffgroups{display:block;columns:2 230px;column-gap:10px}
+.dlgbody .buffgroups .bg{break-inside:avoid;margin-bottom:10px}
+.btn{white-space:nowrap}
+@media (min-width:1360px){html[data-theme] .sect:not(.dmg) .secthead{gap:6px}html[data-theme] .sect:not(.dmg) .secthead .btn{padding:3px 9px}}
+/* Боковое окно выбора ложится поверх правых колонок, а не сжимает сетку: урон и статы слева видны целиком. */
+@media (min-width:1360px){html[data-theme] body.picking .wrap{margin:0!important;max-width:none!important}}
+/* ...и начинается под верхней полосой, чтобы слоты экипировки оставались под рукой. */
+@media (min-width:1360px){html[data-theme] dialog#picker{margin:68px 12px 10px auto;height:calc(100vh - 78px)}html[data-theme] dialog#picker:not(:modal){inset:0 0 0 auto;margin:68px 12px 10px auto}}
+.bg h4 small{margin-left:6px}

@@ -816,9 +816,9 @@
     els.lvlR = h('input', { id: 'char-level-range', type: 'range', min: '1', max: '75', oninput: e => setLevel(e.target.value) });
     els.lvlN = h('input', { id: 'char-level', type: 'number', min: '1', max: '75', onchange: e => setLevel(e.target.value) });
     wrap.append(h('section', { class: 'charbar' },
-      h('div', { class: 'field' }, h('label', { for: 'char-select' }, 'Character'), els.charSel),
-      h('div', { class: 'field' }, h('label', { for: 'char-nick' }, 'Name'), els.nick),
-      h('div', { class: 'field' }, h('label', { for: 'char-level' }, 'Level'), h('div', { class: 'lvl' }, els.lvlR, els.lvlN))));
+      h('div', { class: 'field' }, h('label', { class: 'sr', for: 'char-select' }, 'Character'), els.charSel),
+      h('div', { class: 'field' }, h('label', { class: 'sr', for: 'char-nick' }, 'Name'), els.nick),
+      h('div', { class: 'field' }, h('label', { class: 'sr', for: 'char-level' }, 'Level'), h('div', { class: 'lvl' }, els.lvlR, els.lvlN))));
 
     els.gear = h('div', { class: 'gearrow', 'aria-label': 'Equipment' });
     els.who = h('div', { class: 'who' });
@@ -875,6 +875,7 @@
       cls = ' ro';
       text = STATE.savedAt ? 'Saved in this browser ' + fmtTime(STATE.savedAt) : 'Saved in this browser';
     }
+    s.title = text;
     s.append(h('span', { class: 'dot' + cls }), h('span', null, text));
   }
 
@@ -978,8 +979,8 @@
     els.clan.hidden = false;
     const sw = h('input', { type: 'checkbox', id: 'clan-toggle', checked: c.clan ? true : null, onchange: e => { c.clan = e.target.checked; update(false); } });
     els.clan.append(
-      h('div', { class: 'clanhead' }, h('h3', null, 'Clan skills'), h('label', { class: 'switch', for: 'clan-toggle' }, sw, h('span', null, c.clan ? 'On' : 'Off'))),
-      h('span', { class: 'note' }, c.clan ? 'Click a skill to change its level (1–3). Hover to see what it gives.' : 'Turn on to apply clan skills to this character.'),
+      h('div', { class: 'clanhead' }, h('h3', null, 'Clan skills'), infoBtn(c.clan ? 'Click a skill to change its level (1–3). Hover to see what it gives.' : 'Turn on to apply clan skills to this character.'),
+        h('label', { class: 'switch', for: 'clan-toggle' }, sw, h('span', null, c.clan ? 'On' : 'Off'))),
       h('div', { class: 'clanlist' + (c.clan ? '' : ' off') }, CLAN.map(k => {
         const l = c.clanLv[k.id];
         const tipFor = lv => `<b>${esc(k.n)} Lv. ${lv}</b><div class="ln">${esc(clanText(k, lv).replace(/^Clan members'\s*/gim, '').replace(/\n?Affects all clan members\.?/i, ''))}</div>`;
@@ -1081,11 +1082,11 @@
       + `<div class="k">Reward for «Breath of Magic», the quest that unlocks a subclass. ${esc(SUB_CORE.note)} is not counted.</div>`;
     subLbl.addEventListener('mouseenter', () => showTip(subLbl, subTip())); subLbl.addEventListener('mouseleave', hideTip);
     box.append(h('div', { class: 'kithead' }, h('h3', null, 'Passive skills'),
+      r.pass.some(x => x.p.book || x.max > 1) ? infoBtn('Click a skill to raise its level, right-click to lower it. Hover to see what it gives.') : null,
       h('span', { class: 'note' }, r.pass.length ? `${on} of ${r.pass.length} active` : 'None at this level'), subLbl));
     const tipFor = x => `<b>${esc(x.p.n)} Lv. ${x.l}${x.max > 1 ? ' of ' + x.max : ''}</b>${x.off ? `<div class="k bad">Not counted: ${esc(x.off)}</div>` : ''}<div class="ln">${esc(x.text)}</div>`
       + (x.p.book ? `<div class="k">Learned from ${esc(x.p.book)}. Click to cycle the level${x.max > 1 ? ' (1–' + x.max + ')' : ''} and «not learned».</div>`
         : x.max > 1 ? `<div class="k">Click to raise the level (1–${x.max}), right-click to lower it.</div>` : '');
-    if (r.pass.some(x => x.p.book || x.max > 1)) box.append(h('span', { class: 'note' }, 'Click a skill to raise its level, right-click to lower it. Hover to see what it gives.'));
     box.append(h('div', { class: 'iconlist' }, r.pass.map(x => {
       // Кликом переключается уровень по кругу; у книжных в круг входит ещё «не выучена».
       const pick = x.p.book || x.max > 1;
@@ -1302,12 +1303,8 @@
       h('div', null, h('small', null, extra), h('b', null, x.nick || CLASSES[x.cls].n), h('span', null, `${CLASSES[x.cls].n} · Lv. ${x.level}`)));
     const pick = h('select', { 'aria-label': 'Target', onchange: e => set('target', e.target.value) }, charOptions(c, dmgPrefs.target));
     const swap = h('button', { class: 'btn sm swap', title: 'Swap: make the target the attacker', 'aria-label': 'Swap attacker and target', onclick: () => { cur = dmgPrefs.target; dmgPrefs.target = keyOf(c); try { sessionStorage.setItem('miscusi.cur', String(cur)); } catch (_) {} renderAll(); } }, '⇄');
-    // Пояснение — в подсказке у значка, чтобы под заголовком не висел абзац с оборванной строкой.
-    const aboutTxt = 'PvP damage from the selected character to any other class, with both sides’ gear, passives and buffs. Dress the target right here.';
-    const about = h('button', { class: 'info', type: 'button', 'aria-label': aboutTxt }, 'i');
-    about.addEventListener('mouseenter', () => showTip(about, `<div class="ln">${esc(aboutTxt)}</div>`)); about.addEventListener('mouseleave', hideTip);
-    about.addEventListener('focus', () => showTip(about, `<div class="ln">${esc(aboutTxt)}</div>`)); about.addEventListener('blur', hideTip);
-    box.append(h('div', { class: 'secthead' }, h('h3', null, 'Damage'), about));
+    box.append(h('div', { class: 'secthead' }, h('h3', null, 'Damage'), infoBtn('PvP damage from the selected character to any other class, with both sides’ gear, passives and buffs. Equip the target right here.',
+      'Average includes crit chance and, for normal attacks, miss, shield block and perfect block; for spells — full (0.5% + level) and partial (5% + level) magic resistance. Cycle is the longer of reuse and cast time (cast time scales with Atk. Spd. / Casting Spd.; blessed spiritshots cut it by 1.5). «CP+HP in» — time to burn the target’s CP and HP using only that line. PvP, no attributes, no bow distance bonus.')));
     box.append(h('div', { class: 'duel' }, who(c, 'Attacker'), h('span', { class: 'vs' }, '→'),
       h('div', { class: 'duelist' }, h('img', { class: 'clsicon sm', src: 'icons/class_icon_' + CLASS_ICON[t.cls] + '.png', alt: '' }), h('div', null, h('small', null, 'Target'), pick)), swap,
       h('div', { class: 'dctl' },
@@ -1381,7 +1378,16 @@
       h('td', null, r.ok && r.dps ? (pool / r.dps).toFixed(1) + ' s' : '—'))));
     box.append(h('div', { class: 'dwrap' }, h('table', { class: 'dtable' },
       h('thead', null, h('tr', null, ['Skill', 'Hit', 'Crit', 'Hit · crit %', 'Average', 'Cycle', 'DPS', 'CP+HP in'].map(x => h('th', null, x)))), tb)));
-    box.append(h('p', { class: 'note' }, 'Average includes crit chance and, for normal attacks, miss, shield block and perfect block; for spells — full (0.5% + level) and partial (5% + level) magic resistance. Cycle is the longer of reuse and cast time (cast time scales with Atk. Spd. / Casting Spd.; blessed spiritshots cut it by 1.5). «CP+HP in» — time to burn the target’s CP and HP using only that line. PvP, no attributes, no bow distance bonus.'));
+  }
+
+  // Значок «i» с подсказкой: пояснения к блокам живут в нём, а не абзацем под заголовком.
+  function infoBtn(...lines) {
+    const text = lines.filter(Boolean);
+    const b = h('button', { class: 'info', type: 'button', 'aria-label': text.join(' ') }, 'i');
+    const html = () => text.map(t => `<div class="ln">${esc(t)}</div>`).join('');
+    b.addEventListener('mouseenter', () => showTip(b, html())); b.addEventListener('mouseleave', hideTip);
+    b.addEventListener('focus', () => showTip(b, html())); b.addEventListener('blur', hideTip);
+    return b;
   }
 
   function renderBuffs() {
@@ -1393,9 +1399,11 @@
   function buildBuffs(c, box) {
     const groups = availableBuffs(c);
     const activeCount = Object.keys(c.buffs).length;
+    const inDialog = box.classList.contains('dlgbody');
     box.append(h('div', { class: 'secthead' },
       h('h3', null, 'Buffs'),
-      h('span', { class: 'note' }, 'Own class skills plus buffs any class can give (archers excluded). Buff level follows the level of that class’s character.'),
+      infoBtn('Own class skills plus buffs any class can give (archers excluded). Buff level follows the level of that class’s character.'),
+      inDialog ? null : h('button', { class: 'btn sm primary addbuffs', onclick: () => openBuffs(c, true) }, '+ Add'),
       h('button', { class: 'btn sm', disabled: !activeCount, onclick: () => { c.buffs = {}; update(false, c); } }, 'Remove all')));
     const wrap = h('div', { class: 'buffgroups' });
     const overGrid = buffOverrides(c);
@@ -1427,7 +1435,7 @@
         // У Coin Flipping два взаимоисключающих набора; «ребром» — не выпало ничего.
         const coin = id === COIN_ID ? h('select', { 'aria-label': 'Coin side', onchange: e => { c.coin = e.target.value; update(false, c); } },
           [['heads', 'Heads'], ['tails', 'Tails'], ['edge', 'Edge']].map(([v, n]) => h('option', { value: v, selected: (c.coin || 'heads') === v ? true : null }, n))) : null;
-        act.append(h('span', { class: 'chip' + (over[id] ? ' off' : ''), title: over[id] ? 'Does not stack with ' + over[id].n + ': no effect' : null }, h('img', { src: icon(b.ic), alt: '' }), b.n, sel, coin, h('button', { 'aria-label': 'Remove ' + b.n, onclick: () => { delete c.buffs[id]; update(false, c); } }, '×')));
+        act.append(h('span', { class: 'chip' + (over[id] ? ' off' : ''), title: over[id] ? 'Does not stack with ' + over[id].n + ': no effect' : null }, h('img', { src: icon(b.ic), alt: '' }), h('span', { class: 'nm' }, b.n), sel, coin, h('button', { 'aria-label': 'Remove ' + b.n, onclick: () => { delete c.buffs[id]; update(false, c); } }, '×')));
       }
       box.append(h('div', { class: 'lbl', style: 'margin-top:12px' }, `Active: ${activeCount}`), act);
     }
@@ -1539,12 +1547,12 @@
     if (matchMedia('(min-width:1100px)').matches) { dlg.show(); document.body.classList.add('picking'); } else dlg.showModal();
   }
 
-  function openBuffs(c) {
+  function openBuffs(c, modal) {
     const dlg = els.dialog;
     if (dlg.open) dlg.close();
     buffDlgFor = c; dlg.dataset.kind = 'buffs';
     drawBuffDialog();
-    if (matchMedia('(min-width:1100px)').matches) { dlg.show(); document.body.classList.add('picking'); } else dlg.showModal();
+    if (!modal && matchMedia('(min-width:1100px)').matches) { dlg.show(); document.body.classList.add('picking'); } else dlg.showModal();
   }
 
   function renderForm() {
