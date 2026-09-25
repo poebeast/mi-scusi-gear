@@ -66,7 +66,7 @@ shot(full, union(R['top'], R['charbar']), [(1, R['charSel'], 'top'), (2, R['nick
 shot(full, R['gear'], [(1, R['slotW'], 'top'), (2, R['slotLocked'], 'top')], '01b-gear')
 shot('picker.png', cut(RP['dlg'], RP['row'][1] + RP['row'][3] - RP['dlg'][1]), [(1, RP['step'], 'top'), (2, RP['sa'], 'left'), (3, RP['rarity'], 'bottom'), (4, RP['ls'], 'top'), (5, RP['lsm'], 'left'), (6, RP['unequip'], 'right'), (7, RP['lsfx'], 'left'), (8, RP['search'], 'left'), (9, RP['seg'], 'top'), (10, RP['row'], 'left')], '02-picker')
 shot(full, R['stats'], [(1, R['sub'], 'left'), (2, R['bars'], 'left'), (3, R['grid'], 'left'), (4, R['attrs'], 'left'), (5, R['misc'], 'left'), (6, R['notes'], 'left')], '03-stats')
-shot(full, R['tat'], [(1, R['hrow'], 'left'), (2, R['hsum'], 'left'), (3, R['hbtn'], 'left')], '04-tattoos')
+shot(full, R['tat'], [(1, R['hrow'], 'left'), (2, R['hsum'], 'top')], '04-tattoos', pad=24)
 shot('tattoo.png', cut(RT['dlg'], RT['apply'][1] + RT['apply'][3] + 10 - RT['dlg'][1]), [(1, RT['hedit'], 'left'), (2, RT['hclear'], 'right'), (3, RT['apply'], 'left')], '05-tattoo-window')
 shot('ptip.png', union(R['pas'], RTIP['tip']), [(1, R['pasInfo'], 'top'), (2, R['pic'], 'left'), (3, R['picBook'], 'top'), (4, R['picOff'], 'top')], '06-passives')
 shot(full, R['clan'], [(1, R['clanSw'], 'left'), (2, R['clanItem'], 'left')], '07-clan')

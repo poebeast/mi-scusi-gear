@@ -1026,8 +1026,8 @@
     els.tattoos.innerHTML = '';
     const hm = hennaMods(c);
     const sum = ATTRS.filter(a => hm[a]).map(a => h('span', { class: hm[a] > 0 ? 'p' : 'm' }, `${a} ${hm[a] > 0 ? '+' : '−'}${Math.abs(hm[a])}`));
-    // append(null) вставил бы строку «null», поэтому пустую сводку просто не добавляем.
-    els.tattoos.append(h('h3', null, 'Tattoos'), henRow(c, '', true), ...(sum.length ? [h('div', { class: 'hsum' }, sum)] : []), h('div', { class: 'hbtnrow' }, henBtn(c)));
+    // Символы слева (клик открывает окно тату), сводка по атрибутам — столбиком справа.
+    els.tattoos.append(h('h3', null, 'Tattoos'), h('div', { class: 'henbox' }, henRow(c, '', true), sum.length ? h('div', { class: 'hsum' }, sum) : null));
   }
 
 

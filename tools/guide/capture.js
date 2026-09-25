@@ -52,7 +52,7 @@ const FULL = {
   top: '.top', guide: '.guidebtn', save: '.save .dot', charSel: '#char-select', nick: '#char-nick', lvl: '.charbar .lvl', charbar: '.charbar',
   gear: '.stage', slotW: () => document.querySelectorAll('.gearrow .slot')[5], slotLocked: () => [...document.querySelectorAll('.gearrow .slot')].find(s => !s.querySelector('img')),
   stats: '.stats', sub: '.stathead .switch', subInfo: '.stathead .info', bars: '.stats .bars', grid: '.stats .grid2', attrs: '.stats .attrs', misc: '.stats .misc', notes: '.stats details',
-  tat: '.tattoos', hrow: '.tattoos .hrow', hsum: '.tattoos .hsum', hbtn: '.tattoos .hbtnrow .btn',
+  tat: '.tattoos', hrow: '.tattoos .hrow', hsum: '.tattoos .hsum',
   pas: '.passives', pasInfo: '.passives .info', pic: '.passives .pic', picBook: '.passives .pic.book', picOff: '.passives .pic.off',
   clan: '.clan', clanSw: '.clanhead .switch', clanItem: '.clanlist .clanitem',
   dmg: '.sect.dmg', dmgInfo: '.sect.dmg .secthead .info', att: '.duel>.duelist:first-child', tsel: '.duelist select', swap: '.duel .swap', dctl: '.dctl',
@@ -81,7 +81,7 @@ fs.writeFileSync(HERE + '/r_picker.json', JSON.stringify(run({
 })));
 // 3. окно тату
 fs.writeFileSync(HERE + '/r_tattoo.json', JSON.stringify(run({
-  name: 'tattoo', h: H, shot: 'tattoo.png', act: `document.querySelector('.tattoos .hbtnrow .btn').click();`,
+  name: 'tattoo', h: H, shot: 'tattoo.png', act: `document.querySelector('.tattoos .hbtn').click();`,
   spec: Object.assign({ hedit: '.hedit', hclear: '.hedit .btn', apply: '.dlgfoot .btn' }, DLG),
 })));
 // 4. баффы цели

@@ -535,3 +535,7 @@ select{white-space:nowrap;overflow:hidden;max-width:100%}
 }
 @media (max-width:1359px){.ins{max-height:420px}.lay>.lrow:nth-child(5){grid-template-columns:1fr!important}}
 .insrow .ci.hen{display:grid;place-items:center;font:700 10px/1 var(--mono);color:#fff;border-radius:50%;background:linear-gradient(135deg,var(--accent),#8b5cf6)}
+
+/* Тату: символы и столбик бонусов в одну строку. */
+.henbox{display:flex;align-items:center;gap:14px}
+.henbox .hsum{flex-direction:column;gap:1px;margin-left:auto;text-align:right}
