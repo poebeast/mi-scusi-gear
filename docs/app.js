@@ -1024,10 +1024,17 @@
   function renderTattoos() {
     const c = ch();
     els.tattoos.innerHTML = '';
-    const hm = hennaMods(c);
-    const sum = ATTRS.filter(a => hm[a]).map(a => h('span', { class: hm[a] > 0 ? 'p' : 'm' }, `${a} ${hm[a] > 0 ? '+' : '−'}${Math.abs(hm[a])}`));
-    // Символы слева (клик открывает окно тату), сводка по атрибутам — столбиком справа.
-    els.tattoos.append(h('h3', null, 'Tattoos'), h('div', { class: 'henbox' }, henRow(c, '', true), sum.length ? h('div', { class: 'hsum' }, sum) : null));
+    // Три тату в ряд, под каждой — что она поднимает и что опускает. Клик по символу открывает окно тату.
+    const row = henRow(c, 'hgrid', true);
+    [...row.children].forEach((b, i) => {
+      const hn = c.hen[i];
+      const txt = hn ? h('div', { class: 'htxt' }, h('span', { class: 'p' }, `${hn.up} +${hn.n}`), h('span', { class: 'm' }, `${hn.down} −${hn.kind === 'greater' ? hn.n : hn.n + 1}`))
+        : h('div', { class: 'htxt' }, h('span', { class: 'e' }, 'empty'));
+      const cell = h('div', { class: 'hcell' });
+      row.replaceChild(cell, b);
+      cell.append(b, txt);
+    });
+    els.tattoos.append(h('h3', null, 'Tattoos'), row);
   }
 
 

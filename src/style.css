@@ -442,7 +442,6 @@ select{white-space:nowrap;overflow:hidden;max-width:100%}
   html[data-theme] .iconlist,html[data-theme] .clanlist{grid-template-columns:repeat(auto-fill,minmax(28px,1fr));gap:4px}
   html[data-theme] .pic img,html[data-theme] .clanitem img{width:28px;height:28px;border-radius:6px}
   html[data-theme] .tattoos .tat .sym{width:26px;height:26px}
-  html[data-theme] .hsym{transform:scale(.8);transform-origin:left center}
 
   /* Урон: таблица растягивается и прокручивается внутри, шапка закреплена. */
   html[data-theme] .dmg .secthead{margin-bottom:6px}
@@ -539,3 +538,9 @@ select{white-space:nowrap;overflow:hidden;max-width:100%}
 /* Тату: символы и столбик бонусов в одну строку. */
 .henbox{display:flex;align-items:center;gap:14px}
 .henbox .hsum{flex-direction:column;gap:1px;margin-left:auto;text-align:right}
+/* Тату в ряд, текст под каждой. */
+.hrow.hgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;align-items:start}
+.hcell{display:flex;flex-direction:column;align-items:center;gap:5px}
+.hgrid .hsym{width:46px;height:46px}
+.htxt{display:flex;flex-direction:column;align-items:center;font:600 12px/1.3 var(--mono)}
+.htxt .p{color:var(--good)}.htxt .m{color:var(--bad)}.htxt .e{color:var(--mute);font-family:var(--body);font-weight:500}
