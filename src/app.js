@@ -1035,7 +1035,12 @@
     const fmt = (v, d) => (d ? (Math.round(v * 10 ** d) / 10 ** d).toFixed(d) : Math.round(v).toLocaleString('en-GB'));
     const cls = (k, v) => { if (!prevStats || prevStats.cls !== c.cls + String(cur)) return ''; const p = prevStats.st[k]; if (p == null) return ''; const a = Math.round(v), b = Math.round(p); return a > b ? 'up' : a < b ? 'dn' : ''; };
 
-    box.append(h('div', { class: 'lbl' }, 'Stats'));
+    // «Sub» — Core of Magic из квеста на подкласс: лежит в инвентаре и просто добавляет параметры.
+    const subSw = h('input', { type: 'checkbox', checked: c.sub ? true : null, onchange: e => { c.sub = e.target.checked; update(false); } });
+    box.append(h('div', { class: 'stathead' }, h('div', { class: 'lbl' }, 'Stats'),
+      h('label', { class: 'switch sub' }, subSw, h('span', null, 'Sub')),
+      infoBtn(`Sub: ${SUB_CORE.n} — ${SUB_CORE.text.split(String.fromCharCode(10)).join(', ')}.`,
+        `Reward for «Breath of Magic», the quest that unlocks a subclass. ${SUB_CORE.note} is not counted.`)));
     const maxBar = Math.max(S.hp, S.mp, S.cp);
     box.append(h('div', { class: 'bars' },
       [['CP', S.cp, 'var(--cp)'], ['HP', S.hp, 'var(--hp)'], ['MP', S.mp, 'var(--mp)']].map(([n, v, col]) =>
@@ -1075,15 +1080,9 @@
     const box = els.passives;
     box.innerHTML = '';
     const on = r.pass.filter(x => !x.off).length;
-    // «Sub» — Core of Magic из квеста на подкласс: лежит в инвентаре и просто добавляет параметры.
-    const subSw = h('input', { type: 'checkbox', checked: c.sub ? true : null, onchange: e => { c.sub = e.target.checked; update(false); } });
-    const subLbl = h('label', { class: 'switch sub' }, subSw, h('span', null, 'Sub'));
-    const subTip = () => `<b>${esc(SUB_CORE.n)}</b><div class="ln">${esc(SUB_CORE.text)}</div>`
-      + `<div class="k">Reward for «Breath of Magic», the quest that unlocks a subclass. ${esc(SUB_CORE.note)} is not counted.</div>`;
-    subLbl.addEventListener('mouseenter', () => showTip(subLbl, subTip())); subLbl.addEventListener('mouseleave', hideTip);
     box.append(h('div', { class: 'kithead' }, h('h3', null, 'Passive skills'),
       r.pass.some(x => x.p.book || x.max > 1) ? infoBtn('Click a skill to raise its level, right-click to lower it. Hover to see what it gives.') : null,
-      h('span', { class: 'note' }, r.pass.length ? `${on} of ${r.pass.length} active` : 'None at this level'), subLbl));
+      h('span', { class: 'note' }, r.pass.length ? `${on} of ${r.pass.length} active` : 'None at this level')));
     const tipFor = x => `<b>${esc(x.p.n)} Lv. ${x.l}${x.max > 1 ? ' of ' + x.max : ''}</b>${x.off ? `<div class="k bad">Not counted: ${esc(x.off)}</div>` : ''}<div class="ln">${esc(x.text)}</div>`
       + (x.p.book ? `<div class="k">Learned from ${esc(x.p.book)}. Click to cycle the level${x.max > 1 ? ' (1–' + x.max + ')' : ''} and «not learned».</div>`
         : x.max > 1 ? `<div class="k">Click to raise the level (1–${x.max}), right-click to lower it.</div>` : '');
@@ -1354,7 +1353,7 @@
     }
     const pool = d.hp + d.cp;
     // Цель можно переодеть прямо здесь: гир, заточка, тату, уровень, баффы, клан-скилы.
-    const tHen = henRow(t, 'sm');
+    const tHen = henRow(t, 'sm', true); // Символы тату сами открывают окно тату, отдельная кнопка не нужна.
     const tLvl = h('input', { type: 'number', min: '1', max: '75', value: t.level, 'aria-label': 'Target level', onchange: e => { t.level = Math.max(1, Math.min(75, Math.round(+e.target.value || 75))); update(false, t); } });
     const nb = Object.keys(t.buffs).length;
     const nd = Object.keys(dmgPrefs.deb || {}).length;

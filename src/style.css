@@ -388,19 +388,21 @@ select{white-space:nowrap;overflow:hidden;max-width:100%}
    страница не прокручивается, длинные колонки листаются сами. Ниже 1360 px — обычная раскладка. */
 .addbuffs{display:none}
 @media (min-width:1360px){
-  html[data-theme] body{font-size:13px;line-height:1.35;overflow:hidden}
+  html[data-theme] body{font-size:13px;line-height:1.35}
   /* Все блоки — прямые ячейки одной сетки на весь экран. */
-  html[data-theme] .wrap{max-width:none;height:100vh;padding:10px 12px;display:grid;gap:10px;
-    grid-template-columns:clamp(230px,13.5vw,260px) minmax(0,1fr) clamp(220px,13.5vw,260px) clamp(260px,17vw,330px);grid-template-rows:auto minmax(0,1fr);
+  html[data-theme] .wrap{max-width:none;padding:10px 12px;display:grid;gap:10px;
+    grid-template-columns:clamp(230px,13.5vw,260px) minmax(0,1fr) clamp(220px,13.5vw,260px) clamp(260px,17vw,330px);grid-template-rows:auto minmax(480px,auto);
     grid-template-areas:"top char gear gear" "stats dmg side buffs"}
   html[data-theme] :is(.lay,.lrow){display:contents}
   /* Колонки остаются колонками: каждая — стопка блоков со своей прокруткой. */
   html[data-theme] .lcol{min-height:0;gap:10px}
   html[data-theme] .lrow:nth-child(1)>.lcol{grid-area:gear}
   html[data-theme] .lrow:nth-child(2)>.lcol:nth-child(1){grid-area:stats}
-  html[data-theme] .lrow:nth-child(2)>.lcol:nth-child(2){grid-area:dmg}
-  html[data-theme] .lrow:nth-child(2)>.lcol:nth-child(3){grid-area:side;overflow:auto}
-  html[data-theme] .lrow:nth-child(3)>.lcol{grid-area:buffs}
+  /* Высоту ряда задают статы и колонка Tattoos/Passives/Clan; урон и бафы в неё не влияют (contain:size)
+     и листаются внутри. Раскрытые «Effects not counted» удлиняют ряд, и страница прокручивается. */
+  html[data-theme] .lrow:nth-child(2)>.lcol:nth-child(2){grid-area:dmg;contain:size;overflow:hidden}
+  html[data-theme] .lrow:nth-child(2)>.lcol:nth-child(3){grid-area:side}
+  html[data-theme] .lrow:nth-child(3)>.lcol{grid-area:buffs;contain:size;overflow:hidden}
   html[data-theme] .foot{display:none}
   html[data-theme] :is(.top,.charbar,.stage,.stats,.sect,.tattoos,.clan,.lcol>.passives){border-radius:12px;box-shadow:none;margin:0;min-height:0}
 
@@ -424,7 +426,7 @@ select{white-space:nowrap;overflow:hidden;max-width:100%}
   html[data-theme] .slot .ph{font-size:8.5px}
 
   /* Колонки: каждая прокручивается сама, страница — нет. */
-  html[data-theme] .stats{padding:10px;gap:7px;overflow:auto}
+  html[data-theme] .stats{padding:10px;gap:7px;height:100%}
   html[data-theme] .tattoos{flex:none;padding:10px;gap:6px}
   html[data-theme] .lcol>.passives{flex:none;padding:10px;gap:6px;overflow:auto}
   html[data-theme] .clan{flex:none;padding:10px;gap:6px;overflow:auto}
@@ -481,3 +483,7 @@ select{white-space:nowrap;overflow:hidden;max-width:100%}
 /* ...и начинается под верхней полосой, чтобы слоты экипировки оставались под рукой. */
 @media (min-width:1360px){html[data-theme] dialog#picker{margin:68px 12px 10px auto;height:calc(100vh - 78px)}html[data-theme] dialog#picker:not(:modal){inset:0 0 0 auto;margin:68px 12px 10px auto}}
 .bg h4 small{margin-left:6px}
+/* Шапка статов: заголовок слева, Sub и значок ⓘ справа. */
+.stathead{display:flex;align-items:center;gap:8px}
+.stathead>.lbl{margin-right:auto}
+.stathead .switch input{width:26px;height:16px}
