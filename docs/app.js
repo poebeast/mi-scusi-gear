@@ -1445,28 +1445,38 @@
   }
 
   // Матчапы: лучший DPS против каждого персонажа и время, за которое он снимет CP и HP.
-  function renderMatchups(c) {
+  // Скилл для матчапов: '' — лучший против каждой цели, иначе имя скилла из таблицы урона.
+  let matchSkill = '';
+  function renderMatchups(c, t0) {
     const box = els.matchups;
     box.innerHTML = '';
-    box.append(insHead('Matchups', 'Best damage line of the selected character against every other character, as each one is equipped here. Time is how long that line alone takes to burn the target’s CP and HP. Click a row to make it the target.'));
+    // Список скиллов берём из таблицы против текущей цели: те же, что можно применить.
+    const names = [...new Set(damageRows(c, t0).rows.filter(r => r.ok && r.dps > 0).sort((a, b) => b.dps - a.dps).map(r => r.n))];
+    if (matchSkill && !names.includes(matchSkill)) matchSkill = '';
+    const pick = h('select', { class: 'mskill', 'aria-label': 'Skill for matchups', onchange: e => { matchSkill = e.target.value; renderMatchups(c, t0); } },
+      [h('option', { value: '' }, 'Best line')].concat(names.map(n => h('option', { value: n, selected: n === matchSkill ? true : null }, n))));
+    box.append(insHead('Matchups', 'Damage of the selected character against every other character, as each one is equipped here. «Best line» takes the skill with the highest DPS against each target (usually the same one); pick a skill to compare everyone with that skill. Time is how long the line alone takes to burn the target’s CP and HP. Click a row to make it the target.', pick));
     const list = FOE_ORDER.map(k => STATE.foes[k]).filter(t => t !== c).map(t => {
-      const { best, D } = bestLine(c, t);
-      return { t, best, ttk: best ? (D.st.cp + D.st.hp) / best.dps : Infinity };
+      const res = damageRows(c, t);
+      let line = null;
+      for (const r of res.rows) if (r.ok && r.dps > 0 && (matchSkill ? r.n === matchSkill : !line || r.dps > line.dps)) line = r;
+      return { t, line, ttk: line ? (res.D.st.cp + res.D.st.hp) / line.dps : Infinity };
     }).sort((a, b) => a.ttk - b.ttk);
     const fin = list.filter(x => isFinite(x.ttk)).map(x => x.ttk);
     const lo = Math.min(...fin), hi = Math.max(...fin);
     const tKey = dmgPrefs.target;
-    box.append(h('div', { class: 'inslist' }, list.map(({ t, best, ttk }) => {
+    const one = !!matchSkill;
+    box.append(h('div', { class: 'insrow mrow mhead' + (one ? ' one' : '') }, h('span'), h('span', null, 'Target'), one ? null : h('span', null, 'Best skill'), h('span', { class: 'num' }, 'DPS'), h('span', { class: 'hs2' }, 'Time to kill')));
+    box.append(h('div', { class: 'inslist' }, list.map(({ t, line, ttk }) => {
       // Цвет полоски: зелёный — быстро убивает, красный — долго.
       const q = isFinite(ttk) && hi > lo ? (ttk - lo) / (hi - lo) : 1;
-      const row = h('button', { class: 'insrow mrow' + ('f:' + t.cls === tKey ? ' on' : ''), type: 'button', onclick: () => { dmgPrefs.target = 'f:' + t.cls; renderDamage(); } },
+      return h('button', { class: 'insrow mrow' + (one ? ' one' : '') + ('f:' + t.cls === tKey ? ' on' : ''), type: 'button', onclick: () => { dmgPrefs.target = 'f:' + t.cls; renderDamage(); } },
         h('img', { class: 'ci', src: 'icons/class_icon_' + CLASS_ICON[t.cls] + '.png', alt: '' }),
         h('span', { class: 'nm' }, (t.nick ? t.nick + ' · ' : '') + CLASSES[t.cls].n),
-        h('span', { class: 'sk' }, best ? best.n : '—'),
-        h('b', { class: 'num' }, best ? Math.round(best.dps).toLocaleString('en-US') : '—'),
+        one ? null : h('span', { class: 'sk' }, line ? line.n : '—'),
+        h('b', { class: 'num' }, line ? Math.round(line.dps).toLocaleString('en-US') : '—'),
         h('span', { class: 'bar' }, h('i', { style: `width:${Math.max(4, isFinite(ttk) ? 100 * (ttk / hi) : 100)}%;background:hsl(${Math.round(130 - 125 * q)} 70% 50%)` })),
         h('b', { class: 'num t' }, fmtSec(ttk)));
-      return row;
     })));
   }
 
@@ -1485,6 +1495,7 @@
       return { id, b: BUFFS.get(id), v: base && b ? (base.dps / b.dps - 1) * 100 : 0 };
     }).filter(x => x.b).sort((a, b) => b.v - a.v);
     const hi = Math.max(1, ...list.map(x => x.v));
+    box.append(h('div', { class: 'insrow irow mhead' }, h('span'), h('span', null, 'Buff'), h('span', { class: 'hs2' }, 'Adds to DPS')));
     box.append(h('div', { class: 'inslist' }, list.map(({ id, b, v }) => h('div', { class: 'insrow irow' + (v < 0.05 ? ' zero' : '') },
       h('img', { class: 'ci sq', src: icon(b.ic), alt: '' }),
       h('span', { class: 'nm' }, b.n),
@@ -1528,6 +1539,7 @@
       if (!list) { box.append(h('div', { class: 'empty' }, 'Calculating…')); return; }
       if (!list.length) { box.append(h('div', { class: 'empty' }, 'Nothing here adds damage.')); return; }
       const hi = list[0].v;
+      box.append(h('div', { class: 'insrow urow mhead' }, h('span'), h('span', null, 'Change'), h('span', { class: 'hs2' }, 'DPS gain'), h('span')));
       box.append(h('div', { class: 'inslist' }, list.slice(0, 40).map(u => h('div', { class: 'insrow urow' },
         u.ic ? h('img', { class: 'ci sq', src: icon(u.ic), alt: '' }) : h('span', { class: 'ci sq na' }),
         h('span', { class: 'nm' }, u.n),

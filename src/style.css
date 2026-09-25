@@ -429,7 +429,7 @@ select{white-space:nowrap;overflow:hidden;max-width:100%}
   html[data-theme] .stats{padding:10px;gap:7px;height:100%}
   html[data-theme] .tattoos{flex:none;padding:10px;gap:6px}
   html[data-theme] .lcol>.passives{flex:none;padding:10px;gap:6px;overflow:auto}
-  html[data-theme] .clan{flex:none;padding:10px;gap:6px;overflow:auto}
+  html[data-theme] .clan{flex:1 1 auto;padding:10px;gap:6px;overflow:auto}
   html[data-theme] .sect.dmg{height:100%;padding:10px 12px;display:flex;flex-direction:column;overflow:hidden}
   html[data-theme] .sect.buffsect{height:100%;padding:10px;display:flex;flex-direction:column;overflow:auto}
 
@@ -510,6 +510,12 @@ select{white-space:nowrap;overflow:hidden;max-width:100%}
 .insrow .bar{height:6px;border-radius:6px;background:var(--glass2);overflow:hidden}
 .insrow .bar i{display:block;height:100%;border-radius:6px;background:var(--accent)}
 .mrow{grid-template-columns:20px minmax(0,1.2fr) minmax(0,1fr) 62px minmax(40px,1fr) 44px;cursor:pointer}
+.mrow.one{grid-template-columns:20px minmax(0,1.4fr) 62px minmax(40px,1.2fr) 44px}
+/* Заголовки колонок матчапов: время — над полоской и цифрой. */
+.mhead{cursor:default;font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:var(--mute);padding-top:0;padding-bottom:2px}
+.mhead .hs2{grid-column:span 2;text-align:right}
+.mhead .num{font:inherit;color:inherit}
+.ins .secthead .mskill{margin-left:auto;max-width:180px;font:600 12px var(--body);padding:2px 6px;border-radius:8px;border:1px solid var(--edge);background:var(--glass3);color:var(--ink)}
 .mrow:hover{background:var(--glass2)}
 .mrow.on{background:var(--glass2);box-shadow:inset 2px 0 0 var(--bad)}
 .irow{grid-template-columns:20px minmax(0,1fr) minmax(40px,.8fr) 64px}
