@@ -497,6 +497,7 @@ select{white-space:nowrap;overflow:hidden;max-width:100%}
 .rost:hover{background:var(--glass2)}
 .rost.me{border-color:var(--accent);background:var(--glass2);color:var(--ink)}
 .rost.tg{border-color:var(--bad)}
+.rost.me::after{content:'you';position:absolute;top:-7px;font:700 8px/1 var(--body);text-transform:uppercase;letter-spacing:.05em;color:var(--accent);background:var(--bg0,#111);padding:1px 3px;border-radius:4px}
 .rost.tg::after{content:'target';position:absolute;top:-7px;font:700 8px/1 var(--body);text-transform:uppercase;letter-spacing:.05em;color:var(--bad);background:var(--bg0,#111);padding:1px 3px;border-radius:4px}
 .ins{display:flex;flex-direction:column;min-height:0}
 .inslist{display:flex;flex-direction:column;gap:2px;overflow:auto;min-height:0}

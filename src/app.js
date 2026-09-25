@@ -1445,27 +1445,27 @@
   }
 
   // Матчапы: лучший DPS против каждого персонажа и время, за которое он снимет CP и HP.
-  // Скилл для матчапов: '' — лучший против каждой цели, иначе имя скилла из таблицы урона.
+  // Скилл для матчапов — имя скилла из таблицы урона; по умолчанию самый сильный против текущей цели.
   let matchSkill = '';
   function renderMatchups(c, t0) {
     const box = els.matchups;
     box.innerHTML = '';
     // Список скиллов берём из таблицы против текущей цели: те же, что можно применить.
     const names = [...new Set(damageRows(c, t0).rows.filter(r => r.ok && r.dps > 0).sort((a, b) => b.dps - a.dps).map(r => r.n))];
-    if (matchSkill && !names.includes(matchSkill)) matchSkill = '';
+    if (!names.includes(matchSkill)) matchSkill = names[0] || '';
     const pick = h('select', { class: 'mskill', 'aria-label': 'Skill for matchups', onchange: e => { matchSkill = e.target.value; renderMatchups(c, t0); } },
-      [h('option', { value: '' }, 'Best line')].concat(names.map(n => h('option', { value: n, selected: n === matchSkill ? true : null }, n))));
-    box.append(insHead('Matchups', 'Damage of the selected character against every other character, as each one is equipped here. «Best line» takes the skill with the highest DPS against each target (usually the same one); pick a skill to compare everyone with that skill. Time is how long the line alone takes to burn the target’s CP and HP. Click a row to make it the target.', pick));
+      names.map(n => h('option', { value: n, selected: n === matchSkill ? true : null }, n)));
+    box.append(insHead('Matchups', 'Damage of the selected character against every other character, as each one is equipped here. Everyone is compared with the skill picked on the right; it starts on the strongest one against the current target. Time is how long the line alone takes to burn the target’s CP and HP. Click a row to make it the target.', pick));
     const list = FOE_ORDER.map(k => STATE.foes[k]).filter(t => t !== c).map(t => {
       const res = damageRows(c, t);
       let line = null;
-      for (const r of res.rows) if (r.ok && r.dps > 0 && (matchSkill ? r.n === matchSkill : !line || r.dps > line.dps)) line = r;
+      for (const r of res.rows) if (r.ok && r.dps > 0 && r.n === matchSkill) line = r;
       return { t, line, ttk: line ? (res.D.st.cp + res.D.st.hp) / line.dps : Infinity };
     }).sort((a, b) => a.ttk - b.ttk);
     const fin = list.filter(x => isFinite(x.ttk)).map(x => x.ttk);
     const lo = Math.min(...fin), hi = Math.max(...fin);
     const tKey = dmgPrefs.target;
-    const one = !!matchSkill;
+    const one = true;
     box.append(h('div', { class: 'insrow mrow mhead' + (one ? ' one' : '') }, h('span'), h('span', null, 'Target'), one ? null : h('span', null, 'Best skill'), h('span', { class: 'num' }, 'DPS'), h('span', { class: 'hs2' }, 'Time to kill')));
     box.append(h('div', { class: 'inslist' }, list.map(({ t, line, ttk }) => {
       // Цвет полоски: зелёный — быстро убивает, красный — долго.
