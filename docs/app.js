@@ -1063,6 +1063,15 @@
       if (S[k] == null) continue;
       g.append(h('div', { class: 'st' }, h('span', null, n), h('b', null, k === 'mcrit' ? fmt(S[k], 1) : fmt(S[k]))));
     }
+    // Сила крита — итоговый множитель, как в таблице урона: у воинов 2 × (1 + Crit. damage),
+    // у магов 2.5 × M. crit. damage (источники перемножаются). Встаёт сразу после Speed.
+    const mystic = CLASSES[c.cls].arch === 'mystic';
+    const cdm = mystic ? 2.5 * (r.prod.mcritdmg || 1) : 2 * (1 + pctOf(r, 'critdmg'));
+    const cdAdd = !mystic && r.add.critdmg ? ` + ${Math.round(r.add.critdmg)}` : '';
+    const cdCell = h('div', { class: 'st', title: mystic ? 'Magic crit damage multiplier (base ×2.5)' : 'Physical crit damage multiplier (base ×2)' + (cdAdd ? ', plus a flat bonus to P. Atk. on crit' : '') },
+      h('span', null, 'Crit. Dmg'), h('b', null, '×' + (Math.round(cdm * 100) / 100) + cdAdd));
+    const spd = [...g.children].find(x => x.firstChild && x.firstChild.textContent === 'Speed');
+    if (spd) spd.after(cdCell); else g.append(cdCell);
     if (g.children.length % 2) g.append(h('div', { class: 'st' }));
     box.append(g);
     box.append(h('div', { class: 'attrs' }, ATTRS.map(a => {
