@@ -1302,8 +1302,12 @@
       h('div', null, h('small', null, extra), h('b', null, x.nick || CLASSES[x.cls].n), h('span', null, `${CLASSES[x.cls].n} · Lv. ${x.level}`)));
     const pick = h('select', { 'aria-label': 'Target', onchange: e => set('target', e.target.value) }, charOptions(c, dmgPrefs.target));
     const swap = h('button', { class: 'btn sm swap', title: 'Swap: make the target the attacker', 'aria-label': 'Swap attacker and target', onclick: () => { cur = dmgPrefs.target; dmgPrefs.target = keyOf(c); try { sessionStorage.setItem('miscusi.cur', String(cur)); } catch (_) {} renderAll(); } }, '⇄');
-    box.append(h('div', { class: 'secthead' }, h('h3', null, 'Damage'),
-      h('span', { class: 'note' }, 'PvP damage from the selected character to any other class, with both sides’ gear, passives and buffs. Dress the target right here.')));
+    // Пояснение — в подсказке у значка, чтобы под заголовком не висел абзац с оборванной строкой.
+    const aboutTxt = 'PvP damage from the selected character to any other class, with both sides’ gear, passives and buffs. Dress the target right here.';
+    const about = h('button', { class: 'info', type: 'button', 'aria-label': aboutTxt }, 'i');
+    about.addEventListener('mouseenter', () => showTip(about, `<div class="ln">${esc(aboutTxt)}</div>`)); about.addEventListener('mouseleave', hideTip);
+    about.addEventListener('focus', () => showTip(about, `<div class="ln">${esc(aboutTxt)}</div>`)); about.addEventListener('blur', hideTip);
+    box.append(h('div', { class: 'secthead' }, h('h3', null, 'Damage'), about));
     box.append(h('div', { class: 'duel' }, who(c, 'Attacker'), h('span', { class: 'vs' }, '→'),
       h('div', { class: 'duelist' }, h('img', { class: 'clsicon sm', src: 'icons/class_icon_' + CLASS_ICON[t.cls] + '.png', alt: '' }), h('div', null, h('small', null, 'Target'), pick)), swap,
       h('div', { class: 'dctl' },
@@ -1322,9 +1326,14 @@
     const f0 = x => Math.round(x).toLocaleString('en-US');
     const d = D.st;
     const fx = v => '×' + (Math.round(v * 100) / 100);
-    box.append(h('div', { class: 'dtarget' }, `Target: P. Def. ${f0(d.pdef)} · M. Def. ${f0(d.mdef)} · Evasion ${f0(d.eva)} · HP ${f0(d.hp)} · CP ${f0(d.cp)}` + (t.eq.shield && ITEMS.get(t.eq.shield.id) ? ` · shield ${f0(d.sdef || 0)}` : '')
-      + `  ·  Shots: soulshot ${dmgPrefs.ss ? fx(shots.ss) : 'off'}, spiritshot ${dmgPrefs.mshot > 1 ? fx(shots.ms) : 'off'}` + (shots.sb ? ` · weapon enchant ${fx(1 + shots.sb)}` : '')
-      + (atkRange ? `  ·  Shot range ${f0(atkRange)}, at ${f0(dmgPrefs.dist || 0)} that is ${distMul >= 1 ? '+' : ''}${Math.round((distMul - 1) * 1000) / 10}% damage` : '')));
+    // Параметры цели и зарядов — неразрывными пунктами: строка переносится только между ними,
+    // и число никогда не отрывается от своей подписи.
+    const kv = (label, items) => h('div', { class: 'kv' }, h('span', { class: 'k' }, label), items.filter(Boolean).map(([n, v]) => h('span', { class: 'i' }, n + ' ', h('b', null, v))));
+    box.append(h('div', { class: 'dtarget kvs' },
+      kv('Target', [['P. Def.', f0(d.pdef)], ['M. Def.', f0(d.mdef)], ['Evasion', f0(d.eva)], ['HP', f0(d.hp)], ['CP', f0(d.cp)],
+        t.eq.shield && ITEMS.get(t.eq.shield.id) ? ['Shield', f0(d.sdef || 0)] : null]),
+      kv('Shots', [['Soulshot', dmgPrefs.ss ? fx(shots.ss) : 'off'], ['Spiritshot', dmgPrefs.mshot > 1 ? fx(shots.ms) : 'off'], shots.sb ? ['Enchant', fx(1 + shots.sb)] : null]),
+      atkRange ? kv('Range', [['Max', f0(atkRange)], ['At ' + f0(dmgPrefs.dist || 0), (distMul >= 1 ? '+' : '') + Math.round((distMul - 1) * 1000) / 10 + '%']]) : null));
     const deb = debList(t);
     if (deb.length) {
       // Шанс прохождения: считаем множители формулы сервера. Базовый шанс умения лежит в скриптах
