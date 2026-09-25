@@ -235,8 +235,8 @@ dialog::backdrop{background:rgba(10,25,60,.28);-webkit-backdrop-filter:blur(4px)
 .pitem .book input{accent-color:var(--accent);width:14px;height:14px;margin:0}
 .pitem .book em{font-style:normal;font-weight:600}
 .pitem.off .book{opacity:1}
-.dmg .dsel{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:600;color:var(--ink)}
-.dmg .dsel select{font:inherit;padding:4px 8px;border-radius:10px;border:1px solid var(--edge);background:var(--glass)}
+.dmg .dsel{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:500;color:var(--ink2)}
+.dmg .dsel select{font:600 12.5px var(--body);color:var(--ink);padding:2px 6px;border-radius:8px;border:1px solid var(--edge);background:var(--glass)}
 .dtarget{font-size:12.5px;color:var(--ink2);margin:-4px 0 10px}
 .dwrap{overflow-x:auto}
 .dtable{width:100%;border-collapse:collapse;font-size:13px}
@@ -272,15 +272,21 @@ button.pic{cursor:pointer}
 .pic.book::before{content:"";position:absolute;left:-3px;top:-3px;width:9px;height:9px;border-radius:50%;background:#14b8a6;box-shadow:0 0 0 2px #fff;z-index:1}
 .pic.book.off::before{background:var(--bad)}
 .tip .k.bad{color:var(--bad);font-weight:600}
-.duel{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;padding:10px 14px;margin-bottom:10px;border-radius:20px;background:var(--glass2);border:1px solid var(--edge)}
-.duelist{display:flex;align-items:center;gap:10px;min-width:0}
-.duelist small{display:block;font-size:11px;font-weight:600;color:var(--mute);text-transform:uppercase;letter-spacing:.06em}
-.duelist b{display:block;font:700 15px/1.2 var(--display)}
-.duelist span{font-size:12px;color:var(--ink2)}
-.duelist select{font:600 14px var(--body);padding:5px 10px;border-radius:12px;border:1px solid var(--edge);background:var(--glass3);max-width:260px}
-.clsicon.sm{width:38px;height:38px;padding:4px}
-.duel .vs{font-size:20px;color:var(--mute)}
-.dctl{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin-left:auto}
+.duel{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;padding:6px 10px;margin-bottom:8px;border-radius:14px;background:var(--glass2);border:1px solid var(--edge)}
+/* Кто бьёт и кого — одной строкой: иконка, имя, стрелка, иконка и список целей. Подписи видны скринридеру. */
+.duelist{display:flex;align-items:center;gap:6px;min-width:0}
+.duelist small,.duel>.duelist:first-child b{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.duelist b{display:block;font:600 14px/1.2 var(--display);white-space:nowrap}
+.duelist span{display:none}
+.duelist select{font:600 13px var(--body);padding:3px 8px;border-radius:9px;border:1px solid var(--edge);background:var(--glass3);max-width:190px}
+.clsicon.sm{width:26px;height:26px;padding:3px;box-shadow:0 0 0 1.5px rgba(255,255,255,.7)}
+.duel .vs{font-size:14px;color:var(--mute)}
+.duel .swap{padding:2px 8px;font-size:14px;line-height:1.2}
+.dctl{display:flex;flex-wrap:wrap;align-items:center;gap:4px 12px;margin-left:auto;font-size:12px;color:var(--ink2)}
+.dctl .dsel{display:inline-flex;align-items:center;gap:5px}
+.dctl select{font-size:12.5px;padding:2px 6px;border-radius:8px}
+.dctl input[type=checkbox]{margin:0}
+.dmg .dctl input[type=number]{width:62px;font:600 12.5px var(--mono);padding:2px 6px;border-radius:8px;border:1px solid var(--edge);background:var(--glass3);color:var(--ink)}
 
 .themepick{display:inline-flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--ink2)}
 .themesel{background:var(--glass2);border:1px solid var(--edge);border-radius:999px;padding:6px 12px;color:var(--ink)}

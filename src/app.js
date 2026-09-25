@@ -1298,10 +1298,10 @@
     const t = byKey(dmgPrefs.target);
     const nameOf = x => (x.nick ? x.nick + ' — ' : '') + CLASSES[x.cls].n + ' · ' + x.level;
     const set = (k, v) => { dmgPrefs[k] = v; renderDamage(); };
-    const who = (x, extra) => h('div', { class: 'duelist' }, h('img', { class: 'clsicon sm', src: 'icons/class_icon_' + CLASS_ICON[x.cls] + '.png', alt: '' }),
+    const who = (x, extra) => h('div', { class: 'duelist', title: extra + ': ' + (x.nick || CLASSES[x.cls].n) + ' · Lv. ' + x.level }, h('img', { class: 'clsicon sm', src: 'icons/class_icon_' + CLASS_ICON[x.cls] + '.png', alt: '' }),
       h('div', null, h('small', null, extra), h('b', null, x.nick || CLASSES[x.cls].n), h('span', null, `${CLASSES[x.cls].n} · Lv. ${x.level}`)));
     const pick = h('select', { 'aria-label': 'Target', onchange: e => set('target', e.target.value) }, charOptions(c, dmgPrefs.target));
-    const swap = h('button', { class: 'btn sm', title: 'Make the target the attacker', onclick: () => { cur = dmgPrefs.target; dmgPrefs.target = keyOf(c); try { sessionStorage.setItem('miscusi.cur', String(cur)); } catch (_) {} renderAll(); } }, '⇄ Swap');
+    const swap = h('button', { class: 'btn sm swap', title: 'Swap: make the target the attacker', 'aria-label': 'Swap attacker and target', onclick: () => { cur = dmgPrefs.target; dmgPrefs.target = keyOf(c); try { sessionStorage.setItem('miscusi.cur', String(cur)); } catch (_) {} renderAll(); } }, '⇄');
     box.append(h('div', { class: 'secthead' }, h('h3', null, 'Damage'),
       h('span', { class: 'note' }, 'PvP damage from the selected character to any other class, with both sides’ gear, passives and buffs. Dress the target right here.')));
     box.append(h('div', { class: 'duel' }, who(c, 'Attacker'), h('span', { class: 'vs' }, '→'),
