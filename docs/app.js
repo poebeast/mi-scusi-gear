@@ -1455,7 +1455,9 @@
     if (!names.includes(matchSkill)) matchSkill = names[0] || '';
     const pick = h('select', { class: 'mskill', 'aria-label': 'Skill for matchups', onchange: e => { matchSkill = e.target.value; renderMatchups(c, t0); } },
       names.map(n => h('option', { value: n, selected: n === matchSkill ? true : null }, n)));
-    box.append(insHead('Matchups', 'Damage of the selected character against every other character, as each one is equipped here. Everyone is compared with the skill picked on the right; it starts on the strongest one against the current target. Time is how long the line alone takes to burn the target’s CP and HP. Click a row to make it the target.', pick));
+    // Значок стоит рядом со списком скиллов: подсказка объясняет именно выбор скилла и цифры.
+    box.append(h('div', { class: 'secthead' }, h('h3', null, 'Matchups'), pick,
+      infoBtn('Damage of the selected character against every other character, as each one is equipped here.', 'Every row uses the skill picked in the list; it starts on the strongest one against the current target.', 'DPS — damage per second with that skill. Time to kill — how long that skill alone takes to burn the target’s CP and HP.', 'Click a row to make it the target.')));
     const list = FOE_ORDER.map(k => STATE.foes[k]).filter(t => t !== c).map(t => {
       const res = damageRows(c, t);
       let line = null;
