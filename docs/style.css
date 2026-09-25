@@ -431,7 +431,7 @@ select{white-space:nowrap;overflow:hidden;max-width:100%}
   html[data-theme] .lcol>.passives{flex:none;padding:10px;gap:6px;overflow:auto}
   html[data-theme] .clan{flex:none;padding:10px;gap:6px;overflow:auto}
   html[data-theme] .sect.dmg{height:100%;padding:10px 12px;display:flex;flex-direction:column;overflow:hidden}
-  html[data-theme] .sect:not(.dmg){height:100%;padding:10px;display:flex;flex-direction:column;overflow:auto}
+  html[data-theme] .sect.buffsect{height:100%;padding:10px;display:flex;flex-direction:column;overflow:auto}
 
   /* Мелкие правки плотности. */
   html[data-theme] :is(.sect,.tattoos,.passives,.clan) :is(h3){font-size:13.5px}
@@ -458,15 +458,15 @@ select{white-space:nowrap;overflow:hidden;max-width:100%}
   html[data-theme] .dtable td.sk img,html[data-theme] .dtable td.sk .na{width:18px!important;height:18px!important}
 
   /* Бафы: колонка со списком включённых, полная сетка по классам — в окне по кнопке. */
-  html[data-theme] .sect:not(.dmg) .buffgroups,html[data-theme] .sect:not(.dmg)>.lbl{display:none}
-  html[data-theme] .sect:not(.dmg) .secthead{flex-wrap:nowrap;margin-bottom:6px}
+  html[data-theme] .sect.buffsect .buffgroups,html[data-theme] .sect.buffsect>.lbl{display:none}
+  html[data-theme] .sect.buffsect .secthead{flex-wrap:nowrap;margin-bottom:6px}
   html[data-theme] .addbuffs{display:inline-flex}
-  html[data-theme] .sect:not(.dmg) .secthead .btn:last-child{margin-left:auto}
-  html[data-theme] .sect:not(.dmg) .active{flex-direction:column;flex-wrap:nowrap;gap:3px;margin:0}
-  html[data-theme] .sect:not(.dmg) .active .chip{border-radius:8px;padding:2px 6px 2px 2px;font-size:12px;justify-content:flex-start}
-  html[data-theme] .sect:not(.dmg) .active .chip img{width:22px;height:22px;border-radius:5px}
-  html[data-theme] .sect:not(.dmg) .active .chip{display:grid;grid-template-columns:22px minmax(0,1fr) auto auto auto;gap:6px;align-items:center;width:100%}
-  html[data-theme] .sect:not(.dmg) .active .chip .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  html[data-theme] .sect.buffsect .secthead .btn:last-child{margin-left:auto}
+  html[data-theme] .sect.buffsect .active{flex-direction:column;flex-wrap:nowrap;gap:3px;margin:0}
+  html[data-theme] .sect.buffsect .active .chip{border-radius:8px;padding:2px 6px 2px 2px;font-size:12px;justify-content:flex-start}
+  html[data-theme] .sect.buffsect .active .chip img{width:22px;height:22px;border-radius:5px}
+  html[data-theme] .sect.buffsect .active .chip{display:grid;grid-template-columns:22px minmax(0,1fr) auto auto auto;gap:6px;align-items:center;width:100%}
+  html[data-theme] .sect.buffsect .active .chip .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 }
 @media (min-width:1360px) and (max-width:1599px){
   html[data-theme] .stage:has(>.gearrow)>.gearrow{gap:3px;padding:6px}
@@ -477,7 +477,7 @@ select{white-space:nowrap;overflow:hidden;max-width:100%}
 .dlgbody .buffgroups{display:block;columns:2 230px;column-gap:10px}
 .dlgbody .buffgroups .bg{break-inside:avoid;margin-bottom:10px}
 .btn{white-space:nowrap}
-@media (min-width:1360px){html[data-theme] .sect:not(.dmg) .secthead{gap:6px}html[data-theme] .sect:not(.dmg) .secthead .btn{padding:3px 9px}}
+@media (min-width:1360px){html[data-theme] .sect.buffsect .secthead{gap:6px}html[data-theme] .sect.buffsect .secthead .btn{padding:3px 9px}}
 /* Боковое окно выбора ложится поверх правых колонок, а не сжимает сетку: урон и статы слева видны целиком. */
 @media (min-width:1360px){html[data-theme] body.picking .wrap{margin:0!important;max-width:none!important}}
 /* ...и начинается под верхней полосой, чтобы слоты экипировки оставались под рукой. */
@@ -487,3 +487,43 @@ select{white-space:nowrap;overflow:hidden;max-width:100%}
 .stathead{display:flex;align-items:center;gap:8px}
 .stathead>.lbl{margin-right:auto}
 .stathead .switch input{width:26px;height:16px}
+
+/* ---------- нижние панели: состав, матчапы, улучшения, вклад бафов ---------- */
+.roster{padding:8px 10px}
+.rosterlist{display:grid;grid-template-columns:repeat(auto-fill,minmax(40px,1fr));gap:4px}
+.rost{position:relative;display:grid;place-items:center;padding:4px 0 2px;border:1px solid transparent;border-radius:10px;background:none;cursor:pointer;color:var(--ink2)}
+.rost img{width:28px;height:28px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#2b3a66,#0d1633);padding:3px;box-sizing:border-box}
+.rost small{font:600 10px/1.2 var(--mono)}
+.rost:hover{background:var(--glass2)}
+.rost.me{border-color:var(--accent);background:var(--glass2);color:var(--ink)}
+.rost.tg{border-color:var(--bad)}
+.rost.tg::after{content:'target';position:absolute;top:-7px;font:700 8px/1 var(--body);text-transform:uppercase;letter-spacing:.05em;color:var(--bad);background:var(--bg0,#111);padding:1px 3px;border-radius:4px}
+.ins{display:flex;flex-direction:column;min-height:0}
+.inslist{display:flex;flex-direction:column;gap:2px;overflow:auto;min-height:0}
+.insrow{display:grid;align-items:center;gap:8px;padding:3px 6px;border-radius:7px;font-size:12px;color:var(--ink2);text-align:left;border:0;background:none;font-family:inherit}
+.insrow .nm,.insrow .sk{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.insrow .nm{color:var(--ink)}
+.insrow .num{font:600 12px var(--mono);color:var(--ink);text-align:right;white-space:nowrap}
+.insrow .num.t{color:var(--ink2)}
+.insrow .ci{width:20px;height:20px;border-radius:50%;background:radial-gradient(circle at 35% 30%,#2b3a66,#0d1633);padding:2px;box-sizing:border-box}
+.insrow .ci.sq{border-radius:5px;background:none;padding:0}
+.insrow .bar{height:6px;border-radius:6px;background:var(--glass2);overflow:hidden}
+.insrow .bar i{display:block;height:100%;border-radius:6px;background:var(--accent)}
+.mrow{grid-template-columns:20px minmax(0,1.2fr) minmax(0,1fr) 62px minmax(40px,1fr) 44px;cursor:pointer}
+.mrow:hover{background:var(--glass2)}
+.mrow.on{background:var(--glass2);box-shadow:inset 2px 0 0 var(--bad)}
+.irow{grid-template-columns:20px minmax(0,1fr) minmax(40px,.8fr) 64px}
+.irow.zero{opacity:.5}
+.urow{grid-template-columns:20px minmax(0,1fr) minmax(30px,.6fr) 52px auto}
+.urow .btn{padding:1px 8px;font-size:11px}
+.ins .empty{font-size:12px;color:var(--mute);padding:6px}
+@media (min-width:1360px){
+  /* Нижние ряды — отдельные сетки на всю ширину под основной раскладкой. */
+  html[data-theme] .lrow:nth-child(4),html[data-theme] .lrow:nth-child(5){display:grid!important;grid-column:1/-1;gap:10px}
+  html[data-theme] .lrow:nth-child(5){height:310px;grid-template-rows:minmax(0,1fr);align-items:stretch}
+  html[data-theme] .lrow:nth-child(5)>.lcol{height:100%;overflow:hidden}
+  html[data-theme] .lrow:nth-child(4)>.lcol,html[data-theme] .lrow:nth-child(5)>.lcol{display:flex!important;min-height:0}
+  html[data-theme] .lrow:nth-child(5) .sect.ins{height:100%;padding:10px;flex:1}
+  html[data-theme] .roster{padding:6px 10px}
+}
+@media (max-width:1359px){.ins{max-height:420px}.lay>.lrow:nth-child(5){grid-template-columns:1fr!important}}

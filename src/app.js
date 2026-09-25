@@ -114,12 +114,14 @@
   const ITEMS = new Map(DATA.items.map(it => [it.id, it]));
   const SETS = new Map((DATA.sets || []).map(s => [s.id, s]));
   const BUFFS = new Map((DATA.buffs || []).map(b => [b.id, b]));
-  const PASSIVES = DATA.passives || {};
+  // Lucky (194) и Clan Luck (390) влияют только на штраф при смерти — на экране они лишние.
+  const HIDDEN_SKILLS = new Set(['194', '390']);
+  const PASSIVES = Object.fromEntries(Object.entries(DATA.passives || {}).map(([k, v]) => [k, Array.isArray(v) ? v.filter(p => !HIDDEN_SKILLS.has(String(p.id))) : v]));
   // Дебафы: вешаются на цель в калькуляторе урона. ml — магический уровень по уровням умения,
   // он же уровень изучения; из него берётся и доступный уровень, и clamped_dl в шансе прохождения.
   const DEBUFFS = new Map((DATA.debuffs || []).map(b => [b.id, b]));
   const debLevel = (b, lvl) => { let n = 0; (b.ml || []).forEach((m, i) => { if (m <= lvl) n = i + 1; }); return n; };
-  const CLAN = DATA.clan || [];
+  const CLAN = (DATA.clan || []).filter(k => !HIDDEN_SKILLS.has(String(k.id)));
   // Уровень пассивки на уровне персонажа: наибольший выученный не позже этого уровня.
   const passiveLevel = (p, lvl) => p.learn.reduce((m, [L, l]) => (L <= lvl && l > m ? l : m), 0);
   function activePassives(c) {
@@ -827,7 +829,11 @@
     els.clan = h('div', { class: 'clan' });
     els.passives = h('div', { class: 'passives' });
     els.stats = h('aside', { class: 'stats', 'aria-label': 'Stats' });
-    els.buffs = h('section', { class: 'sect', 'aria-label': 'Buffs' });
+    els.buffs = h('section', { class: 'sect buffsect', 'aria-label': 'Buffs' });
+    els.roster = h('section', { class: 'sect roster', 'aria-label': 'Characters' });
+    els.matchups = h('section', { class: 'sect ins', 'aria-label': 'Matchups' });
+    els.upgrades = h('section', { class: 'sect ins', 'aria-label': 'Upgrades' });
+    els.impact = h('section', { class: 'sect ins', 'aria-label': 'Buff impact' });
     els.dmg = h('section', { class: 'sect dmg', 'aria-label': 'Damage' });
     // Блоки раскладываются по рядам и колонкам в зависимости от варианта дизайна.
     els.lay = h('div', { class: 'lay' });
@@ -845,7 +851,7 @@
 
   // Раскладка (дизайн «Smoke»): сверху персонаж и гир на всю ширину, ниже статы · урон · тату, пассивки, клан, внизу баффы.
   // Ряды: [колонки, ячейки]; ячейка — список блоков, {g: [...]} — блоки в общей карточке.
-  const LAYOUT = [['1fr', [[{ g: ['viewer', 'gear'] }]]], ['300px minmax(0,1fr) 270px', [['stats'], ['dmg'], ['tattoos', 'passives', 'clan']]], ['1fr', [['buffs']]]];
+  const LAYOUT = [['1fr', [[{ g: ['viewer', 'gear'] }]]], ['300px minmax(0,1fr) 270px', [['stats'], ['dmg'], ['tattoos', 'passives', 'clan']]], ['1fr', [['buffs']]], ['1fr', [['roster']]], ['minmax(0,1.25fr) minmax(0,1fr) minmax(0,1fr)', [['matchups'], ['upgrades'], ['impact']]]];
   function applyLayout() {
     els.lay.innerHTML = '';
     for (const [cols, cells] of LAYOUT) {
@@ -859,7 +865,7 @@
     const l = Math.max(1, Math.min(75, Math.round(+v || 1)));
     ch().level = l;
     els.lvlR.value = l; els.lvlN.value = l;
-    renderStats(); markDirty();
+    renderStats(); renderDamage(); markDirty();
   }
 
   function renderSave() {
@@ -1377,6 +1383,7 @@
       h('td', null, r.ok && r.dps ? (pool / r.dps).toFixed(1) + ' s' : '—'))));
     box.append(h('div', { class: 'dwrap' }, h('table', { class: 'dtable' },
       h('thead', null, h('tr', null, ['Skill', 'Hit', 'Crit', 'Hit · crit %', 'Average', 'Cycle', 'DPS', 'CP+HP in'].map(x => h('th', null, x)))), tb)));
+    scheduleInsights();
   }
 
   // Значок «i» с подсказкой: пояснения к блокам живут в нём, а не абзацем под заголовком.
@@ -1387,6 +1394,167 @@
     b.addEventListener('mouseenter', () => showTip(b, html())); b.addEventListener('mouseleave', hideTip);
     b.addEventListener('focus', () => showTip(b, html())); b.addEventListener('blur', hideTip);
     return b;
+  }
+
+
+  // ---------------------------------------------------------------- нижние панели: состав, матчапы, улучшения, вклад бафов
+  // Все три расчётные панели меряют одно и то же: лучшую строку таблицы урона (самый высокий DPS)
+  // против текущей цели, с теми же позицией, зарядами и дебафами, что выбраны в блоке Damage.
+  function bestLine(c, t) {
+    const res = damageRows(c, t);
+    let best = null;
+    for (const r of res.rows) if (r.ok && r.dps > 0 && (!best || r.dps > best.dps)) best = r;
+    return { best, D: res.D };
+  }
+  const cloneChar = o => JSON.parse(JSON.stringify(o));
+  const fmtPct = v => (v >= 0 ? '+' : '−') + Math.abs(v).toFixed(Math.abs(v) < 10 ? 1 : 0) + '%';
+  const fmtSec = s => (!isFinite(s) ? '—' : s < 10 ? s.toFixed(1) + ' s' : Math.round(s) + ' s');
+  const insHead = (title, info, extra) => h('div', { class: 'secthead' }, h('h3', null, title), infoBtn(info), extra || null);
+
+  // Пересчёт панелей откладываем на кадр: при быстрых кликах считается только последнее состояние.
+  let insTimer = 0, insToken = 0;
+  function scheduleInsights() {
+    if (!els.roster) return;
+    clearTimeout(insTimer);
+    insTimer = setTimeout(renderInsights, 60);
+  }
+  function renderInsights() {
+    renderRoster();
+    const c = ch(), t = byKey(dmgPrefs && dmgPrefs.target);
+    if (!t) return;
+    renderMatchups(c, t);
+    renderImpact(c, t);
+    renderUpgrades(c, t);
+  }
+
+  // Лента персонажей: клик открывает персонажа, правый клик делает его целью.
+  function renderRoster() {
+    const c = ch(), box = els.roster, tKey = dmgPrefs && dmgPrefs.target;
+    box.innerHTML = '';
+    box.append(h('div', { class: 'rosterlist' }, FOE_ORDER.map(k => {
+      const x = STATE.foes[k], key = 'f:' + k;
+      const name = (x.nick ? x.nick + ' — ' : '') + CLASSES[k].n + ' · Lv. ' + x.level;
+      const b = h('button', { class: 'rost' + (x === c ? ' me' : '') + (key === tKey ? ' tg' : ''), type: 'button', 'aria-label': name },
+        h('img', { src: 'icons/class_icon_' + CLASS_ICON[k] + '.png', alt: '' }), h('small', null, x.level));
+      const tip = `<b>${esc(name)}</b><div class="k">${x === c ? 'Selected' : 'Click to open · right-click to make the target'}</div>`;
+      b.addEventListener('mouseenter', () => showTip(b, tip)); b.addEventListener('mouseleave', hideTip);
+      b.addEventListener('click', () => { if (x === c) return; hideTip(); cur = key; try { sessionStorage.setItem('miscusi.cur', key); } catch (_) {} renderAll(); });
+      b.addEventListener('contextmenu', e => { e.preventDefault(); if (x === c) return; dmgPrefs.target = key; renderDamage(); });
+      return b;
+    })));
+  }
+
+  // Матчапы: лучший DPS против каждого персонажа и время, за которое он снимет CP и HP.
+  function renderMatchups(c) {
+    const box = els.matchups;
+    box.innerHTML = '';
+    box.append(insHead('Matchups', 'Best damage line of the selected character against every other character, as each one is equipped here. Time is how long that line alone takes to burn the target’s CP and HP. Click a row to make it the target.'));
+    const list = FOE_ORDER.map(k => STATE.foes[k]).filter(t => t !== c).map(t => {
+      const { best, D } = bestLine(c, t);
+      return { t, best, ttk: best ? (D.st.cp + D.st.hp) / best.dps : Infinity };
+    }).sort((a, b) => a.ttk - b.ttk);
+    const fin = list.filter(x => isFinite(x.ttk)).map(x => x.ttk);
+    const lo = Math.min(...fin), hi = Math.max(...fin);
+    const tKey = dmgPrefs.target;
+    box.append(h('div', { class: 'inslist' }, list.map(({ t, best, ttk }) => {
+      // Цвет полоски: зелёный — быстро убивает, красный — долго.
+      const q = isFinite(ttk) && hi > lo ? (ttk - lo) / (hi - lo) : 1;
+      const row = h('button', { class: 'insrow mrow' + ('f:' + t.cls === tKey ? ' on' : ''), type: 'button', onclick: () => { dmgPrefs.target = 'f:' + t.cls; renderDamage(); } },
+        h('img', { class: 'ci', src: 'icons/class_icon_' + CLASS_ICON[t.cls] + '.png', alt: '' }),
+        h('span', { class: 'nm' }, (t.nick ? t.nick + ' · ' : '') + CLASSES[t.cls].n),
+        h('span', { class: 'sk' }, best ? best.n : '—'),
+        h('b', { class: 'num' }, best ? Math.round(best.dps).toLocaleString('en-US') : '—'),
+        h('span', { class: 'bar' }, h('i', { style: `width:${Math.max(4, isFinite(ttk) ? 100 * (ttk / hi) : 100)}%;background:hsl(${Math.round(130 - 125 * q)} 70% 50%)` })),
+        h('b', { class: 'num t' }, fmtSec(ttk)));
+      return row;
+    })));
+  }
+
+  // Вклад бафов: насколько упадёт лучший DPS, если снять баф.
+  function renderImpact(c, t) {
+    const box = els.impact;
+    box.innerHTML = '';
+    box.append(insHead('Buff impact', 'How much each active buff adds to the best damage line against the current target: the line is recalculated without that buff. Buffs that do not stack or do not touch damage show zero.'));
+    const ids = Object.keys(c.buffs);
+    if (!ids.length) { box.append(h('div', { class: 'empty' }, 'No active buffs.')); return; }
+    const base = bestLine(c, t).best;
+    const over = buffOverrides(c);
+    const list = ids.map(id => {
+      const cl = cloneChar(c); delete cl.buffs[id];
+      const b = bestLine(cl, t).best;
+      return { id, b: BUFFS.get(id), v: base && b ? (base.dps / b.dps - 1) * 100 : 0 };
+    }).filter(x => x.b).sort((a, b) => b.v - a.v);
+    const hi = Math.max(1, ...list.map(x => x.v));
+    box.append(h('div', { class: 'inslist' }, list.map(({ id, b, v }) => h('div', { class: 'insrow irow' + (v < 0.05 ? ' zero' : '') },
+      h('img', { class: 'ci sq', src: icon(b.ic), alt: '' }),
+      h('span', { class: 'nm' }, b.n),
+      h('span', { class: 'bar' }, h('i', { style: `width:${Math.max(0, 100 * v / hi)}%` })),
+      h('b', { class: 'num' }, v < 0.05 ? (over[id] ? 'overridden' : '0') : fmtPct(v))))));
+  }
+
+  // Что даст больше урона: перебор возможных изменений на копии персонажа, по частям, чтобы не подвешивать страницу.
+  let upgCache = { key: '', list: null };
+  function upgradeCandidates(c) {
+    const out = [];
+    const e = c.eq.weapon, w = e && ITEMS.get(e.id);
+    if (w) {
+      if ((e.e || 0) < 16) out.push({ n: `Weapon enchant +${(e.e || 0) + 1}`, ic: w.ic, f: x => { x.eq.weapon.e = (x.eq.weapon.e || 0) + 1; } });
+      for (const v of VARIANTS.get(w.base || w.id) || []) if (v.id !== e.id) out.push({ n: v.sa ? 'SA: ' + v.sa : 'Weapon without SA', ic: v.ic, f: x => { x.eq.weapon.id = v.id; } });
+      const twin = RARE_PAIR.get(w.id);
+      if (twin && ITEMS.get(twin)) out.push({ n: w.fnd ? 'Normal weapon' : 'Rare weapon: ' + ITEMS.get(twin).n.split(' - ').pop(), ic: ITEMS.get(twin).ic, f: x => { x.eq.weapon.id = twin; } });
+      for (const s of LS_SKILLS) for (const m of s.p ? ['p', 'a'] : ['a']) {
+        if (e.ls === s.id && (e.lsm === 'a' || !s.p ? 'a' : 'p') === m) continue;
+        out.push({ n: `Life Stone: ${s.n} (${m === 'a' ? 'active' : 'passive'})`, ic: w.ic, f: x => { x.eq.weapon.ls = s.id; x.eq.weapon.lsm = m; } });
+      }
+    }
+    if (!c.sub) out.push({ n: 'Sub: ' + SUB_CORE.n, f: x => { x.sub = true; } });
+    if (!c.clan) out.push({ n: 'Clan skills on', f: x => { x.clan = true; } });
+    for (const g of availableBuffs(c)) for (const b of g.list) {
+      if (c.buffs[b.id] != null) continue;
+      const lv = casterLevel(b, g.key === 'self' ? c.cls : g.key, c);
+      out.push({ n: b.n + ' Lv. ' + lv, ic: b.ic, buff: [b, lv], f: x => {
+        for (const id of Object.keys(x.buffs)) { const o = BUFFS.get(id); if (o && stackKey(o) === stackKey(b)) delete x.buffs[id]; }
+        x.buffs[b.id] = lv;
+      } });
+    }
+    return out;
+  }
+  function renderUpgrades(c, t) {
+    const box = els.upgrades;
+    const key = JSON.stringify([c, t, dmgPrefs]);
+    const draw = list => {
+      box.innerHTML = '';
+      box.append(insHead('Upgrades', 'What raises the best damage line against the current target the most: weapon enchant, other SA, rare version, Life Stone, Sub, clan skills and every buff you do not have yet. Apply sets it on the character.'));
+      if (!list) { box.append(h('div', { class: 'empty' }, 'Calculating…')); return; }
+      if (!list.length) { box.append(h('div', { class: 'empty' }, 'Nothing here adds damage.')); return; }
+      const hi = list[0].v;
+      box.append(h('div', { class: 'inslist' }, list.slice(0, 40).map(u => h('div', { class: 'insrow urow' },
+        u.ic ? h('img', { class: 'ci sq', src: icon(u.ic), alt: '' }) : h('span', { class: 'ci sq na' }),
+        h('span', { class: 'nm' }, u.n),
+        h('span', { class: 'bar' }, h('i', { style: `width:${100 * u.v / hi}%` })),
+        h('b', { class: 'num' }, fmtPct(u.v)),
+        h('button', { class: 'btn sm', type: 'button', onclick: () => { if (u.buff) toggleBuff(u.buff[0], u.buff[1], c); else { u.f(c); update(false, c); } } }, 'Apply')))));
+    };
+    if (upgCache.key === key && upgCache.list) { draw(upgCache.list); return; }
+    const token = ++insToken;
+    draw(null);
+    const base = bestLine(c, t).best;
+    const cands = upgradeCandidates(c), res = [];
+    let i = 0;
+    const step = () => {
+      if (token !== insToken) return;
+      for (const end = Math.min(cands.length, i + 24); i < end; i++) {
+        const cl = cloneChar(c); cands[i].f(cl);
+        const b = bestLine(cl, t).best;
+        const v = base && b ? (b.dps / base.dps - 1) * 100 : 0;
+        if (v >= 0.05) res.push(Object.assign({ v }, cands[i]));
+      }
+      if (i < cands.length) { setTimeout(step, 0); return; }
+      res.sort((a, b) => b.v - a.v);
+      upgCache = { key, list: res };
+      draw(res);
+    };
+    setTimeout(step, 0);
   }
 
   function renderBuffs() {
