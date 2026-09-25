@@ -1519,6 +1519,19 @@
         out.push({ n: `Life Stone: ${s.n} (${m === 'a' ? 'active' : 'passive'})`, ic: w.ic, f: x => { x.eq.weapon.ls = s.id; x.eq.weapon.lsm = m; } });
       }
     }
+    // Тату: каждый слот заменяем на любую пару с наибольшим допустимым плюсом (всего к атрибуте не больше +5).
+    c.hen.forEach((cur0, i) => {
+      for (const up of ATTRS) {
+        const room = 5 - c.hen.reduce((sum, x, j) => sum + (x && j !== i && x.up === up ? x.n : 0), 0);
+        const n = Math.min(4, room);
+        if (n < 1) continue;
+        for (const down of HEN_PAIRS[up]) {
+          const hn = { up, down, n, kind: 'greater' };
+          if (cur0 && cur0.up === up && cur0.down === down && cur0.n === n && cur0.kind === 'greater') continue;
+          out.push({ n: `Tattoo ${i + 1}: ${henText(hn)}`, hen: true, f: x => { x.hen[i] = Object.assign({}, hn); } });
+        }
+      }
+    });
     if (!c.sub) out.push({ n: 'Sub: ' + SUB_CORE.n, f: x => { x.sub = true; } });
     if (!c.clan) out.push({ n: 'Clan skills on', f: x => { x.clan = true; } });
     for (const g of availableBuffs(c)) for (const b of g.list) {
@@ -1536,13 +1549,13 @@
     const key = JSON.stringify([c, t, dmgPrefs]);
     const draw = list => {
       box.innerHTML = '';
-      box.append(insHead('Upgrades', 'Biggest DPS gains against the target: enchant, SA, rare, Life Stone, Sub, clan, missing buffs. Apply puts it on.'));
+      box.append(insHead('Upgrades', 'Biggest DPS gains against the target: enchant, SA, rare, Life Stone, tattoos, Sub, clan, missing buffs. Apply puts it on.'));
       if (!list) { box.append(h('div', { class: 'empty' }, 'Calculating…')); return; }
       if (!list.length) { box.append(h('div', { class: 'empty' }, 'Nothing here adds damage.')); return; }
       const hi = list[0].v;
       box.append(h('div', { class: 'insrow urow mhead' }, h('span'), h('span', null, 'Change'), h('span', { class: 'hs2' }, 'DPS gain'), h('span')));
       box.append(h('div', { class: 'inslist' }, list.slice(0, 40).map(u => h('div', { class: 'insrow urow' },
-        u.ic ? h('img', { class: 'ci sq', src: icon(u.ic), alt: '' }) : h('span', { class: 'ci sq na' }),
+        u.ic ? h('img', { class: 'ci sq', src: icon(u.ic), alt: '' }) : h('span', { class: 'ci sq na' + (u.hen ? ' hen' : '') }, u.hen ? 'T' : ''),
         h('span', { class: 'nm' }, u.n),
         h('span', { class: 'bar' }, h('i', { style: `width:${100 * u.v / hi}%` })),
         h('b', { class: 'num' }, fmtPct(u.v)),
@@ -1583,7 +1596,7 @@
     box.append(h('div', { class: 'secthead' },
       h('h3', null, 'Buffs'),
       infoBtn('Own skills and party buffs (no archers). Level follows that class’s character.'),
-      inDialog ? null : h('button', { class: 'btn sm primary addbuffs', onclick: () => openBuffs(c, true) }, '+ Add'),
+      inDialog ? null : h('button', { class: 'btn sm primary addbuffs', onclick: () => openBuffs(c) }, '+ Add'),
       h('button', { class: 'btn sm', disabled: !activeCount, onclick: () => { c.buffs = {}; update(false, c); } }, 'Remove all')));
     const wrap = h('div', { class: 'buffgroups' });
     const overGrid = buffOverrides(c);
@@ -1873,12 +1886,14 @@
   }
 
   // ---------------------------------------------------------------- татуировки
+  // Какая атрибута может опуститься, когда тату поднимает данную.
+  const HEN_PAIRS = { STR: ['CON', 'DEX'], CON: ['STR', 'DEX'], DEX: ['STR', 'CON'], INT: ['MEN', 'WIT'], MEN: ['INT', 'WIT'], WIT: ['INT', 'MEN'] };
   function openTattoos(who) {
     const c = who || ch();
     const dlg = els.dialog;
     if (dlg.open) dlg.close();
     dlg.dataset.kind = 'tattoo';
-    const pairs = { STR: ['CON', 'DEX'], CON: ['STR', 'DEX'], DEX: ['STR', 'CON'], INT: ['MEN', 'WIT'], MEN: ['INT', 'WIT'], WIT: ['INT', 'MEN'] };
+    const pairs = HEN_PAIRS;
     const draft = c.hen.map(x => (x ? Object.assign({}, x) : null));
     // Плюс к одному атрибуту от всех тату — не больше +5.
     const room = (a, i) => 5 - draft.reduce((s2, x, j) => s2 + (x && j !== i && x.up === a ? x.n : 0), 0);

@@ -534,3 +534,4 @@ select{white-space:nowrap;overflow:hidden;max-width:100%}
   html[data-theme] .roster{padding:6px 10px}
 }
 @media (max-width:1359px){.ins{max-height:420px}.lay>.lrow:nth-child(5){grid-template-columns:1fr!important}}
+.insrow .ci.hen{display:grid;place-items:center;font:700 10px/1 var(--mono);color:#fff;border-radius:50%;background:linear-gradient(135deg,var(--accent),#8b5cf6)}
