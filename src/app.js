@@ -294,7 +294,10 @@
     for (let line of String(text).split(/\n+/)) {
       line = line.trim().replace(/^Clan members'\s*/i, '')
         // Единые названия для перезарядки: «P. and M. Skills» → All, ритмы на урон не влияют.
-        .replace(/^P\.\s?Atk\.? in PvP/i, 'PvP P. Atk.').replace(/P\. and M\. Skills/gi, 'All Skills').replace(/Skills and Rhythms/gi, 'Skills')
+        .replace(/^P\.\s?Atk\.? in PvP/i, 'PvP P. Atk.')
+        // «Damage in PvP +5%» (почти у всех SA) — иначе «in PvP» примется за условие и строка выпадет.
+        // «Attack Damage in PvP» (Full Swing) — только обычные атаки, его не трогаем.
+        .replace(/(?<!Attack )\bDamage in PvP/gi, 'PvP Damage').replace(/P\. and M\. Skills/gi, 'All Skills').replace(/Skills and Rhythms/gi, 'Skills')
         .replace(/Reuse Delay for magic by/gi, 'M. Skills Reuse Time by').replace(/Physical Skill Cooldown/gi, 'P. Skills Reuse Time')
         // «Resistance to Holy and Dark +20%» — один эффект сразу на два трейта. Разворачиваем в две части,
         // иначе разбор разорвёт строку по «and» и потеряет её целиком.
