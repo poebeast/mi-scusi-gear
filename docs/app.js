@@ -985,7 +985,7 @@
     els.clan.hidden = false;
     const sw = h('input', { type: 'checkbox', id: 'clan-toggle', checked: c.clan ? true : null, onchange: e => { c.clan = e.target.checked; update(false); } });
     els.clan.append(
-      h('div', { class: 'clanhead' }, h('h3', null, 'Clan skills'), infoBtn(c.clan ? 'Click a skill to change its level (1–3). Hover to see what it gives.' : 'Turn on to apply clan skills to this character.'),
+      h('div', { class: 'clanhead' }, h('h3', null, 'Clan skills'), infoBtn(c.clan ? 'Click — level 1→3. Hover — effect.' : 'Turn on to count clan skills.'),
         h('label', { class: 'switch', for: 'clan-toggle' }, sw, h('span', null, c.clan ? 'On' : 'Off'))),
       h('div', { class: 'clanlist' + (c.clan ? '' : ' off') }, CLAN.map(k => {
         const l = c.clanLv[k.id];
@@ -1045,8 +1045,7 @@
     const subSw = h('input', { type: 'checkbox', checked: c.sub ? true : null, onchange: e => { c.sub = e.target.checked; update(false); } });
     box.append(h('div', { class: 'stathead' }, h('div', { class: 'lbl' }, 'Stats'),
       h('label', { class: 'switch sub' }, subSw, h('span', null, 'Sub')),
-      infoBtn(`Sub: ${SUB_CORE.n} — ${SUB_CORE.text.split(String.fromCharCode(10)).join(', ')}.`,
-        `Reward for «Breath of Magic», the quest that unlocks a subclass. ${SUB_CORE.note} is not counted.`)));
+      infoBtn(`${SUB_CORE.n} from the subclass quest: ${SUB_CORE.text.split(String.fromCharCode(10)).join(', ')}.`)));
     const maxBar = Math.max(S.hp, S.mp, S.cp);
     box.append(h('div', { class: 'bars' },
       [['CP', S.cp, 'var(--cp)'], ['HP', S.hp, 'var(--hp)'], ['MP', S.mp, 'var(--mp)']].map(([n, v, col]) =>
@@ -1087,7 +1086,7 @@
     box.innerHTML = '';
     const on = r.pass.filter(x => !x.off).length;
     box.append(h('div', { class: 'kithead' }, h('h3', null, 'Passive skills'),
-      r.pass.some(x => x.p.book || x.max > 1) ? infoBtn('Click a skill to raise its level, right-click to lower it. Hover to see what it gives.') : null,
+      r.pass.some(x => x.p.book || x.max > 1) ? infoBtn('Click — level up, right-click — down. Hover — effect.') : null,
       h('span', { class: 'note' }, r.pass.length ? `${on} of ${r.pass.length} active` : 'None at this level')));
     const tipFor = x => `<b>${esc(x.p.n)} Lv. ${x.l}${x.max > 1 ? ' of ' + x.max : ''}</b>${x.off ? `<div class="k bad">Not counted: ${esc(x.off)}</div>` : ''}<div class="ln">${esc(x.text)}</div>`
       + (x.p.book ? `<div class="k">Learned from ${esc(x.p.book)}. Click to cycle the level${x.max > 1 ? ' (1–' + x.max + ')' : ''} and «not learned».</div>`
@@ -1308,8 +1307,8 @@
       h('div', null, h('small', null, extra), h('b', null, x.nick || CLASSES[x.cls].n), h('span', null, `${CLASSES[x.cls].n} · Lv. ${x.level}`)));
     const pick = h('select', { 'aria-label': 'Target', onchange: e => set('target', e.target.value) }, charOptions(c, dmgPrefs.target));
     const swap = h('button', { class: 'btn sm swap', title: 'Swap: make the target the attacker', 'aria-label': 'Swap attacker and target', onclick: () => { cur = dmgPrefs.target; dmgPrefs.target = keyOf(c); try { sessionStorage.setItem('miscusi.cur', String(cur)); } catch (_) {} renderAll(); } }, '⇄');
-    box.append(h('div', { class: 'secthead' }, h('h3', null, 'Damage'), infoBtn('PvP damage from the selected character to any other class, with both sides’ gear, passives and buffs. Equip the target right here.',
-      'Average includes crit chance and, for normal attacks, miss, shield block and perfect block; for spells — full (0.5% + level) and partial (5% + level) magic resistance. Cycle is the longer of reuse and cast time (cast time scales with Atk. Spd. / Casting Spd.; blessed spiritshots cut it by 1.5). «CP+HP in» — time to burn the target’s CP and HP using only that line. PvP, no attributes, no bow distance bonus.')));
+    box.append(h('div', { class: 'secthead' }, h('h3', null, 'Damage'), infoBtn('PvP damage to the target with both sides’ gear, passives and buffs.',
+      'Average — with crits, misses, shield blocks and magic resist. Cycle — the longer of reuse and cast. CP+HP in — time to kill with that skill alone.', 'Attributes are not counted.')));
     box.append(h('div', { class: 'duel' }, who(c, 'Attacker'), h('span', { class: 'vs' }, '→'),
       h('div', { class: 'duelist' }, h('img', { class: 'clsicon sm', src: 'icons/class_icon_' + CLASS_ICON[t.cls] + '.png', alt: '' }), h('div', null, h('small', null, 'Target'), pick)), swap,
       h('div', { class: 'dctl' },
@@ -1457,7 +1456,7 @@
       names.map(n => h('option', { value: n, selected: n === matchSkill ? true : null }, n)));
     // Значок стоит рядом со списком скиллов: подсказка объясняет именно выбор скилла и цифры.
     box.append(h('div', { class: 'secthead' }, h('h3', null, 'Matchups'), pick,
-      infoBtn('Damage of the selected character against every other character, as each one is equipped here.', 'Every row uses the skill picked in the list; it starts on the strongest one against the current target.', 'DPS — damage per second with that skill. Time to kill — how long that skill alone takes to burn the target’s CP and HP.', 'Click a row to make it the target.')));
+      infoBtn('The picked skill against every character as equipped.', 'Time to kill — CP+HP with that skill alone. Click a row to make it the target.')));
     const list = FOE_ORDER.map(k => STATE.foes[k]).filter(t => t !== c).map(t => {
       const res = damageRows(c, t);
       let line = null;
@@ -1486,7 +1485,7 @@
   function renderImpact(c, t) {
     const box = els.impact;
     box.innerHTML = '';
-    box.append(insHead('Buff impact', 'How much each active buff adds to the best damage line against the current target: the line is recalculated without that buff. Buffs that do not stack or do not touch damage show zero.'));
+    box.append(insHead('Buff impact', 'DPS each buff adds against the target. 0 — no effect on damage or overridden.'));
     const ids = Object.keys(c.buffs);
     if (!ids.length) { box.append(h('div', { class: 'empty' }, 'No active buffs.')); return; }
     const base = bestLine(c, t).best;
@@ -1537,7 +1536,7 @@
     const key = JSON.stringify([c, t, dmgPrefs]);
     const draw = list => {
       box.innerHTML = '';
-      box.append(insHead('Upgrades', 'What raises the best damage line against the current target the most: weapon enchant, other SA, rare version, Life Stone, Sub, clan skills and every buff you do not have yet. Apply sets it on the character.'));
+      box.append(insHead('Upgrades', 'Biggest DPS gains against the target: enchant, SA, rare, Life Stone, Sub, clan, missing buffs. Apply puts it on.'));
       if (!list) { box.append(h('div', { class: 'empty' }, 'Calculating…')); return; }
       if (!list.length) { box.append(h('div', { class: 'empty' }, 'Nothing here adds damage.')); return; }
       const hi = list[0].v;
@@ -1583,7 +1582,7 @@
     const inDialog = box.classList.contains('dlgbody');
     box.append(h('div', { class: 'secthead' },
       h('h3', null, 'Buffs'),
-      infoBtn('Own class skills plus buffs any class can give (archers excluded). Buff level follows the level of that class’s character.'),
+      infoBtn('Own skills and party buffs (no archers). Level follows that class’s character.'),
       inDialog ? null : h('button', { class: 'btn sm primary addbuffs', onclick: () => openBuffs(c, true) }, '+ Add'),
       h('button', { class: 'btn sm', disabled: !activeCount, onclick: () => { c.buffs = {}; update(false, c); } }, 'Remove all')));
     const wrap = h('div', { class: 'buffgroups' });
