@@ -1,20 +1,19 @@
+# python annotate.py (из tools/guide) — вырезает кадры из снимков capture.js и ставит номерки → img/*.jpg.
 import json, os
 from PIL import Image, ImageDraw, ImageFont
 
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 R = json.load(open('rects.json'))
-R11 = json.load(open('rects_1100.json'))
 RP = json.load(open('r_picker.json'))
 RT = json.load(open('r_tattoo.json'))
-RTIP = json.load(open('r_ptip.json'))
 RB = json.load(open('r_tbuffs.json'))
-# Окна прижаты к правому краю. В момент замера видимая область на 16 px уже, чем на снимке
-# (полоса прокрутки), поэтому их координаты сдвигаем.
-for D in (RP, RT, RB):
-    for k, v in D.items():
-        if v: v[0] += 16
-F = ImageFont.truetype('C:/Windows/Fonts/segoeuib.ttf', 20)
+RA = json.load(open('r_addbuffs.json'))
+RTIP = json.load(open('r_ptip.json'))
+F = ImageFont.truetype('C:/Windows/Fonts/segoeuib.ttf', 18)
 AMBER = (251, 191, 36)
 os.makedirs('img', exist_ok=True)
+for f in os.listdir('img'):
+    os.remove(os.path.join('img', f))
 
 
 def union(*rs):
@@ -24,46 +23,61 @@ def union(*rs):
     return [x0, y0, x1 - x0, y1 - y0]
 
 
-def shot(src, box, marks, name, pad=44):
-    """box — (x, y, w, h) области; marks — [(номер, rect, обвести?)] — всё в координатах скриншота."""
+def cut(r, h=None, top=0):
+    """Та же область, но другой высоты и/или со сдвигом верха."""
+    return [r[0], r[1] + top, r[2], h if h is not None else r[3] - top]
+
+
+def shot(src, box, marks, name, pad=8):
+    """box — (x, y, w, h) области; marks — [(номер, rect, место)], место: left / right / top / in."""
     im = Image.open(src).convert('RGB')
     x0, y0 = max(0, box[0] - pad), max(0, box[1] - pad)
     x1, y1 = min(im.width, box[0] + box[2] + pad), min(im.height, box[1] + box[3] + pad)
     im = im.crop((x0, y0, x1, y1))
+    # Тёмное поле вокруг кадра: номерки стоят снаружи элементов и ничего не закрывают.
+    M = 30
+    big = Image.new('RGB', (im.width + 2 * M, im.height + 2 * M), (17, 18, 20))
+    big.paste(im, (M, M))
+    im = big; x0 -= M; y0 -= M
     d = ImageDraw.Draw(im)
-    # Номерок рядом с элементом: слева по центру, а если слева нет места — над левым верхним углом.
-    for num, r, outline in marks:
+    for num, r, pos in marks:
         if not r:
             continue
         x, y, rw, rh = r[0] - x0, r[1] - y0, r[2], r[3]
-        pos = outline if isinstance(outline, str) else 'left'
         if pos == 'right':
-            cx, cy = x + rw + 30, y + rh / 2
+            cx, cy = x + rw + 16, y + rh / 2
         elif pos == 'top':
-            cx, cy = x + rw / 2, max(16, y - 18)
-        elif x - 20 >= 16:
-            cx, cy = x - 20, y + rh / 2
+            cx, cy = x + min(rw / 2, 40), y - 14
+        elif pos == 'bottom':
+            cx, cy = x + min(rw / 2, 40), y + rh + 14
+        elif pos == 'in':
+            cx, cy = x + 14, y + rh / 2
         else:
-            cx, cy = max(16, x + 10), max(16, y - 18)
-        d.ellipse((cx - 14, cy - 14, cx + 14, cy + 14), fill=AMBER, outline=(20, 16, 8), width=2)
+            cx, cy = x - 16, y + rh / 2
+        cx = min(max(13, cx), im.width - 13); cy = min(max(13, cy), im.height - 13)
+        d.ellipse((cx - 12, cy - 12, cx + 12, cy + 12), fill=AMBER, outline=(20, 16, 8), width=2)
         t = str(num); tw = d.textlength(t, font=F)
-        d.text((cx - tw / 2, cy - 14), t, fill=(20, 16, 8), font=F)
+        d.text((cx - tw / 2, cy - 12), t, fill=(20, 16, 8), font=F)
     im.save('img/' + name + '.jpg', quality=90)
 
 
 full = 'full.png'
-shot(full, union(R['top'], R['charbar']), [(1, R['lblChar'], 'right'), (2, R['lblNick'], 'right'), (3, R['lblLvl'], 'right'), (4, R['save'], 'left')], '01-character')
-shot(full, R['stage'], [(1, R['who'], True), (2, R['sets'], True), (3, R['worn'], True), (4, R['slotW'], 'top'), (5, R['slotLocked'], 'top')], '02-gear')
-shot('picker.png', RP['dlg'][:3] + [420], [(1, RP['step'], 'top'), (2, RP['sa'], 'left'), (3, RP['unequip'], 'right'), (4, RP['search'], 'left'), (5, RP['seg'], 'top'), (6, RP['rowSel'], 'left')], '03-picker')
-shot(full, R['stats'], [(1, R['bars'], True), (2, R['grid'], True), (3, R['attrs'], True), (4, R['misc'], True), (5, R['notes'], True)], '04-stats')
-shot(full, R['tat'], [(1, R['hrow'], 'left'), (2, R['hsum'], True), (3, R['hbtn'], True)], '05-tattoos')
-shot('tattoo.png', RT['dlg'][:3] + [RT['apply'][1] + RT['apply'][3] + 14 - RT['dlg'][1]], [(1, RT['hedit'], 'left'), (2, RT['hclear'], 'top'), (3, RT['apply'], 'left')], '06-tattoo-window')
-shot('ptip.png', union(R11['pas'], RTIP['tip']), [(1, R11['pic'], 'top'), (2, R11['picBook'], 'top'), (3, R11['picOff'], 'left')], '07-passives')
-shot(full, R['clan'], [(1, R['clanSw'], True), (2, R['clanItem'], 'top')], '08-clan')
-shot(full, [R['dmg'][0], R['dmg'][1], R['dmg'][2], R['tedit'][1] + R['tedit'][3] - R['dmg'][1]], [(1, R['att'], True), (2, R['tsel'], 'top'), (3, R['swap'], 'right'), (4, R['dctl'], True), (5, R['tline'], True), (6, R['tgear'], True), (7, R['tctl'], True)], '09-damage-setup')
-hdr = [(n, (R[k][0] + R[k][2] - 30, R[k][1] + 4, 24, 20), 'top') for n, k in [(1, 'thHit'), (2, 'thCyc'), (3, 'thDps'), (4, 'thKill')]]
-shot(full, [R['table'][0], R['table'][1] - 20, R['table'][2], R['table'][3] + 20], hdr + [(5, R['rowOff'], True)], '10-damage-table')
-shot('tbuffs.png', RB['dlg'][:3] + [560], [], '11-target-buffs', pad=0)
-shot(full, [R['buffs'][0], R['buffs'][1], R['buffs'][2], R['bg0'][1] + R['bg0'][3] - R['buffs'][1]], [(1, R['bg0'], True), (2, R['buff0'], 'left'), (3, R['buffOn'], 'top'), (4, R['tgPT'], 'left'), (5, R['removeAll'], True)], '12-buffs')
-shot(full, [R['active'][0], R['active'][1] - 24, R['active'][2], R['active'][3] + 24], [(1, R['active'], True)], '13-active-buffs')
-print('ok')
+shot(full, union(R['top'], R['charbar']), [(1, R['charSel'], 'top'), (2, R['nick'], 'top'), (3, R['lvl'], 'top'), (4, R['guide'], 'top'), (5, R['save'], 'right')], '01-top')
+shot(full, R['gear'], [(1, R['slotW'], 'top'), (2, R['slotLocked'], 'top')], '01b-gear')
+shot('picker.png', cut(RP['dlg'], RP['row'][1] + RP['row'][3] - RP['dlg'][1]), [(1, RP['step'], 'top'), (2, RP['sa'], 'left'), (3, RP['rarity'], 'bottom'), (4, RP['ls'], 'top'), (5, RP['lsm'], 'left'), (6, RP['unequip'], 'right'), (7, RP['lsfx'], 'left'), (8, RP['search'], 'left'), (9, RP['seg'], 'top'), (10, RP['row'], 'left')], '02-picker')
+shot(full, R['stats'], [(1, R['sub'], 'left'), (2, R['bars'], 'left'), (3, R['grid'], 'left'), (4, R['attrs'], 'left'), (5, R['misc'], 'left'), (6, R['notes'], 'left')], '03-stats')
+shot(full, R['tat'], [(1, R['hrow'], 'left'), (2, R['hsum'], 'left'), (3, R['hbtn'], 'left')], '04-tattoos')
+shot('tattoo.png', cut(RT['dlg'], RT['apply'][1] + RT['apply'][3] + 10 - RT['dlg'][1]), [(1, RT['hedit'], 'left'), (2, RT['hclear'], 'right'), (3, RT['apply'], 'left')], '05-tattoo-window')
+shot('ptip.png', union(R['pas'], RTIP['tip']), [(1, R['pasInfo'], 'top'), (2, R['pic'], 'left'), (3, R['picBook'], 'top'), (4, R['picOff'], 'top')], '06-passives')
+shot(full, R['clan'], [(1, R['clanSw'], 'left'), (2, R['clanItem'], 'left')], '07-clan')
+shot(full, union(R['dmg'][:2] + [R['dmg'][2], 10], R['tedit']), [(1, R['dmgInfo'], 'right'), (2, R['att'], 'left'), (3, R['tsel'], 'top'), (4, R['swap'], 'top'), (5, R['dctl'], 'left'), (6, R['tline'], 'left'), (7, R['tgear'], 'left'), (8, R['tctl'], 'left')], '08-damage-setup')
+hdr = [(n, R[k], 'top') for n, k in [(1, 'thAvg'), (2, 'thCyc'), (3, 'thDps'), (4, 'thKill')]]
+shot(full, union(R['table'], R['rowOff']), hdr + [(5, R['rowOff'], 'left')], '09-damage-table')
+shot('tbuffs.png', cut(RB['dlg'], 520), [], '10-target-buffs', pad=0)
+shot(full, cut(R['buffs'], 250), [(1, R['add'], 'top'), (2, R['removeAll'], 'top'), (3, R['chip'], 'left'), (4, R['chipX'], 'right')], '11-buffs')
+shot('addbuffs.png', cut(RA['dlg'], 460), [(1, RA['bg'], 'left'), (2, RA['buff'], 'left'), (3, RA['buffOn'], 'top'), (4, RA['pt'], 'left')], '12-add-buffs', pad=0)
+shot(full, [R['roster'][0], R['roster'][1], R['me'][0] + R['me'][2] + 60 - R['roster'][0], R['roster'][3]], [(1, R['me'], 'top'), (2, R['tg'], 'top')], '13-roster')
+shot(full, cut(R['matchups'], 230), [(1, R['mskill'], 'left'), (2, R['mhead'], 'left'), (3, R['mrow'], 'left')], '14-matchups')
+shot(full, cut(R['upgrades'], 200), [(1, R['urow'], 'left'), (2, R['apply'], 'right')], '15-upgrades')
+shot(full, cut(R['impact'], 200), [(1, R['irow'], 'left')], '16-impact')
+print('ok', len(os.listdir('img')))
