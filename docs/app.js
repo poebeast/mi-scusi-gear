@@ -515,13 +515,12 @@
   function availableBuffs(c) {
     const party = new Set(Object.keys(CLASSES).filter(k => !CLASSES[k].archer));
     const groups = [];
-    // Каждый класс показывает все свои баффы, даже если такой же есть у класса выше по списку
-    // (Acumen у Bishop и Prophet): уровень баффа зависит от персонажа того класса, что его даёт.
-    // Прячем только то, что персонаж и так кастует сам — оно в группе «own skills».
+    // Каждый бафф показывается один раз — в первой группе, где он встретился.
+    const seen = new Set();
     const own = DATA.buffs.filter(b => b.cls.includes(c.cls));
-    const ownIds = new Set(own.map(b => b.id));
     const push = (key, title, sub, list) => {
-      const l = key === 'self' ? list : list.filter(b => !ownIds.has(b.id));
+      const l = list.filter(b => !seen.has(b.id));
+      l.forEach(b => seen.add(b.id));
       if (l.length) groups.push({ key, title, sub, list: l });
     };
     push('self', CLASSES[c.cls].n, 'own skills', own);
