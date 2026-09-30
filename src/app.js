@@ -299,9 +299,11 @@
         // «Attack Damage in PvP» (Full Swing) — только обычные атаки, его не трогаем.
         .replace(/(?<!Attack )\bDamage in PvP/gi, 'PvP Damage').replace(/P\. and M\. Skills/gi, 'All Skills').replace(/Skills and Rhythms/gi, 'Skills')
         .replace(/Reuse Delay for magic by/gi, 'M. Skills Reuse Time by').replace(/Physical Skill Cooldown/gi, 'P. Skills Reuse Time')
-        // «Resistance to Holy and Dark +20%» — один эффект сразу на два трейта. Разворачиваем в две части,
-        // иначе разбор разорвёт строку по «and» и потеряет её целиком.
-        .replace(/^Resistance to (Fire|Water|Wind|Earth|Holy|Dark) and (Fire|Water|Wind|Earth|Holy|Dark)(.*)$/i, 'Resistance to $1$3, Resistance to $2$3');
+        // «Resistance to Fire, Water, Wind and Earth +15%» (Chant of Elements), «Holy and Dark +20%» — один эффект
+        // сразу на несколько трейтов. Разворачиваем в отдельные части, иначе разбор порежет список по запятым
+        // и «and», у кусков не будет числа, и строка потеряется целиком.
+        .replace(/^Resistance to ((?:Fire|Water|Wind|Earth|Holy|Dark)(?:\s*(?:,|and)\s*(?:Fire|Water|Wind|Earth|Holy|Dark))+)(.*)$/i,
+          (m, list, rest) => list.split(/\s*(?:,|and)\s*/i).map(e => 'Resistance to ' + e + rest.replace(/\.$/, '')).join(', '));
       if (!line || /^Affects all clan members/i.test(line)) continue;
       let lineCond = cond;
       // «With Heavy Armor:», «With Light Armor and Dagger/Dual Dagger:» — условия по броне и оружию.
@@ -513,11 +515,13 @@
   function availableBuffs(c) {
     const party = new Set(Object.keys(CLASSES).filter(k => !CLASSES[k].archer));
     const groups = [];
-    const seen = new Set();
+    // Каждый класс показывает все свои баффы, даже если такой же есть у класса выше по списку
+    // (Acumen у Bishop и Prophet): уровень баффа зависит от персонажа того класса, что его даёт.
+    // Прячем только то, что персонаж и так кастует сам — оно в группе «own skills».
     const own = DATA.buffs.filter(b => b.cls.includes(c.cls));
+    const ownIds = new Set(own.map(b => b.id));
     const push = (key, title, sub, list) => {
-      const l = list.filter(b => !seen.has(b.id));
-      l.forEach(b => seen.add(b.id));
+      const l = key === 'self' ? list : list.filter(b => !ownIds.has(b.id));
       if (l.length) groups.push({ key, title, sub, list: l });
     };
     push('self', CLASSES[c.cls].n, 'own skills', own);
@@ -1553,9 +1557,14 @@
     });
     if (!c.sub) out.push({ n: 'Sub: ' + SUB_CORE.n, f: x => { x.sub = true; } });
     if (!c.clan) out.push({ n: 'Clan skills on', f: x => { x.clan = true; } });
+    // Один бафф может давать несколько классов — берём самый высокий уровень, строка одна.
+    const bestLv = new Map();
     for (const g of availableBuffs(c)) for (const b of g.list) {
       if (c.buffs[b.id] != null) continue;
       const lv = casterLevel(b, g.key === 'self' ? c.cls : g.key, c);
+      if (!bestLv.has(b.id) || bestLv.get(b.id)[1] < lv) bestLv.set(b.id, [b, lv]);
+    }
+    for (const [b, lv] of bestLv.values()) {
       out.push({ n: b.n + ' Lv. ' + lv, ic: b.ic, buff: [b, lv], f: x => {
         for (const id of Object.keys(x.buffs)) { const o = BUFFS.get(id); if (o && stackKey(o) === stackKey(b)) delete x.buffs[id]; }
         x.buffs[b.id] = lv;
